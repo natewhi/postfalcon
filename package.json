@@ -1,0 +1,13 @@
+{
+  "name": "postfox",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "pg": "^8.11.5"
+  }
+}
