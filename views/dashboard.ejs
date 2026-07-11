@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Postfox</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>Postfox</h1>
+  <div>
+    <span><%= email %></span>
+    <button id="logout-btn">Log out</button>
+  </div>
+</header>
+<main>
+  <section>
+    <h2>Connected Accounts</h2>
+    <ul id="accounts-list"></ul>
+    <form id="account-form">
+      <select name="platform" required>
+        <option value="twitter">Twitter/X</option>
+        <option value="instagram">Instagram</option>
+        <option value="facebook">Facebook</option>
+        <option value="linkedin">LinkedIn</option>
+        <option value="tiktok">TikTok</option>
+        <option value="threads">Threads</option>
+        <option value="mastodon">Mastodon</option>
+      </select>
+      <input type="text" name="display_name" placeholder="Display name (e.g. @handle)" required>
+      <button type="submit">Add account</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Posts</h2>
+    <ul id="posts-list"></ul>
+    <form id="post-form">
+      <select name="social_account_id" id="account-select" required></select>
+      <textarea name="content" placeholder="What do you want to post?" required></textarea>
+      <label>Schedule for <input type="datetime-local" name="scheduled_for"></label>
+      <button type="submit">Save</button>
+    </form>
+  </section>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>

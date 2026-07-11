@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign up - Postfox</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main class="auth-card">
+  <h1>Postfox</h1>
+  <form id="signup-form">
+    <label>Email <input type="email" name="email" required></label>
+    <label>Password <input type="password" name="password" required minlength="8"></label>
+    <button type="submit">Sign up</button>
+  </form>
+  <p id="error" class="error"></p>
+  <p>Already have an account? <a href="/login">Log in</a></p>
+</main>
+<script src="/signup.js"></script>
+</body>
+</html>
