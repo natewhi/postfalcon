@@ -14,7 +14,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  await pool.query('TRUNCATE posts, post_media, social_accounts, users RESTART IDENTITY CASCADE');
+  await pool.query('TRUNCATE posts, post_media, social_accounts, users, mastodon_apps RESTART IDENTITY CASCADE');
 });
 
 afterAll(async () => {

@@ -24,7 +24,7 @@ header h1 {
 }
 
 main {
-  max-width: 720px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 1.5rem;
   display: flex;
@@ -157,4 +157,59 @@ button:hover {
   color: #b91c1c;
   min-height: 1.2rem;
   margin: 0;
+}
+
+.hint {
+  margin-top: 0;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+#calendar {
+  margin-top: 0.5rem;
+}
+
+.fc-event.cal-status-draft { background-color: #e5e5e5; border-color: #bbb; color: #444; }
+.fc-event.cal-status-scheduled { background-color: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+.fc-event.cal-status-posting { background-color: #fef3c7; border-color: #fcd34d; color: #92400e; }
+.fc-event.cal-status-posted { background-color: #dcfce7; border-color: #86efac; color: #15803d; }
+.fc-event.cal-status-failed { background-color: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+.fc-event.cal-status-canceled { background-color: #ede9fe; border-color: #c4b5fd; color: #6d28d9; }
+
+dialog#post-dialog {
+  border: none;
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: min(420px, 90vw);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+dialog#post-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+dialog#post-dialog h3 {
+  margin-top: 0;
+}
+
+dialog#post-dialog form {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+dialog#post-dialog textarea {
+  min-width: 0;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.dialog-actions button[type="button"] {
+  background: transparent;
+  color: #333;
+  border: 1px solid #ccc;
 }

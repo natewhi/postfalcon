@@ -10,6 +10,7 @@ import usersRouter from './routes/users.js';
 import authRouter from './routes/auth.js';
 import socialAccountsRouter from './routes/socialAccounts.js';
 import postsRouter from './routes/posts.js';
+import mastodonRouter from './routes/mastodon.js';
 import pagesRouter from './routes/pages.js';
 import { requireAuth } from './middleware/auth.js';
 
@@ -67,6 +68,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/social-accounts', requireAuth, socialAccountsRouter);
 app.use('/api/posts', requireAuth, postsRouter);
+app.use('/api/mastodon', requireAuth, mastodonRouter);
 app.use('/', pagesRouter);
 
 app.use((err, req, res, next) => {
