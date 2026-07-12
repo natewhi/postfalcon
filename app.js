@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
 import helmet from 'helmet';
+import multer from 'multer';
 import { pool } from './db/pool.js';
 import usersRouter from './routes/users.js';
 import authRouter from './routes/auth.js';
@@ -74,6 +75,9 @@ app.use('/', pagesRouter);
 app.use((err, req, res, next) => {
   if (err.code === '23505') {
     return res.status(409).json({ error: 'already exists' });
+  }
+  if (err instanceof multer.MulterError || err.status === 400) {
+    return res.status(400).json({ error: err.message });
   }
   console.error(err);
   res.status(500).json({ error: 'internal_server_error' });

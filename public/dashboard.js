@@ -42,6 +42,13 @@ async function loadPosts() {
         (p) => `
     <li>
       <span class="status status-${p.status}">${p.status}</span>
+      ${
+        p.media_url
+          ? p.media_type === 'video'
+            ? `<video class="thumb" src="${escapeHtml(p.media_url)}" muted></video>`
+            : `<img class="thumb" src="${escapeHtml(p.media_url)}" alt="">`
+          : ''
+      }
       <span class="content">${escapeHtml(p.content)}</span>
       <span class="when">${p.scheduled_for ? new Date(p.scheduled_for).toLocaleString() : 'no schedule'}</span>
       <button data-id="${p.id}" class="delete-btn">Delete</button>
@@ -99,15 +106,18 @@ document.getElementById('post-dialog-form').addEventListener('submit', async (e)
   e.preventDefault();
   const form = e.target;
   const scheduledLocal = form.scheduled_for.value;
-  const res = await api('/api/posts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      social_account_id: form.social_account_id.value,
-      content: form.content.value,
-      scheduled_for: scheduledLocal ? new Date(scheduledLocal).toISOString() : undefined,
-    }),
-  });
+
+  const body = new FormData();
+  body.set('social_account_id', form.social_account_id.value);
+  body.set('content', form.content.value);
+  if (scheduledLocal) {
+    body.set('scheduled_for', new Date(scheduledLocal).toISOString());
+  }
+  if (form.media.files[0]) {
+    body.set('media', form.media.files[0]);
+  }
+
+  const res = await api('/api/posts', { method: 'POST', body });
   if (res.ok) {
     document.getElementById('post-dialog').close();
     loadPosts();

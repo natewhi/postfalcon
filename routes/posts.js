@@ -1,8 +1,11 @@
 import { Router } from 'express';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { z } from 'zod';
 import { pool } from '../db/pool.js';
 import { validate } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { uploadMedia, uploadDir } from '../middleware/upload.js';
 
 const router = Router();
 
@@ -60,6 +63,7 @@ router.get(
 
 router.post(
   '/',
+  uploadMedia.single('media'),
   validate(createPostSchema),
   asyncHandler(async (req, res) => {
     const { social_account_id, content, scheduled_for } = req.body;
@@ -71,11 +75,13 @@ router.post(
       return res.status(400).json({ error: 'invalid social_account_id' });
     }
     const status = scheduled_for ? 'scheduled' : 'draft';
+    const mediaUrl = req.file ? `${process.env.BASE_URL}/uploads/${req.file.filename}` : null;
+    const mediaType = req.file ? (req.file.mimetype.startsWith('video/') ? 'video' : 'image') : null;
     const result = await pool.query(
-      `INSERT INTO posts (user_id, social_account_id, content, status, scheduled_for)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO posts (user_id, social_account_id, content, status, scheduled_for, media_url, media_type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [req.session.userId, social_account_id, content, status, scheduled_for ?? null]
+      [req.session.userId, social_account_id, content, status, scheduled_for ?? null, mediaUrl, mediaType]
     );
     res.status(201).json(result.rows[0]);
   })
@@ -110,11 +116,16 @@ router.delete(
   asyncHandler(async (req, res) => {
     const id = parseId(req, res);
     if (id === null) return;
-    const result = await pool.query('DELETE FROM posts WHERE id = $1 AND user_id = $2 RETURNING id', [
+    const result = await pool.query('DELETE FROM posts WHERE id = $1 AND user_id = $2 RETURNING id, media_url', [
       id,
       req.session.userId,
     ]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'not found' });
+
+    const { media_url } = result.rows[0];
+    if (media_url) {
+      await fs.unlink(path.join(uploadDir, path.basename(media_url))).catch(() => {});
+    }
     res.status(204).end();
   })
 );

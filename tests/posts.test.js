@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
+import fs from 'node:fs';
+import path from 'node:path';
 import app from '../app.js';
+import { uploadDir } from '../middleware/upload.js';
 
 async function loginNewUser() {
   const client = request.agent(app);
@@ -84,5 +87,50 @@ describe('posts', () => {
 
     const get = await client.get(`/api/posts/${post.body.id}`);
     expect(get.status).toBe(404);
+  });
+
+  it('accepts an image upload and stores media_url/media_type', async () => {
+    const client = await loginNewUser();
+    const account = await client.post('/api/social-accounts').send({ platform: 'twitter', display_name: '@me' });
+
+    const post = await client
+      .post('/api/posts')
+      .field('social_account_id', String(account.body.id))
+      .field('content', 'post with image')
+      .attach('media', Buffer.from('fake-image-bytes'), 'photo.jpg');
+
+    expect(post.status).toBe(201);
+    expect(post.body.media_type).toBe('image');
+    expect(post.body.media_url).toMatch(/\/uploads\//);
+  });
+
+  it('rejects a disallowed file type', async () => {
+    const client = await loginNewUser();
+    const account = await client.post('/api/social-accounts').send({ platform: 'twitter', display_name: '@me' });
+
+    const res = await client
+      .post('/api/posts')
+      .field('social_account_id', String(account.body.id))
+      .field('content', 'post with bad file')
+      .attach('media', Buffer.from('not a real file'), 'malware.exe');
+
+    expect(res.status).toBe(400);
+  });
+
+  it('deletes the uploaded file from disk when the post is deleted', async () => {
+    const client = await loginNewUser();
+    const account = await client.post('/api/social-accounts').send({ platform: 'twitter', display_name: '@me' });
+
+    const post = await client
+      .post('/api/posts')
+      .field('social_account_id', String(account.body.id))
+      .field('content', 'post with image to delete')
+      .attach('media', Buffer.from('fake-image-bytes'), 'photo2.jpg');
+
+    const filePath = path.join(uploadDir, path.basename(post.body.media_url));
+    expect(fs.existsSync(filePath)).toBe(true);
+
+    await client.delete(`/api/posts/${post.body.id}`);
+    expect(fs.existsSync(filePath)).toBe(false);
   });
 });
