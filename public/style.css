@@ -10,8 +10,8 @@
   --color-input-border: #cccccc;
   --color-sidebar-bg: #1f2430;
   --color-sidebar-text: #ffffff;
-  --color-primary: #1f2430;
-  --color-primary-hover: #333a4a;
+  --color-primary: #3558ea;
+  --color-primary-hover: #4d70f2;
   --color-primary-text: #ffffff;
   --color-danger: #b91c1c;
   --color-danger-bg: #fee2e2;
@@ -25,9 +25,9 @@
   --status-failed-bg: #fee2e2;    --status-failed-text: #b91c1c;    --status-failed-border: #fca5a5;
   --status-canceled-bg: #ede9fe;  --status-canceled-text: #6d28d9;  --status-canceled-border: #c4b5fd;
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04), 0 2px 8px rgba(16, 24, 40, 0.06);
   --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.2);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
