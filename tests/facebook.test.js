@@ -97,7 +97,7 @@ describe('facebook oauth', () => {
     expect(callbackRes.status).toBe(302);
     expect(callbackRes.headers.location).toBe('/accounts');
 
-    const accounts = await client.get('/api/social-accounts');
+    const accounts = await client.get('/api/v1/social-accounts');
     expect(accounts.body).toHaveLength(1);
     expect(accounts.body[0].platform).toBe('facebook');
     expect(accounts.body[0].display_name).toBe('My Page');
@@ -118,7 +118,7 @@ describe('facebook oauth', () => {
     const state = new URL(connectRes.headers.location).searchParams.get('state');
     await client.get(`/api/facebook/callback?code=fake-code&state=${state}`);
 
-    const accounts = await client.get('/api/social-accounts');
+    const accounts = await client.get('/api/v1/social-accounts');
     expect(accounts.body).toHaveLength(2);
     const platforms = accounts.body.map((a) => a.platform).sort();
     expect(platforms).toEqual(['facebook', 'instagram']);
@@ -138,7 +138,7 @@ describe('facebook oauth', () => {
     const state = new URL(connectRes.headers.location).searchParams.get('state');
     await client.get(`/api/facebook/callback?code=fake-code&state=${state}`);
 
-    const accounts = await client.get('/api/social-accounts');
+    const accounts = await client.get('/api/v1/social-accounts');
     expect(accounts.body).toHaveLength(1);
     expect(accounts.body[0].platform).toBe('facebook');
   });

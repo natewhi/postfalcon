@@ -73,7 +73,7 @@ document.querySelectorAll('.status-filter-chip').forEach((chip) => {
 async function loadFailedBanner() {
   const banner = document.getElementById('failed-posts-banner');
   try {
-    const failed = await apiJson(`/api/posts${buildPostsQuery({ status: 'failed' })}`);
+    const failed = await apiJson(`/api/v1/posts${buildPostsQuery({ status: 'failed' })}`);
     if (failed.length > 0) {
       document.getElementById('failed-posts-message').textContent =
         failed.length === 1
@@ -103,7 +103,7 @@ const PLATFORM_CHAR_LIMITS = {
 
 async function loadAccountOptions() {
   try {
-    accountsCache = await apiJson('/api/social-accounts');
+    accountsCache = await apiJson('/api/v1/social-accounts');
     hasAccounts = accountsCache.length > 0;
     renderAccountPicker();
   } catch (err) {
@@ -246,7 +246,7 @@ async function loadDrafts() {
   const list = document.getElementById('drafts-list');
   list.innerHTML = '<li class="loading"><span class="spinner"></span> Loading drafts…</li>';
   try {
-    const posts = await apiJson(`/api/posts${buildPostsQuery({ status: 'draft' })}`);
+    const posts = await apiJson(`/api/v1/posts${buildPostsQuery({ status: 'draft' })}`);
     list.innerHTML =
       posts
         .map(
@@ -289,7 +289,7 @@ async function loadDrafts() {
           const ok = await confirmDialog('Delete this post?', { confirmText: 'Delete' });
           if (!ok) return;
           try {
-            await apiJson(`/api/posts/${btn.dataset.id}`, { method: 'DELETE' });
+            await apiJson(`/api/v1/posts/${btn.dataset.id}`, { method: 'DELETE' });
             loadDrafts();
             calendar.refetchEvents();
           } catch (err) {
@@ -401,7 +401,7 @@ document.getElementById('post-dialog-delete').addEventListener(
     const ok = await confirmDialog('Delete this post?', { confirmText: 'Delete' });
     if (!ok) return;
     try {
-      await apiJson(`/api/posts/${editingPostId}`, { method: 'DELETE' });
+      await apiJson(`/api/v1/posts/${editingPostId}`, { method: 'DELETE' });
       document.getElementById('post-dialog').close();
       loadDrafts();
       loadFailedBanner();
@@ -457,7 +457,7 @@ postDialogForm.addEventListener(
         scheduled_for: scheduledLocal ? new Date(scheduledLocal).toISOString() : null,
       };
       try {
-        await apiJson(`/api/posts/${editingPostId}`, {
+        await apiJson(`/api/v1/posts/${editingPostId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -484,7 +484,7 @@ postDialogForm.addEventListener(
     }
 
     try {
-      await apiJson('/api/posts', { method: 'POST', body });
+      await apiJson('/api/v1/posts', { method: 'POST', body });
       document.getElementById('post-dialog').close();
       resetMediaPreview();
       loadDrafts();
@@ -542,7 +542,7 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
     }
     try {
       const statuses = Array.from(activeCalendarStatuses).join(',');
-      const posts = await apiJson(`/api/posts${buildPostsQuery({ status: statuses })}`);
+      const posts = await apiJson(`/api/v1/posts${buildPostsQuery({ status: statuses })}`);
       const events = posts
         .filter((p) => p.scheduled_for)
         .map((p) => ({
@@ -573,7 +573,7 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
 
   eventDrop: async (info) => {
     try {
-      await apiJson(`/api/posts/${info.event.id}`, {
+      await apiJson(`/api/v1/posts/${info.event.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scheduled_for: info.event.start.toISOString() }),
@@ -589,7 +589,7 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
 
     if (status === 'scheduled') {
       try {
-        const post = await apiJson(`/api/posts/${info.event.id}`);
+        const post = await apiJson(`/api/v1/posts/${info.event.id}`);
         openEditDialog(post);
       } catch (err) {
         showToast(err.message);
@@ -601,7 +601,7 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
     const ok = await confirmDialog(`[${status}] ${content}\n${when}\n\nDelete this post?`, { confirmText: 'Delete' });
     if (!ok) return;
     try {
-      await apiJson(`/api/posts/${info.event.id}`, { method: 'DELETE' });
+      await apiJson(`/api/v1/posts/${info.event.id}`, { method: 'DELETE' });
       info.event.remove();
       loadFailedBanner();
     } catch (err) {

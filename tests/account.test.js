@@ -193,9 +193,9 @@ describe('delete account', () => {
     await client.post('/api/users').send({ email, password: 'password123' });
     await client.post('/api/auth/login').send({ email, password: 'password123' });
 
-    const account = await client.post('/api/social-accounts').send({ platform: 'twitter', display_name: '@me' });
+    const account = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@me' });
     const post = await client
-      .post('/api/posts')
+      .post('/api/v1/posts')
       .field('social_account_id', String(account.body.id))
       .field('content', 'a post with a photo')
       .attach('media', Buffer.from('fake-image-bytes'), 'photo.jpg');

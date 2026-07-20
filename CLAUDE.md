@@ -60,6 +60,14 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
 - `requireAuth` (middleware/auth.js) accepts either a Passport session or a Bearer `api_tokens` token, so every
   `/api/*` route works for both the browser and MCP/agent callers. Don't add a second auth mechanism — extend this
   one if new callers need something.
+- The externally-consumable resource API (currently `posts`, `social-accounts`) is versioned under `/api/v1/*` and
+  documented publicly at `/api-docs` (`views/api-docs.ejs`, route in `routes/pages.js`, no login required). It's
+  also the only part of `/api` with CORS enabled (`app.js`, scoped to `/api/v1`, no credentials — safe to open
+  since Bearer auth can't be forged cross-origin the way a cookie session can) and rate-limited per user via
+  `apiLimiter` in `middleware/rateLimit.js` (keyed by `req.user.id`, not IP, since it runs after `requireAuth`).
+  `auth`/`users`/`mastodon`/`facebook`/`csrf-token` stay unversioned — they're session/cookie-based web-app
+  plumbing (login, OAuth redirects, CSRF issuance), not part of the external contract. If you add a new
+  externally-useful resource route, mount it under `/api/v1`, add `apiLimiter`, and add it to `/api-docs`.
 - Every mutating `/api/*` route is behind CSRF protection (`app.js`, via `csrf-csrf`'s double-submit cookie
   pattern) — GET/HEAD are exempt automatically, and requests carrying an `Authorization: Bearer` header are
   exempt too (Bearer auth isn't cookie-based, so it isn't CSRF-able; this matters for MCP/agent callers, who
@@ -110,7 +118,9 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
 ## Before adding a feature, check
 
 - **New API route?** New/extended zod schema, `validate()` + `asyncHandler()`, scoped to `req.user.id`, mounted
-  in `app.js` behind `requireAuth`, and a test in the matching `tests/*.test.js` file.
+  in `app.js` behind `requireAuth`, and a test in the matching `tests/*.test.js` file. If it's meant for external
+  scripts/agents (not just the Postfox frontend), mount it under `/api/v1`, add `apiLimiter`, and document it in
+  `views/api-docs.ejs`.
 - **New page?** New `views/<name>.ejs` with the standard head boilerplate, matching `public/<name>.js`, add the
   route in `routes/pages.js` behind `requirePageAuth`, add a sidebar nav link if it belongs in the main app shell.
   Load `<script src="/csrf.js">` before the page script (and before `common.js`, if used) if the page will ever

@@ -199,7 +199,7 @@ async function loadSidebarAccounts() {
   const container = document.getElementById('sidebar-accounts-list');
   if (!container) return;
   try {
-    const accounts = await apiJson('/api/social-accounts');
+    const accounts = await apiJson('/api/v1/social-accounts');
     const params = new URLSearchParams(window.location.search);
     const activeAccount = window.location.pathname === '/dashboard' ? params.get('account') : null;
 

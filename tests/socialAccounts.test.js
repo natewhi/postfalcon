@@ -16,47 +16,47 @@ async function loginNewUser() {
 
 describe('social account deletion', () => {
   it('requires authentication', async () => {
-    const res = await request(app).delete('/api/social-accounts/1');
+    const res = await request(app).delete('/api/v1/social-accounts/1');
     expect(res.status).toBe(401);
   });
 
   it('404s for a nonexistent account', async () => {
     const client = await loginNewUser();
-    const res = await client.delete('/api/social-accounts/999999');
+    const res = await client.delete('/api/v1/social-accounts/999999');
     expect(res.status).toBe(404);
   });
 
   it("does not allow deleting another user's account", async () => {
     const clientA = await loginNewUser();
     const clientB = await loginNewUser();
-    const account = await clientA.post('/api/social-accounts').send({ platform: 'twitter', display_name: '@a' });
+    const account = await clientA.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@a' });
 
-    const res = await clientB.delete(`/api/social-accounts/${account.body.id}`);
+    const res = await clientB.delete(`/api/v1/social-accounts/${account.body.id}`);
     expect(res.status).toBe(404);
 
-    const stillThere = await clientA.get('/api/social-accounts');
+    const stillThere = await clientA.get('/api/v1/social-accounts');
     expect(stillThere.body).toHaveLength(1);
   });
 
   it('deletes the account, cascades its posts, and cleans up uploaded media', async () => {
     const client = await loginNewUser();
-    const account = await client.post('/api/social-accounts').send({ platform: 'twitter', display_name: '@me' });
+    const account = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@me' });
 
     const textPost = await client
-      .post('/api/posts')
+      .post('/api/v1/posts')
       .send({ social_account_id: account.body.id, content: 'no media here' });
     const mediaPost = await client
-      .post('/api/posts')
+      .post('/api/v1/posts')
       .field('social_account_id', String(account.body.id))
       .field('content', 'a post with a photo')
       .attach('media', Buffer.from('fake-image-bytes'), 'photo.jpg');
     const filePath = path.join(uploadDir, path.basename(mediaPost.body.media[0].url));
     expect(fs.existsSync(filePath)).toBe(true);
 
-    const del = await client.delete(`/api/social-accounts/${account.body.id}`);
+    const del = await client.delete(`/api/v1/social-accounts/${account.body.id}`);
     expect(del.status).toBe(204);
 
-    const accounts = await client.get('/api/social-accounts');
+    const accounts = await client.get('/api/v1/social-accounts');
     expect(accounts.body).toHaveLength(0);
 
     const { rows } = await pool.query('SELECT id FROM posts WHERE id = ANY($1)', [

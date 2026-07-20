@@ -748,6 +748,82 @@ button:disabled {
   border-top: 1px solid var(--color-border);
 }
 
+.api-docs {
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--space-5) calc(var(--space-5) * 2);
+}
+
+.api-docs-hero {
+  padding: var(--space-4) 0 calc(var(--space-5) * 1.5);
+}
+
+.api-docs-hero h1 {
+  font-size: 2rem;
+  margin: 0 0 var(--space-3);
+}
+
+.api-docs-section {
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.api-docs-section h2 {
+  margin: 0 0 var(--space-3);
+  font-size: 1.25rem;
+}
+
+.api-docs-section p {
+  line-height: 1.6;
+}
+
+.api-docs code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.4em;
+  font-size: 0.9em;
+}
+
+.api-docs pre {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  overflow-x: auto;
+}
+
+.api-docs pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.api-docs-table-wrap {
+  overflow-x: auto;
+}
+
+.api-docs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.api-docs-table th,
+.api-docs-table td {
+  text-align: left;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.api-docs-table th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 800px) {
   .landing-features {
     grid-template-columns: repeat(2, 1fr);

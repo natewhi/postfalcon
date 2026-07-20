@@ -26,7 +26,7 @@ describe('csrf protection', () => {
     const client = await loginNewUser();
     process.env.NODE_ENV = 'development';
 
-    const res = await client.post('/api/social-accounts').send({ platform: 'twitter', display_name: '@me' });
+    const res = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@me' });
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('invalid_csrf_token');
   });
@@ -40,7 +40,7 @@ describe('csrf protection', () => {
     expect(tokenRes.body.csrfToken).toBeTruthy();
 
     const res = await client
-      .post('/api/social-accounts')
+      .post('/api/v1/social-accounts')
       .set('x-csrf-token', tokenRes.body.csrfToken)
       .send({ platform: 'twitter', display_name: '@me' });
     expect(res.status).toBe(201);
@@ -70,7 +70,7 @@ describe('csrf protection', () => {
     process.env.NODE_ENV = 'development';
 
     const res = await request(app)
-      .post('/api/social-accounts')
+      .post('/api/v1/social-accounts')
       .set('Authorization', `Bearer ${bearerToken}`)
       .send({ platform: 'mastodon', display_name: '@agent' });
     expect(res.status).toBe(201);

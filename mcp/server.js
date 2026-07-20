@@ -36,7 +36,7 @@ server.tool(
   'list_accounts',
   'List the connected social media accounts available to post to',
   {},
-  async () => textResult(await apiRequest('/api/social-accounts'))
+  async () => textResult(await apiRequest('/api/v1/social-accounts'))
 );
 
 const STATUSES = ['draft', 'scheduled', 'posting', 'posted', 'failed', 'canceled'];
@@ -53,7 +53,7 @@ server.tool(
     if (status) params.set('status', status);
     if (social_account_id) params.set('social_account_id', String(social_account_id));
     const query = params.toString() ? `?${params.toString()}` : '';
-    return textResult(await apiRequest(`/api/posts${query}`));
+    return textResult(await apiRequest(`/api/v1/posts${query}`));
   }
 );
 
@@ -71,7 +71,7 @@ server.tool(
   },
   async ({ social_account_id, content, scheduled_for }) =>
     textResult(
-      await apiRequest('/api/posts', {
+      await apiRequest('/api/v1/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ social_account_id, content, scheduled_for }),
@@ -95,7 +95,7 @@ server.tool(
   },
   async ({ post_id, ...updates }) =>
     textResult(
-      await apiRequest(`/api/posts/${post_id}`, {
+      await apiRequest(`/api/v1/posts/${post_id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -108,7 +108,7 @@ server.tool(
   'Permanently delete a post',
   { post_id: z.number().describe('The ID of the post to delete') },
   async ({ post_id }) => {
-    await apiRequest(`/api/posts/${post_id}`, { method: 'DELETE' });
+    await apiRequest(`/api/v1/posts/${post_id}`, { method: 'DELETE' });
     return textResult(`Post ${post_id} deleted.`);
   }
 );

@@ -17,6 +17,7 @@
     "bcryptjs": "^2.4.3",
     "connect-pg-simple": "^9.0.1",
     "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
     "csrf-csrf": "^3.1.0",
     "dotenv": "^16.4.5",
     "ejs": "^3.1.10",

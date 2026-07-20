@@ -2,7 +2,7 @@ async function loadAccounts() {
   const list = document.getElementById('accounts-list');
   list.innerHTML = '<li class="loading"><span class="spinner"></span> Loading accounts…</li>';
   try {
-    const accounts = await apiJson('/api/social-accounts');
+    const accounts = await apiJson('/api/v1/social-accounts');
     list.innerHTML =
       accounts
         .map(
@@ -26,7 +26,7 @@ async function loadAccounts() {
           });
           if (!ok) return;
           try {
-            await apiJson(`/api/social-accounts/${btn.dataset.id}`, { method: 'DELETE' });
+            await apiJson(`/api/v1/social-accounts/${btn.dataset.id}`, { method: 'DELETE' });
             loadAccounts();
             loadSidebarAccounts();
           } catch (err) {
@@ -48,7 +48,7 @@ accountForm.addEventListener(
     e.preventDefault();
     const form = e.target;
     try {
-      await apiJson('/api/social-accounts', {
+      await apiJson('/api/v1/social-accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platform: form.platform.value, display_name: form.display_name.value }),

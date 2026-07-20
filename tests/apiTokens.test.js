@@ -40,10 +40,10 @@ describe('api token management', () => {
     const second = await client.post('/api/auth/api-token');
     expect(first.body.token).not.toBe(second.body.token);
 
-    const oldTokenRes = await request(app).get('/api/posts').set('Authorization', `Bearer ${first.body.token}`);
+    const oldTokenRes = await request(app).get('/api/v1/posts').set('Authorization', `Bearer ${first.body.token}`);
     expect(oldTokenRes.status).toBe(401);
 
-    const newTokenRes = await request(app).get('/api/posts').set('Authorization', `Bearer ${second.body.token}`);
+    const newTokenRes = await request(app).get('/api/v1/posts').set('Authorization', `Bearer ${second.body.token}`);
     expect(newTokenRes.status).toBe(200);
   });
 
@@ -57,14 +57,14 @@ describe('api token management', () => {
     const status = await client.get('/api/auth/api-token');
     expect(status.body).toEqual({ exists: false });
 
-    const res = await request(app).get('/api/posts').set('Authorization', `Bearer ${gen.body.token}`);
+    const res = await request(app).get('/api/v1/posts').set('Authorization', `Bearer ${gen.body.token}`);
     expect(res.status).toBe(401);
   });
 });
 
 describe('bearer token authentication on the api', () => {
   it('rejects a garbage bearer token', async () => {
-    const res = await request(app).get('/api/posts').set('Authorization', 'Bearer not-a-real-token');
+    const res = await request(app).get('/api/v1/posts').set('Authorization', 'Bearer not-a-real-token');
     expect(res.status).toBe(401);
   });
 
@@ -73,13 +73,13 @@ describe('bearer token authentication on the api', () => {
     const clientB = await loginNewUser();
     const tokenA = (await clientA.post('/api/auth/api-token')).body.token;
 
-    const accountA = await clientA.post('/api/social-accounts').send({ platform: 'twitter', display_name: '@a' });
-    await clientA.post('/api/posts').send({ social_account_id: accountA.body.id, content: 'from A via session' });
+    const accountA = await clientA.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@a' });
+    await clientA.post('/api/v1/posts').send({ social_account_id: accountA.body.id, content: 'from A via session' });
 
-    const accountB = await clientB.post('/api/social-accounts').send({ platform: 'twitter', display_name: '@b' });
-    await clientB.post('/api/posts').send({ social_account_id: accountB.body.id, content: 'from B via session' });
+    const accountB = await clientB.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@b' });
+    await clientB.post('/api/v1/posts').send({ social_account_id: accountB.body.id, content: 'from B via session' });
 
-    const viaToken = await request(app).get('/api/posts').set('Authorization', `Bearer ${tokenA}`);
+    const viaToken = await request(app).get('/api/v1/posts').set('Authorization', `Bearer ${tokenA}`);
     expect(viaToken.status).toBe(200);
     expect(viaToken.body).toHaveLength(1);
     expect(viaToken.body[0].content).toBe('from A via session');
@@ -88,15 +88,15 @@ describe('bearer token authentication on the api', () => {
   it('lets an agent create a post via bearer token that shows up for the normal session user', async () => {
     const client = await loginNewUser();
     const token = (await client.post('/api/auth/api-token')).body.token;
-    const account = await client.post('/api/social-accounts').send({ platform: 'mastodon', display_name: '@me' });
+    const account = await client.post('/api/v1/social-accounts').send({ platform: 'mastodon', display_name: '@me' });
 
     const created = await request(app)
-      .post('/api/posts')
+      .post('/api/v1/posts')
       .set('Authorization', `Bearer ${token}`)
       .send({ social_account_id: account.body.id, content: 'scheduled by an agent' });
     expect(created.status).toBe(201);
 
-    const list = await client.get('/api/posts');
+    const list = await client.get('/api/v1/posts');
     expect(list.body).toHaveLength(1);
     expect(list.body[0].content).toBe('scheduled by an agent');
   });

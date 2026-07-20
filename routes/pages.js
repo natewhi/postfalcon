@@ -28,6 +28,10 @@ router.get('/', (req, res) => {
   res.render('landing');
 });
 
+router.get('/api-docs', (req, res) => {
+  res.render('api-docs');
+});
+
 router.get('/dashboard', requirePageAuth, (req, res) => {
   res.render('dashboard', {
     email: req.user.email,

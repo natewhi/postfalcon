@@ -7,6 +7,7 @@ import connectPgSimple from 'connect-pg-simple';
 import cookieParser from 'cookie-parser';
 import { doubleCsrf } from 'csrf-csrf';
 import helmet from 'helmet';
+import cors from 'cors';
 import multer from 'multer';
 import passport from './lib/passport.js';
 import { pool } from './db/pool.js';
@@ -18,6 +19,7 @@ import mastodonRouter from './routes/mastodon.js';
 import facebookRouter from './routes/facebook.js';
 import pagesRouter from './routes/pages.js';
 import { requireAuth } from './middleware/auth.js';
+import { apiLimiter } from './middleware/rateLimit.js';
 
 dotenv.config();
 
@@ -103,13 +105,27 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// The versioned, publicly-documented resource API (see /api-docs) — the surface external
+// scripts/agents (including the bundled MCP server) are meant to integrate against. CORS is
+// open here since Bearer auth isn't cookie-based and can't be forged cross-origin; everything
+// else stays same-origin only. Mounted ahead of csrfProtection below: a cross-origin preflight
+// OPTIONS request never carries the Authorization header (that's the point of preflight), so
+// it wouldn't hit csrfProtection's Bearer-auth exemption — cors() must short-circuit it first.
+const publicApiCors = cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Authorization', 'Content-Type'],
+});
+app.use('/api/v1', publicApiCors);
+
 app.use('/api', csrfProtection);
 app.use('/api/users', usersRouter);
 app.use('/api/auth', authRouter);
-app.use('/api/social-accounts', requireAuth, socialAccountsRouter);
-app.use('/api/posts', requireAuth, postsRouter);
 app.use('/api/mastodon', requireAuth, mastodonRouter);
 app.use('/api/facebook', requireAuth, facebookRouter);
+app.use('/api/v1/social-accounts', requireAuth, apiLimiter, socialAccountsRouter);
+app.use('/api/v1/posts', requireAuth, apiLimiter, postsRouter);
+
 app.use('/', pagesRouter);
 
 app.use((req, res) => {
