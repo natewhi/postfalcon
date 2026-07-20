@@ -26,12 +26,13 @@ function mockMastodonApi({
   accessToken = 'access-1',
   accountId = 'acct-1',
   username = 'tester',
+  avatar = 'https://example.social/avatars/tester.png',
 } = {}) {
   return vi.fn(async (url) => {
     const u = String(url);
     if (u.endsWith('/api/v1/apps')) return jsonResponse({ client_id: appId, client_secret: appSecret });
     if (u.endsWith('/oauth/token')) return jsonResponse({ access_token: accessToken });
-    if (u.endsWith('/api/v1/accounts/verify_credentials')) return jsonResponse({ id: accountId, username });
+    if (u.endsWith('/api/v1/accounts/verify_credentials')) return jsonResponse({ id: accountId, username, avatar });
     throw new Error(`Unexpected fetch: ${u}`);
   });
 }
@@ -93,12 +94,13 @@ describe('mastodon oauth', () => {
 
     const callbackRes = await client.get(`/api/mastodon/callback?code=fake-code&state=${state}`);
     expect(callbackRes.status).toBe(302);
-    expect(callbackRes.headers.location).toBe('/');
+    expect(callbackRes.headers.location).toBe('/accounts');
 
-    const accounts = await client.get('/api/social-accounts');
+    const accounts = await client.get('/api/v1/social-accounts');
     expect(accounts.body).toHaveLength(1);
     expect(accounts.body[0].platform).toBe('mastodon');
     expect(accounts.body[0].display_name).toBe('@natew@example.social');
+    expect(accounts.body[0].avatar_url).toBe('https://example.social/avatars/tester.png');
   });
 
   it('rejects a callback with a mismatched state', async () => {

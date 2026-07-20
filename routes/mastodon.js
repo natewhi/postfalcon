@@ -109,14 +109,21 @@ router.get(
     const account = await accountRes.json();
 
     await pool.query(
-      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, metadata)
-       VALUES ($1, 'mastodon', $2, $3, $4, $5)
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, metadata, avatar_url)
+       VALUES ($1, 'mastodon', $2, $3, $4, $5, $6)
        ON CONFLICT (user_id, platform, external_account_id)
-       DO UPDATE SET display_name = EXCLUDED.display_name, access_token = EXCLUDED.access_token, metadata = EXCLUDED.metadata`,
-      [req.session.userId, `@${account.username}@${instance}`, account.id, token.access_token, JSON.stringify({ instance })]
+       DO UPDATE SET display_name = EXCLUDED.display_name, access_token = EXCLUDED.access_token, metadata = EXCLUDED.metadata, avatar_url = EXCLUDED.avatar_url`,
+      [
+        req.user.id,
+        `@${account.username}@${instance}`,
+        account.id,
+        token.access_token,
+        JSON.stringify({ instance }),
+        account.avatar ?? null,
+      ]
     );
 
-    res.redirect('/');
+    res.redirect('/accounts');
   })
 );
 

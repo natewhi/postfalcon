@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/theme-init.js"></script>
+<meta name="color-scheme" content="light dark">
+<title>Accounts - Postfox</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <%- include('partials/sidebar', { active: 'accounts', email }) %>
+
+  <main class="app-main">
+    <%- include('partials/verify-banner', { emailVerified }) %>
+
+    <div class="page-header">
+      <h1>Accounts</h1>
+    </div>
+
+    <section>
+      <h2>Connected Accounts</h2>
+      <ul id="accounts-list"></ul>
+    </section>
+
+    <section>
+      <h2>Connect a platform</h2>
+
+      <div class="connect-option">
+        <h3>Mastodon</h3>
+        <p class="hint">Enter your instance domain to connect via OAuth.</p>
+        <form id="mastodon-connect-form" action="/api/mastodon/connect" method="GET">
+          <input type="text" name="instance" placeholder="yourinstance.social" required>
+          <button type="submit">Connect Mastodon</button>
+        </form>
+      </div>
+
+      <div class="connect-option">
+        <h3>Facebook &amp; Instagram</h3>
+        <p class="hint">Connects any Facebook Pages you manage, and their linked Instagram business accounts.</p>
+        <a href="/api/facebook/connect" class="btn-link">Connect Facebook / Instagram</a>
+      </div>
+
+      <div class="connect-option">
+        <h3>Other platforms</h3>
+        <p class="hint">Twitter/X, LinkedIn, TikTok, and Threads aren't wired up to real posting yet — this adds a placeholder account useful for testing scheduling.</p>
+        <form id="account-form">
+          <select name="platform" required>
+            <option value="twitter">Twitter/X</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="tiktok">TikTok</option>
+            <option value="threads">Threads</option>
+          </select>
+          <input type="text" name="display_name" placeholder="Display name (e.g. @handle)" required>
+          <button type="submit">Add placeholder account</button>
+        </form>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="/csrf.js"></script>
+<script src="/common.js"></script>
+<script src="/accounts.js"></script>
+</body>
+</html>

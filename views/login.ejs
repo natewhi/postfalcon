@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script src="/theme-init.js"></script>
+<meta name="color-scheme" content="light dark">
 <title>Log in - Postfox</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -14,8 +17,10 @@
     <button type="submit">Log in</button>
   </form>
   <p id="error" class="error"></p>
+  <p><a href="/forgot-password">Forgot password?</a></p>
   <p>No account? <a href="/signup">Sign up</a></p>
 </main>
+<script src="/csrf.js"></script>
 <script src="/login.js"></script>
 </body>
 </html>

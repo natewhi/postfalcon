@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/theme-init.js"></script>
+<meta name="color-scheme" content="light dark">
+<title>Settings - Postfox</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <%- include('partials/sidebar', { active: 'settings', email }) %>
+
+  <main class="app-main">
+    <%- include('partials/verify-banner', { emailVerified }) %>
+
+    <div class="page-header">
+      <h1>Settings</h1>
+    </div>
+
+    <section class="settings-section">
+      <h2>Account</h2>
+      <dl class="account-info">
+        <div>
+          <dt>Email</dt>
+          <dd>
+            <%= email %>
+            <% if (emailVerified) { %><span class="status status-posted">Verified</span><% } else { %><span class="status status-failed">Unverified</span><% } %>
+          </dd>
+        </div>
+        <div>
+          <dt>Member since</dt>
+          <dd><%= new Date(createdAt).toLocaleDateString() %></dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="settings-section">
+      <h2>API access for agents</h2>
+      <p class="hint">Generate a personal API token so AI agents (via MCP) or scripts can create and manage posts on your behalf.</p>
+      <p id="api-token-status" class="hint">Checking&hellip;</p>
+      <div id="api-token-reveal" class="composer-field" hidden>
+        <label for="api-token-value">Your new token <span class="label-optional">(copy it now &mdash; you won't see it again)</span></label>
+        <div class="token-input-row">
+          <input type="text" id="api-token-value" readonly>
+          <button type="button" id="api-token-copy">Copy</button>
+        </div>
+      </div>
+      <div class="token-actions">
+        <button type="button" id="api-token-generate">Generate API token</button>
+        <button type="button" id="api-token-revoke" class="delete-btn" hidden>Revoke token</button>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <h2>Change password</h2>
+      <p class="hint">Update the password you use to log in.</p>
+      <form id="change-password-form" class="settings-form">
+        <label>Current password <input type="password" name="currentPassword" required></label>
+        <label>New password <input type="password" name="newPassword" required minlength="8"></label>
+        <label>Confirm new password <input type="password" name="confirmNewPassword" required minlength="8"></label>
+        <button type="submit">Update password</button>
+      </form>
+    </section>
+
+    <section class="danger-zone settings-section">
+      <h2>Delete account</h2>
+      <p class="hint">Permanently deletes your account, connected social accounts, and all scheduled posts. This cannot be undone.</p>
+      <form id="delete-account-form" class="settings-form">
+        <label>Password <input type="password" name="password" required></label>
+        <button type="submit" class="delete-btn">Delete my account</button>
+      </form>
+    </section>
+  </main>
+</div>
+
+<script src="/csrf.js"></script>
+<script src="/common.js"></script>
+<script src="/settings.js"></script>
+</body>
+</html>

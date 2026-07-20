@@ -1,0 +1,19 @@
+<aside class="sidebar">
+  <div class="sidebar-brand">Postfox</div>
+  <nav class="sidebar-nav">
+    <a href="/dashboard" class="nav-link<%= active === 'calendar' ? ' active' : '' %>">Calendar</a>
+    <a href="/accounts" class="nav-link<%= active === 'accounts' ? ' active' : '' %>">Accounts</a>
+    <a href="/settings" class="nav-link<%= active === 'settings' ? ' active' : '' %>">Settings</a>
+  </nav>
+
+  <div class="sidebar-accounts">
+    <div class="sidebar-section-label">Connected accounts</div>
+    <div id="sidebar-accounts-list"></div>
+  </div>
+
+  <div class="sidebar-footer">
+    <button id="theme-toggle-btn" type="button" class="theme-toggle-btn" aria-pressed="false">🌓 Theme</button>
+    <span class="sidebar-email"><%= email %></span>
+    <button id="logout-btn" type="button">Log out</button>
+  </div>
+</aside>
