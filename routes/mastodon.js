@@ -2,6 +2,7 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import { pool } from '../db/pool.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { sanitizeUrl } from '../lib/url.js';
 
 const router = Router();
 
@@ -119,7 +120,7 @@ router.get(
         account.id,
         token.access_token,
         JSON.stringify({ instance }),
-        account.avatar ?? null,
+        sanitizeUrl(account.avatar),
       ]
     );
 

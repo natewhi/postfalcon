@@ -2,6 +2,7 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import { pool } from '../db/pool.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { sanitizeUrl } from '../lib/url.js';
 
 const router = Router();
 const GRAPH_VERSION = 'v19.0';
@@ -17,7 +18,7 @@ async function upsertSocialAccount({ userId, platform, displayName, externalAcco
      VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (user_id, platform, external_account_id)
      DO UPDATE SET display_name = EXCLUDED.display_name, access_token = EXCLUDED.access_token, avatar_url = EXCLUDED.avatar_url`,
-    [userId, platform, displayName, externalAccountId, accessToken, avatarUrl ?? null]
+    [userId, platform, displayName, externalAccountId, accessToken, sanitizeUrl(avatarUrl)]
   );
 }
 

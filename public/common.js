@@ -1,7 +1,10 @@
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
-  return div.innerHTML;
+  // div.innerHTML only encodes &, <, > (text-node escaping) — callers also interpolate this
+  // into quoted HTML attributes (src="...", alt="..."), so quotes need encoding too or a "
+  // in the source string closes the attribute early.
+  return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function showToast(message, type = 'error', link = null) {

@@ -67,9 +67,15 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(cookieParser());
 
+// No getSessionIdentifier: Passport (lib/passport.js's SessionManager) regenerates the session
+// — i.e. issues a new req.sessionID — on both login AND logout, to guard against session
+// fixation. Binding the CSRF hash to req.sessionID (as csrf-csrf's docs suggest as an optional
+// hardening) means a token issued right around either boundary can validate against the wrong
+// session ID and get rejected, which is exactly what breaks the log-out-then-log-back-in flow.
+// The double-submit pattern's actual protection doesn't depend on this: an attacker can't read
+// the httpOnly secret cookie to forge the matching header, regardless of session binding.
 const { doubleCsrfProtection, generateToken } = doubleCsrf({
   getSecret: () => process.env.SESSION_SECRET,
-  getSessionIdentifier: (req) => req.sessionID,
   cookieName: isProduction ? '__Host-postfox.csrf-token' : 'postfox.csrf-token',
   cookieOptions: {
     httpOnly: true,
@@ -93,7 +99,13 @@ function csrfProtection(req, res, next) {
 
 app.get('/api/csrf-token', (req, res) => {
   req.session.csrfInit = true;
-  res.json({ csrfToken: generateToken(req, res) });
+  // overwrite: true — always mint a fresh token rather than trying to validate-and-reuse
+  // whatever CSRF cookie the browser happens to still be carrying. Reuse-with-validation
+  // (the default) throws if that cookie doesn't check out, e.g. a leftover cookie from
+  // before a logout (logout only touches the session cookie, not this one) — and since this
+  // handler isn't wrapped in asyncHandler, an uncaught throw here made this endpoint itself
+  // return 403 invalid_csrf_token instead of a token, breaking every request after it.
+  res.json({ csrfToken: generateToken(req, res, true) });
 });
 
 app.get('/health', async (req, res) => {

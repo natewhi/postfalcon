@@ -72,7 +72,7 @@ describe('csrf protection', () => {
     const res = await request(app)
       .post('/api/v1/social-accounts')
       .set('Authorization', `Bearer ${bearerToken}`)
-      .send({ platform: 'mastodon', display_name: '@agent' });
+      .send({ platform: 'twitter', display_name: '@agent' });
     expect(res.status).toBe(201);
   });
 });
