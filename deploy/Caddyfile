@@ -1,0 +1,5 @@
+# Copy to /etc/caddy/Caddyfile on the VPS and replace the placeholder domain.
+# Caddy handles HTTPS (cert issuance + renewal) automatically for a real public domain.
+your-domain.example {
+	reverse_proxy localhost:3000
+}

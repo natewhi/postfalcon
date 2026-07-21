@@ -12,8 +12,11 @@ due posts. AI agents can also create/manage posts via an MCP server.
 - Git pushes to GitHub happen from the VM (the SSH key lives there, not on Windows). If you're working from the
   Windows side, commit locally and tell the user to `git push origin main` on the VM rather than trying to push
   yourself.
-- No production deployment yet. A VPS can pull from GitHub, but deploying is explicitly deferred until there's
-  enough built to be worth pushing to prod. Don't set up CI/CD or deployment tooling unless asked.
+- Deployed to a VPS behind Caddy (automatic HTTPS, see `deploy/Caddyfile`), running under pm2
+  (`ecosystem.config.cjs`) with **`instances: 1`** — `scheduler.js`'s node-cron jobs run in-process, so a second
+  instance would double-publish due posts and double-run media cleanup. Don't change that without moving the
+  scheduler out of the app process first. `scripts/deploy.sh` is the deploy sequence (pull, install, migrate,
+  pm2 reload) — run it manually on the VPS; there's still no CI/CD, and none should be added unless asked.
 - `.env` values (DB creds, session secret, OAuth app IDs/secrets) are entered by the user directly. Don't invent
   or insert real secrets — use placeholders in `.env.example` and let the user fill in `.env`/`.env.test`.
 
