@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pool } from './db/pool.js';
 import { uploadDir } from './middleware/upload.js';
 import { cleanupOldMedia } from './lib/mediaCleanup.js';
+import { logger } from './lib/logger.js';
 
 const GRAPH_VERSION = 'v19.0';
 
@@ -247,7 +248,7 @@ async function sendPost(post) {
   if (post.platform === 'instagram') {
     return postToInstagram(post);
   }
-  console.log(`[stub] posting to account ${post.social_account_id} (${post.platform}): ${post.content}`);
+  logger.info({ socialAccountId: post.social_account_id, platform: post.platform }, '[stub] posting to account');
   return null;
 }
 
@@ -294,18 +295,18 @@ export async function processDuePosts() {
 
 export function startScheduler() {
   cron.schedule('* * * * *', () => {
-    processDuePosts().catch((err) => console.error('scheduler error', err));
+    processDuePosts().catch((err) => logger.error({ err }, 'scheduler error'));
   });
 
   cron.schedule('0 3 * * *', () => {
     cleanupOldMedia()
       .then(({ postsCleaned, filesRemoved }) => {
         if (postsCleaned > 0) {
-          console.log(`Media cleanup: removed ${filesRemoved} file(s) from ${postsCleaned} post(s).`);
+          logger.info({ postsCleaned, filesRemoved }, 'media cleanup');
         }
       })
-      .catch((err) => console.error('media cleanup error', err));
+      .catch((err) => logger.error({ err }, 'media cleanup error'));
   });
 
-  console.log('Scheduler started (runs every minute); media cleanup runs daily at 03:00.');
+  logger.info('Scheduler started (runs every minute); media cleanup runs daily at 03:00.');
 }

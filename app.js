@@ -9,7 +9,9 @@ import { doubleCsrf } from 'csrf-csrf';
 import helmet from 'helmet';
 import cors from 'cors';
 import multer from 'multer';
+import pinoHttp from 'pino-http';
 import passport from './lib/passport.js';
+import { logger } from './lib/logger.js';
 import { pool } from './db/pool.js';
 import usersRouter from './routes/users.js';
 import authRouter from './routes/auth.js';
@@ -48,6 +50,7 @@ app.use(
     },
   })
 );
+app.use(pinoHttp({ logger }));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: isProduction ? '7d' : '5m' }));
 app.use(express.json({ limit: '100kb' }));
 app.use(
@@ -157,7 +160,7 @@ app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError || err.status === 400) {
     return res.status(400).json({ error: err.message });
   }
-  console.error(err);
+  req.log.error({ err }, 'unhandled error');
   res.status(500).json({ error: 'internal_server_error' });
 });
 

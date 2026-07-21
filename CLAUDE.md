@@ -75,9 +75,14 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   the existing supertest suite doesn't need to fetch a token per mutating request — there's no dedicated test
   proving the protection itself works, only that it's correctly bypassed in tests.
 - Real emails go through `lib/mailer.js`'s `sendMail()`, backed by `nodemailer` over SMTP. If `SMTP_HOST`/
-  `SMTP_PORT`/`SMTP_USER`/`SMTP_PASS` aren't all set in `.env`, it silently falls back to `console.log` instead
-  of sending — this is normal for local dev, not a bug. Tests always hit the mocked version
+  `SMTP_PORT`/`SMTP_USER`/`SMTP_PASS` aren't all set in `.env`, it silently falls back to logging the email
+  instead of sending — this is normal for local dev, not a bug. Tests always hit the mocked version
   (`tests/setup.js`), never real SMTP.
+- Server runtime code (`app.js`, `scheduler.js`, `index.js`, `lib/*`) logs through `lib/logger.js`'s pino
+  instance (structured JSON to stdout, level via `LOG_LEVEL`) instead of `console.*` — `app.js` also wires
+  `pino-http` so every request gets a per-request `req.log`. Standalone CLI scripts (`db/migrate.js`,
+  `mcp/server.js`, `scripts/copy-vendor.js`) keep using `console.*`, since stdout is their actual output
+  contract, not a log stream.
 
 **Frontend**
 - No inline `<script>` or `<style>` — the CSP is `script-src 'self'` with no `'unsafe-inline'`. Anything that
