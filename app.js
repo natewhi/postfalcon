@@ -20,7 +20,8 @@ import postsRouter from './routes/posts.js';
 import mastodonRouter from './routes/mastodon.js';
 import facebookRouter from './routes/facebook.js';
 import pagesRouter from './routes/pages.js';
-import { requireAuth } from './middleware/auth.js';
+import adminRouter from './routes/admin.js';
+import { requireAuth, requireAdmin } from './middleware/auth.js';
 import { apiLimiter } from './middleware/rateLimit.js';
 
 dotenv.config();
@@ -140,6 +141,7 @@ app.use('/api/mastodon', requireAuth, mastodonRouter);
 app.use('/api/facebook', requireAuth, facebookRouter);
 app.use('/api/v1/social-accounts', requireAuth, apiLimiter, socialAccountsRouter);
 app.use('/api/v1/posts', requireAuth, apiLimiter, postsRouter);
+app.use('/api/admin', requireAdmin, adminRouter);
 
 app.use('/', pagesRouter);
 

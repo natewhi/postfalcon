@@ -1,7 +1,17 @@
 import { Router } from 'express';
-import { requirePageAuth } from '../middleware/auth.js';
+import { requirePageAuth, requireAdmin } from '../middleware/auth.js';
+import { logPageVisit } from '../lib/activityLog.js';
 
 const router = Router();
+
+router.use(async (req, res, next) => {
+  try {
+    await logPageVisit(req);
+  } catch (err) {
+    req.log.error({ err }, 'failed to record page visit');
+  }
+  next();
+});
 
 router.get('/login', (req, res) => {
   if (req.isAuthenticated()) return res.redirect('/dashboard');
@@ -52,6 +62,10 @@ router.get('/settings', requirePageAuth, (req, res) => {
     emailVerified: Boolean(req.user.email_verified_at),
     createdAt: req.user.created_at,
   });
+});
+
+router.get('/admin/activity', requireAdmin, (req, res) => {
+  res.render('admin-activity', { email: req.user.email });
 });
 
 export default router;

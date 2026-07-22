@@ -7,6 +7,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { authLimiter } from '../middleware/rateLimit.js';
 import { sendMail } from '../lib/mailer.js';
 import { createToken } from '../lib/tokens.js';
+import { logAuthEvent } from '../lib/activityLog.js';
 
 const router = Router();
 
@@ -33,6 +34,10 @@ router.post(
     const token = await createToken(user.id, 'email_verification', ONE_DAY_MS);
     const verifyUrl = `${process.env.BASE_URL}/api/auth/verify-email?token=${token}`;
     await sendMail({ to: email, subject: 'Verify your Postfox email', text: `Verify your email: ${verifyUrl}` });
+
+    await logAuthEvent(req, 'signup', { userId: user.id, email: user.email }).catch((logErr) =>
+      req.log.error({ err: logErr }, 'failed to record auth event')
+    );
 
     res.status(201).json(user);
   })

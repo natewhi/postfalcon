@@ -6,6 +6,7 @@ import { pool } from '../db/pool.js';
 import { validate } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { uploadMedia, uploadDir } from '../middleware/upload.js';
+import { logProductEvent } from '../lib/activityLog.js';
 
 const router = Router();
 
@@ -146,6 +147,13 @@ router.post(
       );
     }
 
+    await logProductEvent(req.user.id, 'post_created', {
+      postId: post.id,
+      socialAccountId: post.social_account_id,
+      status: post.status,
+      hasMedia: files.length > 0,
+    }).catch((err) => req.log.error({ err }, 'failed to record product event'));
+
     const [full] = await attachMedia([post]);
     res.status(201).json(full);
   })
@@ -172,6 +180,16 @@ router.patch(
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'not found' });
     const [post] = await attachMedia(result.rows);
+
+    // Only fires when the client explicitly set status to 'scheduled' in this request —
+    // not on every edit of an already-scheduled post's content.
+    if (status === 'scheduled') {
+      await logProductEvent(req.user.id, 'post_scheduled', {
+        postId: post.id,
+        socialAccountId: post.social_account_id,
+      }).catch((err) => req.log.error({ err }, 'failed to record product event'));
+    }
+
     res.json(post);
   })
 );
@@ -193,6 +211,11 @@ router.delete(
     await Promise.all(
       mediaRows.rows.map((row) => fs.unlink(path.join(uploadDir, path.basename(row.url))).catch(() => {}))
     );
+
+    await logProductEvent(req.user.id, 'post_deleted', { postId: id }).catch((err) =>
+      req.log.error({ err }, 'failed to record product event')
+    );
+
     res.status(204).end();
   })
 );

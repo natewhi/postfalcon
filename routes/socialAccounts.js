@@ -6,6 +6,7 @@ import { pool } from '../db/pool.js';
 import { validate } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { uploadDir } from '../middleware/upload.js';
+import { logProductEvent } from '../lib/activityLog.js';
 
 const router = Router();
 
@@ -52,6 +53,10 @@ router.post(
        RETURNING id, platform, display_name, external_account_id, avatar_url, created_at`,
       [req.user.id, platform, display_name, external_account_id ?? null, access_token ?? null, refresh_token ?? null]
     );
+    await logProductEvent(req.user.id, 'social_account_connected', {
+      platform,
+      socialAccountId: result.rows[0].id,
+    }).catch((err) => req.log.error({ err }, 'failed to record product event'));
     res.status(201).json(result.rows[0]);
   })
 );
@@ -75,10 +80,10 @@ router.delete(
       [id, req.user.id]
     );
 
-    const result = await pool.query('DELETE FROM social_accounts WHERE id = $1 AND user_id = $2 RETURNING id', [
-      id,
-      req.user.id,
-    ]);
+    const result = await pool.query(
+      'DELETE FROM social_accounts WHERE id = $1 AND user_id = $2 RETURNING id, platform',
+      [id, req.user.id]
+    );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'not found' });
     }
@@ -86,6 +91,11 @@ router.delete(
     await Promise.all(
       mediaRows.rows.map((row) => fs.unlink(path.join(uploadDir, path.basename(row.url))).catch(() => {}))
     );
+
+    await logProductEvent(req.user.id, 'social_account_disconnected', {
+      platform: result.rows[0].platform,
+      socialAccountId: id,
+    }).catch((err) => req.log.error({ err }, 'failed to record product event'));
 
     res.status(204).end();
   })

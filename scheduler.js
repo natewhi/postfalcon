@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pool } from './db/pool.js';
 import { uploadDir } from './middleware/upload.js';
 import { cleanupOldMedia } from './lib/mediaCleanup.js';
+import { cleanupOldActivityLogs, logProductEvent } from './lib/activityLog.js';
 import { logger } from './lib/logger.js';
 
 const GRAPH_VERSION = 'v19.0';
@@ -284,11 +285,21 @@ export async function processDuePosts() {
         post.id,
         platformPostId,
       ]);
+      await logProductEvent(post.user_id, 'post_published', {
+        postId: post.id,
+        socialAccountId: post.social_account_id,
+        platform: post.platform,
+      }).catch((err) => logger.error({ err }, 'failed to record product event'));
     } catch (err) {
       await pool.query(`UPDATE posts SET status = 'failed', error_message = $2 WHERE id = $1`, [
         post.id,
         err.message,
       ]);
+      await logProductEvent(post.user_id, 'post_failed', {
+        postId: post.id,
+        socialAccountId: post.social_account_id,
+        platform: post.platform,
+      }).catch((logErr) => logger.error({ err: logErr }, 'failed to record product event'));
     }
   }
 }
@@ -308,5 +319,17 @@ export function startScheduler() {
       .catch((err) => logger.error({ err }, 'media cleanup error'));
   });
 
-  logger.info('Scheduler started (runs every minute); media cleanup runs daily at 03:00.');
+  cron.schedule('0 3 * * *', () => {
+    cleanupOldActivityLogs()
+      .then(({ visitsRemoved, eventsRemoved }) => {
+        if (visitsRemoved > 0 || eventsRemoved > 0) {
+          logger.info({ visitsRemoved, eventsRemoved }, 'activity log cleanup');
+        }
+      })
+      .catch((err) => logger.error({ err }, 'activity log cleanup error'));
+  });
+
+  logger.info(
+    'Scheduler started (runs every minute); media cleanup and activity log cleanup run daily at 03:00.'
+  );
 }

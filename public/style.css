@@ -1402,6 +1402,68 @@ a.toast {
   max-width: 320px;
 }
 
+.admin-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.admin-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.admin-filter-bar label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.9em;
+  color: var(--color-text-muted);
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.admin-table th, .admin-table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-table th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  background: var(--color-bg);
+}
+
+.admin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.9em;
+  color: var(--color-text-muted);
+}
+
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }

@@ -42,3 +42,22 @@ export function requirePageAuth(req, res, next) {
   }
   next();
 }
+
+// Session-only (unlike requireAuth, no Bearer token path) — this gates a human-operated
+// admin console, not part of the agent/API surface. Responds 404, not 401/403, for both
+// "not logged in" and "logged in but not admin", so probing /admin/* doesn't confirm the
+// route exists to anyone who isn't already an admin — same reasoning as forgot-password
+// never revealing whether an email is registered. Covers both the admin page (rendered
+// 404) and its backing JSON endpoints (json 404), based on the request path.
+export function requireAdmin(req, res, next) {
+  if (req.isAuthenticated() && req.user.is_admin) {
+    return next();
+  }
+  // originalUrl, not path/url: this middleware is mounted at /api/admin (see app.js), and
+  // Express strips the mount prefix from req.url/req.path for the duration of that layer —
+  // only originalUrl still has it, which is what the /api/ prefix check needs.
+  if (req.originalUrl.startsWith('/api/')) {
+    return res.status(404).json({ error: 'not found' });
+  }
+  res.status(404).render('404');
+}

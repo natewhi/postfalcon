@@ -13,6 +13,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { sendMail } from '../lib/mailer.js';
 import { createToken, consumeToken, hashToken } from '../lib/tokens.js';
 import { uploadDir } from '../middleware/upload.js';
+import { logAuthEvent } from '../lib/activityLog.js';
 
 const router = Router();
 
@@ -25,19 +26,33 @@ const loginSchema = z.object({
 });
 
 router.post('/login', authLimiter, validate(loginSchema), (req, res, next) => {
-  passport.authenticate('local', (err, user, info) => {
+  passport.authenticate('local', async (err, user, info) => {
     if (err) return next(err);
-    if (!user) return res.status(401).json({ error: info?.message || 'invalid email or password' });
-    req.login(user, (loginErr) => {
+    if (!user) {
+      await logAuthEvent(req, 'login_failure', { email: req.body.email }).catch((logErr) =>
+        req.log.error({ err: logErr }, 'failed to record auth event')
+      );
+      return res.status(401).json({ error: info?.message || 'invalid email or password' });
+    }
+    req.login(user, async (loginErr) => {
       if (loginErr) return next(loginErr);
+      await logAuthEvent(req, 'login_success', { userId: user.id, email: user.email }).catch((logErr) =>
+        req.log.error({ err: logErr }, 'failed to record auth event')
+      );
       res.json({ id: user.id, email: user.email });
     });
   })(req, res, next);
 });
 
 router.post('/logout', (req, res, next) => {
-  req.logout((err) => {
+  const loggedOutUser = req.user;
+  req.logout(async (err) => {
     if (err) return next(err);
+    if (loggedOutUser) {
+      await logAuthEvent(req, 'logout', { userId: loggedOutUser.id, email: loggedOutUser.email }).catch((logErr) =>
+        req.log.error({ err: logErr }, 'failed to record auth event')
+      );
+    }
     res.status(204).end();
   });
 });
@@ -60,7 +75,12 @@ router.post(
       const resetUrl = `${process.env.BASE_URL}/reset-password?token=${token}`;
       await sendMail({ to: email, subject: 'Reset your Postfox password', text: `Reset your password: ${resetUrl}` });
     }
-    // Always 204, whether or not the email exists, so this endpoint can't be used to enumerate accounts.
+    // Logged server-side regardless of whether the email exists (matches result.rows.length),
+    // but the response stays 204 either way so this endpoint can't be used to enumerate accounts.
+    await logAuthEvent(req, 'password_reset_request', {
+      userId: result.rows[0]?.id ?? null,
+      email,
+    }).catch((logErr) => req.log.error({ err: logErr }, 'failed to record auth event'));
     res.status(204).end();
   })
 );
@@ -81,7 +101,13 @@ router.post(
       return res.status(400).json({ error: 'invalid or expired token' });
     }
     const password_hash = await bcrypt.hash(password, 10);
-    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [password_hash, userId]);
+    const result = await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING email', [
+      password_hash,
+      userId,
+    ]);
+    await logAuthEvent(req, 'password_reset_complete', { userId, email: result.rows[0].email }).catch((logErr) =>
+      req.log.error({ err: logErr }, 'failed to record auth event')
+    );
     res.status(204).end();
   })
 );
@@ -94,7 +120,12 @@ router.get(
     if (!userId) {
       return res.status(400).send('Invalid or expired verification link.');
     }
-    await pool.query('UPDATE users SET email_verified_at = now() WHERE id = $1', [userId]);
+    const result = await pool.query('UPDATE users SET email_verified_at = now() WHERE id = $1 RETURNING email', [
+      userId,
+    ]);
+    await logAuthEvent(req, 'email_verified', { userId, email: result.rows[0].email }).catch((logErr) =>
+      req.log.error({ err: logErr }, 'failed to record auth event')
+    );
     res.redirect('/login?verified=1');
   })
 );
@@ -144,6 +175,10 @@ router.post(
       text: "Your account password was just changed. If this wasn't you, reset your password immediately.",
     });
 
+    await logAuthEvent(req, 'password_change', { userId: req.user.id, email: req.user.email }).catch((logErr) =>
+      req.log.error({ err: logErr }, 'failed to record auth event')
+    );
+
     res.status(204).end();
   })
 );
@@ -168,6 +203,11 @@ router.post(
       [req.user.id]
     );
     const email = req.user.email;
+    // Logged before the DELETE: user_id has a real FK to users, so the event row must be
+    // inserted while the account still exists (it's kept afterwards via ON DELETE SET NULL).
+    await logAuthEvent(req, 'account_deleted', { userId: req.user.id, email }).catch((logErr) =>
+      req.log.error({ err: logErr }, 'failed to record auth event')
+    );
     await pool.query('DELETE FROM users WHERE id = $1', [req.user.id]);
     await Promise.all(
       mediaRows.rows.map((row) => fs.unlink(path.join(uploadDir, path.basename(row.url))).catch(() => {}))
@@ -213,6 +253,9 @@ router.post(
       req.user.id,
       hashToken(token),
     ]);
+    await logAuthEvent(req, 'api_token_created', { userId: req.user.id, email: req.user.email }).catch((logErr) =>
+      req.log.error({ err: logErr }, 'failed to record auth event')
+    );
     res.status(201).json({ token });
   })
 );
@@ -222,6 +265,9 @@ router.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     await pool.query('DELETE FROM api_tokens WHERE user_id = $1', [req.user.id]);
+    await logAuthEvent(req, 'api_token_revoked', { userId: req.user.id, email: req.user.email }).catch((logErr) =>
+      req.log.error({ err: logErr }, 'failed to record auth event')
+    );
     res.status(204).end();
   })
 );

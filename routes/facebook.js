@@ -3,6 +3,8 @@ import crypto from 'node:crypto';
 import { pool } from '../db/pool.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { sanitizeUrl } from '../lib/url.js';
+import { logProductEvent } from '../lib/activityLog.js';
+import { logger } from '../lib/logger.js';
 
 const router = Router();
 const GRAPH_VERSION = 'v19.0';
@@ -13,13 +15,23 @@ function redirectUri() {
 }
 
 async function upsertSocialAccount({ userId, platform, displayName, externalAccountId, accessToken, avatarUrl }) {
-  await pool.query(
+  // xmax = 0 is true only for a row this statement just inserted (Postgres system column
+  // trick for upserts) — used below to log a connect event only for a genuinely new
+  // account, not every reconnect/token-refresh through this same callback.
+  const result = await pool.query(
     `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, avatar_url)
      VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (user_id, platform, external_account_id)
-     DO UPDATE SET display_name = EXCLUDED.display_name, access_token = EXCLUDED.access_token, avatar_url = EXCLUDED.avatar_url`,
+     DO UPDATE SET display_name = EXCLUDED.display_name, access_token = EXCLUDED.access_token, avatar_url = EXCLUDED.avatar_url
+     RETURNING id, (xmax = 0) AS inserted`,
     [userId, platform, displayName, externalAccountId, accessToken, sanitizeUrl(avatarUrl)]
   );
+  if (result.rows[0].inserted) {
+    await logProductEvent(userId, 'social_account_connected', {
+      platform,
+      socialAccountId: result.rows[0].id,
+    }).catch((err) => logger.error({ err }, 'failed to record product event'));
+  }
 }
 
 router.get(

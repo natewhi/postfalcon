@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/theme-init.js"></script>
+<meta name="color-scheme" content="light dark">
+<title>Admin - Activity - Postfox</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <%- include('partials/sidebar', { active: '', email }) %>
+
+  <main class="app-main">
+    <div class="page-header">
+      <h1>Admin &mdash; Activity</h1>
+    </div>
+
+    <section class="admin-section">
+      <h2>Auth events</h2>
+      <form id="auth-events-filter" class="admin-filter-bar">
+        <input type="text" name="email" placeholder="Email contains…">
+        <select name="eventType">
+          <option value="">All event types</option>
+          <option>login_success</option>
+          <option>login_failure</option>
+          <option>logout</option>
+          <option>signup</option>
+          <option>password_change</option>
+          <option>password_reset_request</option>
+          <option>password_reset_complete</option>
+          <option>account_deleted</option>
+          <option>email_verified</option>
+          <option>api_token_created</option>
+          <option>api_token_revoked</option>
+        </select>
+        <label>From <input type="datetime-local" name="from"></label>
+        <label>To <input type="datetime-local" name="to"></label>
+        <button type="submit">Filter</button>
+      </form>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr><th>Time</th><th>Event</th><th>Email</th><th>User ID</th><th>IP</th><th>User agent</th></tr>
+          </thead>
+          <tbody id="auth-events-body"></tbody>
+        </table>
+      </div>
+      <div class="admin-pager">
+        <button type="button" id="auth-events-prev">&larr; Prev</button>
+        <span id="auth-events-status"></span>
+        <button type="button" id="auth-events-next">Next &rarr;</button>
+      </div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Page visits</h2>
+      <form id="page-visits-filter" class="admin-filter-bar">
+        <input type="text" name="email" placeholder="Email contains…">
+        <input type="text" name="path" placeholder="Path contains…">
+        <label>From <input type="datetime-local" name="from"></label>
+        <label>To <input type="datetime-local" name="to"></label>
+        <button type="submit">Filter</button>
+      </form>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr><th>Time</th><th>Path</th><th>Email</th><th>User ID</th><th>IP</th><th>User agent</th></tr>
+          </thead>
+          <tbody id="page-visits-body"></tbody>
+        </table>
+      </div>
+      <div class="admin-pager">
+        <button type="button" id="page-visits-prev">&larr; Prev</button>
+        <span id="page-visits-status"></span>
+        <button type="button" id="page-visits-next">Next &rarr;</button>
+      </div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Product events</h2>
+      <form id="product-events-filter" class="admin-filter-bar">
+        <input type="text" name="email" placeholder="Email contains…">
+        <input type="text" name="eventName" list="product-event-names" placeholder="Event name…">
+        <datalist id="product-event-names">
+          <option value="social_account_connected">
+          <option value="social_account_disconnected">
+          <option value="post_created">
+          <option value="post_scheduled">
+          <option value="post_deleted">
+          <option value="post_published">
+          <option value="post_failed">
+        </datalist>
+        <label>From <input type="datetime-local" name="from"></label>
+        <label>To <input type="datetime-local" name="to"></label>
+        <button type="submit">Filter</button>
+      </form>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr><th>Time</th><th>Event</th><th>Email</th><th>User ID</th><th>Metadata</th></tr>
+          </thead>
+          <tbody id="product-events-body"></tbody>
+        </table>
+      </div>
+      <div class="admin-pager">
+        <button type="button" id="product-events-prev">&larr; Prev</button>
+        <span id="product-events-status"></span>
+        <button type="button" id="product-events-next">Next &rarr;</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="/csrf.js"></script>
+<script src="/common.js"></script>
+<script src="/admin-activity.js"></script>
+</body>
+</html>
