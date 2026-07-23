@@ -46,7 +46,7 @@ server.tool(
   'List posts, optionally filtered by status or connected account',
   {
     status: z.enum(STATUSES).optional().describe('Only return posts in this status'),
-    social_account_id: z.number().optional().describe('Only return posts for this connected account'),
+    social_account_id: z.coerce.number().optional().describe('Only return posts for this connected account'),
   },
   async ({ status, social_account_id }) => {
     const params = new URLSearchParams();
@@ -61,7 +61,7 @@ server.tool(
   'create_post',
   'Create a new text post, either saved as a draft or scheduled for a specific time. Does not support attaching media — use the Postfox web app for image/video posts.',
   {
-    social_account_id: z.number().describe('The connected account to post to (use list_accounts to find one)'),
+    social_account_id: z.coerce.number().describe('The connected account to post to (use list_accounts to find one)'),
     content: z.string().min(1).describe('The text content of the post'),
     scheduled_for: z
       .string()
@@ -83,7 +83,7 @@ server.tool(
   'update_post',
   "Update an existing draft or scheduled post's content, status, or schedule time",
   {
-    post_id: z.number().describe('The ID of the post to update'),
+    post_id: z.coerce.number().describe('The ID of the post to update'),
     content: z.string().min(1).optional(),
     status: z.enum(STATUSES).optional(),
     scheduled_for: z
@@ -106,7 +106,7 @@ server.tool(
 server.tool(
   'delete_post',
   'Permanently delete a post',
-  { post_id: z.number().describe('The ID of the post to delete') },
+  { post_id: z.coerce.number().describe('The ID of the post to delete') },
   async ({ post_id }) => {
     await apiRequest(`/api/v1/posts/${post_id}`, { method: 'DELETE' });
     return textResult(`Post ${post_id} deleted.`);
