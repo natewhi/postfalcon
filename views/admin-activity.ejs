@@ -20,29 +20,41 @@
     <section class="admin-section">
       <h2>Auth events</h2>
       <form id="auth-events-filter" class="admin-filter-bar">
-        <input type="text" name="email" placeholder="Email contains…">
-        <select name="eventType">
-          <option value="">All event types</option>
-          <option>login_success</option>
-          <option>login_failure</option>
-          <option>logout</option>
-          <option>signup</option>
-          <option>password_change</option>
-          <option>password_reset_request</option>
-          <option>password_reset_complete</option>
-          <option>account_deleted</option>
-          <option>email_verified</option>
-          <option>api_token_created</option>
-          <option>api_token_revoked</option>
-        </select>
-        <label>From <input type="datetime-local" name="from"></label>
-        <label>To <input type="datetime-local" name="to"></label>
+        <div class="admin-filter-field">
+          <label for="auth-events-email">Email</label>
+          <input type="text" id="auth-events-email" name="email" placeholder="contains…">
+        </div>
+        <div class="admin-filter-field">
+          <label for="auth-events-type">Event type</label>
+          <select id="auth-events-type" name="eventType">
+            <option value="">All</option>
+            <option>login_success</option>
+            <option>login_failure</option>
+            <option>logout</option>
+            <option>signup</option>
+            <option>password_change</option>
+            <option>password_reset_request</option>
+            <option>password_reset_complete</option>
+            <option>account_deleted</option>
+            <option>email_verified</option>
+            <option>api_token_created</option>
+            <option>api_token_revoked</option>
+          </select>
+        </div>
+        <div class="admin-filter-field">
+          <label for="auth-events-from">From</label>
+          <input type="datetime-local" id="auth-events-from" name="from">
+        </div>
+        <div class="admin-filter-field">
+          <label for="auth-events-to">To</label>
+          <input type="datetime-local" id="auth-events-to" name="to">
+        </div>
         <button type="submit">Filter</button>
       </form>
       <div class="admin-table-wrap">
         <table class="admin-table">
           <thead>
-            <tr><th>Time</th><th>Event</th><th>Email</th><th>User ID</th><th>IP</th><th>User agent</th></tr>
+            <tr><th class="nowrap">Time</th><th class="nowrap">Event</th><th>Email</th><th class="nowrap">User ID</th><th>IP</th><th>User agent</th></tr>
           </thead>
           <tbody id="auth-events-body"></tbody>
         </table>
@@ -57,16 +69,28 @@
     <section class="admin-section">
       <h2>Page visits</h2>
       <form id="page-visits-filter" class="admin-filter-bar">
-        <input type="text" name="email" placeholder="Email contains…">
-        <input type="text" name="path" placeholder="Path contains…">
-        <label>From <input type="datetime-local" name="from"></label>
-        <label>To <input type="datetime-local" name="to"></label>
+        <div class="admin-filter-field">
+          <label for="page-visits-email">Email</label>
+          <input type="text" id="page-visits-email" name="email" placeholder="contains…">
+        </div>
+        <div class="admin-filter-field">
+          <label for="page-visits-path">Path</label>
+          <input type="text" id="page-visits-path" name="path" placeholder="contains…">
+        </div>
+        <div class="admin-filter-field">
+          <label for="page-visits-from">From</label>
+          <input type="datetime-local" id="page-visits-from" name="from">
+        </div>
+        <div class="admin-filter-field">
+          <label for="page-visits-to">To</label>
+          <input type="datetime-local" id="page-visits-to" name="to">
+        </div>
         <button type="submit">Filter</button>
       </form>
       <div class="admin-table-wrap">
         <table class="admin-table">
           <thead>
-            <tr><th>Time</th><th>Path</th><th>Email</th><th>User ID</th><th>IP</th><th>User agent</th></tr>
+            <tr><th class="nowrap">Time</th><th>Path</th><th>Email</th><th class="nowrap">User ID</th><th>IP</th><th>User agent</th></tr>
           </thead>
           <tbody id="page-visits-body"></tbody>
         </table>
@@ -81,25 +105,37 @@
     <section class="admin-section">
       <h2>Product events</h2>
       <form id="product-events-filter" class="admin-filter-bar">
-        <input type="text" name="email" placeholder="Email contains…">
-        <input type="text" name="eventName" list="product-event-names" placeholder="Event name…">
-        <datalist id="product-event-names">
-          <option value="social_account_connected">
-          <option value="social_account_disconnected">
-          <option value="post_created">
-          <option value="post_scheduled">
-          <option value="post_deleted">
-          <option value="post_published">
-          <option value="post_failed">
-        </datalist>
-        <label>From <input type="datetime-local" name="from"></label>
-        <label>To <input type="datetime-local" name="to"></label>
+        <div class="admin-filter-field">
+          <label for="product-events-email">Email</label>
+          <input type="text" id="product-events-email" name="email" placeholder="contains…">
+        </div>
+        <div class="admin-filter-field">
+          <label for="product-events-name">Event name</label>
+          <input type="text" id="product-events-name" name="eventName" list="product-event-names" placeholder="e.g. post_created">
+          <datalist id="product-event-names">
+            <option value="social_account_connected">
+            <option value="social_account_disconnected">
+            <option value="post_created">
+            <option value="post_scheduled">
+            <option value="post_deleted">
+            <option value="post_published">
+            <option value="post_failed">
+          </datalist>
+        </div>
+        <div class="admin-filter-field">
+          <label for="product-events-from">From</label>
+          <input type="datetime-local" id="product-events-from" name="from">
+        </div>
+        <div class="admin-filter-field">
+          <label for="product-events-to">To</label>
+          <input type="datetime-local" id="product-events-to" name="to">
+        </div>
         <button type="submit">Filter</button>
       </form>
       <div class="admin-table-wrap">
         <table class="admin-table">
           <thead>
-            <tr><th>Time</th><th>Event</th><th>Email</th><th>User ID</th><th>Metadata</th></tr>
+            <tr><th class="nowrap">Time</th><th class="nowrap">Event</th><th>Email</th><th class="nowrap">User ID</th><th>Metadata</th></tr>
           </thead>
           <tbody id="product-events-body"></tbody>
         </table>

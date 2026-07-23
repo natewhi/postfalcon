@@ -8,6 +8,7 @@ function formatCell(value) {
 
 function createAdminSection({ apiPath, formId, bodyId, prevId, nextId, statusId, columns }) {
   let page = 1;
+  let requestId = 0;
 
   function currentFilters() {
     const form = document.getElementById(formId);
@@ -23,13 +24,20 @@ function createAdminSection({ apiPath, formId, bodyId, prevId, nextId, statusId,
     params.set('page', String(page));
     params.set('pageSize', String(PAGE_SIZE));
 
+    // Guards against out-of-order responses: rapid Prev/Next clicks (or a slow network) can
+    // let an older request resolve after a newer one and overwrite the display with stale
+    // data. Each call claims the next id; a response is only rendered if it's still current.
+    const thisRequestId = ++requestId;
+
     const body = document.getElementById(bodyId);
     body.innerHTML = `<tr><td colspan="${columns.length}" class="empty"><span class="spinner"></span> Loading…</td></tr>`;
 
     try {
       const result = await apiJson(`${apiPath}?${params.toString()}`);
+      if (thisRequestId !== requestId) return;
       render(result);
     } catch (err) {
+      if (thisRequestId !== requestId) return;
       body.innerHTML = `<tr><td colspan="${columns.length}" class="empty">Failed to load.</td></tr>`;
       showToast(err.message);
     }
@@ -43,7 +51,12 @@ function createAdminSection({ apiPath, formId, bodyId, prevId, nextId, statusId,
       body.innerHTML = result.rows
         .map(
           (row) =>
-            `<tr>${columns.map((col) => `<td>${escapeHtml(formatCell(col.render ? col.render(row) : row[col.key]))}</td>`).join('')}</tr>`
+            `<tr>${columns
+              .map(
+                (col) =>
+                  `<td${col.nowrap ? ' class="nowrap"' : ''}>${escapeHtml(formatCell(col.render ? col.render(row) : row[col.key]))}</td>`
+              )
+              .join('')}</tr>`
         )
         .join('');
     }
@@ -79,11 +92,11 @@ createAdminSection({
   nextId: 'auth-events-next',
   statusId: 'auth-events-status',
   columns: [
-    { render: (r) => new Date(r.created_at).toLocaleString() },
-    { key: 'event_type' },
+    { render: (r) => new Date(r.created_at).toLocaleString(), nowrap: true },
+    { key: 'event_type', nowrap: true },
     { key: 'email' },
-    { key: 'user_id' },
-    { key: 'ip_address' },
+    { key: 'user_id', nowrap: true },
+    { key: 'ip_address', nowrap: true },
     { key: 'user_agent' },
   ],
 });
@@ -96,11 +109,11 @@ createAdminSection({
   nextId: 'page-visits-next',
   statusId: 'page-visits-status',
   columns: [
-    { render: (r) => new Date(r.created_at).toLocaleString() },
-    { key: 'path' },
+    { render: (r) => new Date(r.created_at).toLocaleString(), nowrap: true },
+    { key: 'path', nowrap: true },
     { key: 'email' },
-    { key: 'user_id' },
-    { key: 'ip_address' },
+    { key: 'user_id', nowrap: true },
+    { key: 'ip_address', nowrap: true },
     { key: 'user_agent' },
   ],
 });
@@ -113,10 +126,10 @@ createAdminSection({
   nextId: 'product-events-next',
   statusId: 'product-events-status',
   columns: [
-    { render: (r) => new Date(r.created_at).toLocaleString() },
-    { key: 'event_name' },
+    { render: (r) => new Date(r.created_at).toLocaleString(), nowrap: true },
+    { key: 'event_name', nowrap: true },
     { key: 'email' },
-    { key: 'user_id' },
+    { key: 'user_id', nowrap: true },
     { key: 'metadata' },
   ],
 });
