@@ -67,3 +67,37 @@ describe('social account deletion', () => {
     expect(fs.existsSync(filePath)).toBe(false);
   });
 });
+
+describe('social account creation — platform registry', () => {
+  it('accepts a platform that is connected manually', async () => {
+    const client = await loginNewUser();
+    const res = await client
+      .post('/api/v1/social-accounts')
+      .send({ platform: 'reddit', display_name: 'My Page' });
+    expect(res.status).toBe(201);
+    expect(res.body.platform).toBe('reddit');
+  });
+
+  it('rejects a platform that must be connected via OAuth', async () => {
+    const client = await loginNewUser();
+    // NODE_ENV=test bypasses the OAuth guard so the suite can seed accounts, so assert the
+    // registry entry directly instead.
+    const { PLATFORMS } = await import('../lib/platforms.js');
+    expect(PLATFORMS.youtube.connect).toBe('oauth');
+    expect(PLATFORMS.tiktok.connect).toBe('oauth');
+  });
+
+  // The registry currently has no `connect: 'none'` entry (the chat apps that used to be the
+  // only example — whatsapp/wechat/messenger/snapchat/douyin — were removed; see
+  // lib/platforms.js), so there's no live fixture for the "no way to connect" 400 branch in
+  // routes/socialAccounts.js right now. The code path stays in place for the next platform
+  // that turns out to have no public API.
+
+  it('rejects an unknown platform', async () => {
+    const client = await loginNewUser();
+    const res = await client
+      .post('/api/v1/social-accounts')
+      .send({ platform: 'myspace', display_name: 'tom' });
+    expect(res.status).toBe(400);
+  });
+});

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/theme-init.js"></script>
+<meta name="color-scheme" content="light dark">
+<title>Pricing - Postfox</title>
+<meta name="description" content="Postfox pricing — Standard, Team and Pro plans for scheduling across every platform. 7-day free trial on every plan.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="landing pricing-page dark-canvas">
+  <%- include('partials/site-header') %>
+
+  <main class="pricing-main">
+    <svg class="pricing-squig pricing-squig-1" viewBox="0 0 240 54" aria-hidden="true">
+      <path d="M6 30C30 6 58 8 84 28 108 46 140 46 166 26 188 9 216 10 234 26" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    </svg>
+    <svg class="pricing-squig pricing-squig-2" viewBox="0 0 110 92" aria-hidden="true">
+      <path d="M12 82C4 58 22 42 42 52 58 60 64 44 58 28 54 16 66 6 98 12" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    </svg>
+    <svg class="pricing-squig pricing-squig-3" viewBox="0 0 260 46" aria-hidden="true">
+      <path d="M6 26C38 6 74 8 108 24 138 38 170 38 202 22 226 10 246 12 256 22" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    </svg>
+
+    <section class="pricing-hero">
+      <h1>Simple <span class="underline-mark">pricing.<svg class="underline-mark-line" viewBox="0 0 320 22" preserveAspectRatio="none" aria-hidden="true"><path d="M5 14C70 5 150 5 210 10s70 6 105 1" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/></svg></span></h1>
+      <p class="landing-subhead">Every plan starts with a 7-day free trial. Cancel anytime.</p>
+      <p id="pricing-message" class="error" hidden></p>
+    </section>
+
+    <section class="pricing-grid">
+      <% Object.entries(plans).forEach(function ([id, plan]) { %>
+      <div class="pricing-card<%= plan.popular ? ' pricing-card-featured' : '' %>">
+        <% if (plan.popular) { %><span class="pricing-badge">Most popular</span><% } %>
+        <h2><%= plan.name %></h2>
+        <p class="pricing-price">$<%= plan.priceUsd %><span>/mo</span></p>
+        <p class="pricing-tagline"><%= plan.tagline %></p>
+        <p class="pricing-channels"><strong><%= plan.limits.accounts %></strong> connected channels</p>
+        <ul class="pricing-features">
+          <% plan.features.forEach(function (f) { %><li><%= f %></li><% }); %>
+        </ul>
+        <div class="pricing-cta">
+          <% if (!loggedIn) { %>
+            <a href="/signup?plan=<%= id %>" class="btn-link">Start 7-day trial</a>
+          <% } else if (currentPlan === id) { %>
+            <button type="button" class="btn-secondary" disabled>Current plan</button>
+          <% } else { %>
+            <button type="button" class="btn-link plan-cta" data-plan="<%= id %>">Start 7-day trial</button>
+          <% } %>
+        </div>
+      </div>
+      <% }); %>
+    </section>
+
+    <p class="pricing-footnote">
+      Prices in USD. Every plan includes cross-posting, recurring posts, the REST API and the
+      MCP server for AI agents. Change plan or cancel anytime from the billing portal.
+      <% if (loggedIn) { %><button type="button" class="pricing-portal-link" data-portal>Manage billing &rarr;</button><% } %>
+    </p>
+  </main>
+
+  <footer class="landing-footer">
+    <span>&copy; <%= new Date().getFullYear() %> Postfox</span>
+    <a href="/blog">Blog</a>
+    <a href="/api-docs">API docs</a>
+  </footer>
+</div>
+
+<script src="/csrf.js"></script>
+<script src="/pricing.js"></script>
+<%- include('partials/analytics') %>
+</body>
+</html>

@@ -33,7 +33,22 @@
           <dt>Member since</dt>
           <dd><%= new Date(createdAt).toLocaleDateString() %></dd>
         </div>
+        <% if (hasGoogle) { %>
+        <div>
+          <dt>Sign-in</dt>
+          <dd>Google<% if (hasPassword) { %> + password<% } %></dd>
+        </div>
+        <% } %>
       </dl>
+    </section>
+
+    <section class="settings-section">
+      <h2>Plan</h2>
+      <p id="plan-summary" class="hint">Loading&hellip;</p>
+      <div class="token-actions">
+        <a href="/pricing" class="btn-secondary">See plans</a>
+        <button type="button" id="manage-billing-btn" hidden>Manage billing</button>
+      </div>
     </section>
 
     <section class="settings-section">
@@ -53,14 +68,36 @@
       </div>
     </section>
 
+    <section class="settings-section" id="webhooks-section" hidden>
+      <h2>Outbound webhooks</h2>
+      <p class="hint">Postfox will POST a JSON payload to your endpoint when a post is published or fails. Each delivery is signed with <code>X-Postfox-Signature: sha256=&lt;hex&gt;</code> (HMAC-SHA256 of the raw body using the signing secret). See the <a href="/api-docs">API docs</a> for the payload shape.</p>
+      <ul id="webhooks-list" class="webhooks-list"></ul>
+      <div id="webhook-secret-reveal" class="composer-field" hidden>
+        <label for="webhook-secret-value">Signing secret <span class="label-optional">(copy it now &mdash; you won't see it again)</span></label>
+        <div class="token-input-row">
+          <input type="text" id="webhook-secret-value" readonly>
+          <button type="button" id="webhook-secret-copy">Copy</button>
+        </div>
+      </div>
+      <form id="webhook-add-form" class="settings-form">
+        <label>Endpoint URL <input type="url" name="url" placeholder="https://example.com/hooks/postfox" required></label>
+        <button type="submit">Add webhook</button>
+      </form>
+    </section>
+
     <section class="settings-section">
-      <h2>Change password</h2>
-      <p class="hint">Update the password you use to log in.</p>
+      <h2><%= hasPassword ? 'Change password' : 'Set a password' %></h2>
+      <p class="hint">
+        <% if (hasPassword) { %>Update the password you use to log in.<% } else { %>
+        You signed up with Google, so there's no password yet. Set one so you can also log in
+        directly, as a fallback if you ever lose access to that Google account.
+        <% } %>
+      </p>
       <form id="change-password-form" class="settings-form">
-        <label>Current password <input type="password" name="currentPassword" required></label>
+        <% if (hasPassword) { %><label>Current password <input type="password" name="currentPassword" required></label><% } %>
         <label>New password <input type="password" name="newPassword" required minlength="8"></label>
         <label>Confirm new password <input type="password" name="confirmNewPassword" required minlength="8"></label>
-        <button type="submit">Update password</button>
+        <button type="submit"><%= hasPassword ? 'Update password' : 'Set password' %></button>
       </form>
     </section>
 
@@ -68,7 +105,7 @@
       <h2>Delete account</h2>
       <p class="hint">Permanently deletes your account, connected social accounts, and all scheduled posts. This cannot be undone.</p>
       <form id="delete-account-form" class="settings-form">
-        <label>Password <input type="password" name="password" required></label>
+        <% if (hasPassword) { %><label>Password <input type="password" name="password" required></label><% } %>
         <button type="submit" class="delete-btn">Delete my account</button>
       </form>
     </section>

@@ -10,14 +10,8 @@
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<div class="landing">
-  <header class="landing-nav">
-    <a href="/" class="landing-brand">Postfox</a>
-    <nav class="landing-nav-links">
-      <a href="/login">Log in</a>
-      <a href="/signup" class="btn-link">Sign up free</a>
-    </nav>
-  </header>
+<div class="landing dark-canvas">
+  <%- include('partials/site-header') %>
 
   <main class="api-docs">
     <section class="api-docs-hero">
@@ -66,12 +60,91 @@
             <tr><td><code>DELETE /api/v1/social-accounts/:id</code></td><td>Disconnect an account</td></tr>
             <tr><td><code>GET /api/v1/posts</code></td><td>List posts &mdash; filter with <code>?status=</code> and <code>?social_account_id=</code></td></tr>
             <tr><td><code>GET /api/v1/posts/:id</code></td><td>Get a single post</td></tr>
-            <tr><td><code>POST /api/v1/posts</code></td><td>Create a draft or scheduled post (<code>social_account_id</code>, <code>content</code>, optional <code>scheduled_for</code>)</td></tr>
-            <tr><td><code>PATCH /api/v1/posts/:id</code></td><td>Update a post's content, status, or schedule</td></tr>
+            <tr><td><code>POST /api/v1/posts</code></td><td>Create a draft or scheduled post (<code>social_account_id</code> <em>or</em> <code>social_account_ids</code>, <code>content</code>, optional <code>scheduled_for</code>, <code>repeat_interval</code>, <code>repeat_until</code>)</td></tr>
+            <tr><td><code>PATCH /api/v1/posts/:id</code></td><td>Update a post's content, status, schedule, or repeat settings</td></tr>
             <tr><td><code>DELETE /api/v1/posts/:id</code></td><td>Delete a post</td></tr>
+            <tr><td><code>GET /api/v1/analytics/summary</code></td><td>Engagement totals, a 7-day views chart, and your top post this week</td></tr>
+            <tr><td><code>GET /api/v1/webhooks</code></td><td>List your webhook endpoints <span class="hint">(Team &amp; Pro plans)</span></td></tr>
+            <tr><td><code>POST /api/v1/webhooks</code></td><td>Register an endpoint (<code>url</code>, optional <code>events</code>) &mdash; returns the signing <code>secret</code> once</td></tr>
+            <tr><td><code>DELETE /api/v1/webhooks/:id</code></td><td>Remove a webhook endpoint</td></tr>
           </tbody>
         </table>
       </div>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Cross-posting</h2>
+      <p>
+        Pass <code>social_account_ids</code> (a JSON array, or a repeated form field) instead of
+        <code>social_account_id</code> to publish the same content to several channels at once. Postfox
+        creates one post per channel, all sharing a <code>crosspost_group_id</code>, and the response is
+        <code>{ "crosspost_group_id": "&hellip;", "posts": [&hellip;] }</code>. A single-channel request is
+        unchanged &mdash; it still returns the bare post object. Cross-posting requires a plan with the
+        capability (all current paid plans).
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Repeated posts</h2>
+      <p>
+        Add <code>repeat_interval</code> (<code>daily</code>, <code>weekly</code>, or <code>monthly</code>)
+        to a scheduled post to make it recurring. Optionally set <code>repeat_until</code> (ISO 8601) to
+        stop after a date; otherwise it runs for up to a year. When an occurrence publishes, Postfox queues
+        the next one automatically with its own copy of any attached media.
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Analytics</h2>
+      <p>
+        A few times a day, Postfox pulls fresh view/like/comment/share counts for your recently-posted
+        content straight from each platform's API and stores the latest snapshot on the post. Coverage
+        varies by platform: Bluesky, Facebook, Instagram, Mastodon, Threads, and YouTube report likes and
+        comments (YouTube and Threads also report views); Telegram and TikTok don't expose post metrics
+        through their APIs, so those posts stay unmetered. <code>GET /api/v1/posts</code> includes the raw
+        <code>metric_views</code> / <code>metric_likes</code> / <code>metric_comments</code> /
+        <code>metric_shares</code> / <code>metrics_updated_at</code> fields on every post (<code>null</code>
+        until a platform reports something); <code>GET /api/v1/analytics/summary</code> aggregates them into
+        a ready-to-chart response:
+      </p>
+      <pre><code>{
+  "days": [{ "date": "2026-09-09", "views": 412, "likes": 38, "comments": 5 }, ...],
+  "totals": { "views": 3120, "likes": 266, "comments": 41, "shares": 9 },
+  "postsWithMetrics": 14,
+  "postsPosted": 16,
+  "topPost": { "id": 812, "platform": "youtube", "content": "...", "metric_views": 1204, ... }
+}</code></pre>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Webhooks</h2>
+      <p>
+        Register an HTTPS endpoint and Postfox will <code>POST</code> it a JSON body whenever one of your
+        posts is published or fails:
+      </p>
+      <pre><code>{
+  "event": "post.published",
+  "sent_at": "2026-09-10T12:00:00.000Z",
+  "data": {
+    "post_id": 42,
+    "platform": "mastodon",
+    "platform_post_id": "109...",
+    "scheduled_for": "2026-09-10T12:00:00.000Z"
+  }
+}</code></pre>
+      <p>
+        Events are <code>post.published</code> and <code>post.failed</code> (a failure payload carries
+        <code>error</code> instead of the platform id). Every request is signed so you can verify it came
+        from Postfox:
+      </p>
+      <pre><code>X-Postfox-Event: post.published
+X-Postfox-Signature: sha256=&lt;hex&gt;</code></pre>
+      <p>
+        The signature is <code>HMAC-SHA256(secret, rawRequestBody)</code>, hex-encoded. The secret is shown
+        once when you create the webhook. Deliveries time out after 8&nbsp;seconds and are not retried;
+        the last delivery's timestamp and HTTP status are visible in Settings. Webhooks are available on
+        the Team and Pro plans.
+      </p>
     </section>
 
     <section class="api-docs-section">
@@ -89,14 +162,41 @@
     </section>
 
     <section class="api-docs-section">
-      <h2>Prefer an agent?</h2>
-      <p>Postfox ships an <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP</a> server built on this same API &mdash; point it at your token and base URL instead of calling the endpoints directly.</p>
+      <h2>Any AI agent</h2>
+      <p>
+        Postfox ships an <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP</a>
+        server built on this same API, in two forms depending on how your agent connects &mdash;
+        both expose the same 6 tools (<code>list_accounts</code>, <code>list_posts</code>,
+        <code>create_post</code>, <code>update_post</code>, <code>delete_post</code>,
+        <code>get_analytics_summary</code>):
+      </p>
+      <ul>
+        <li>
+          <strong>A local command</strong> (Claude Desktop, Cursor's <code>command</code>-style config, or
+          any client that spawns a process): from a clone of the Postfox repo, run
+          <code>node mcp/server.js</code> with <code>POSTFOX_BASE_URL</code> and
+          <code>POSTFOX_API_TOKEN</code> set to your host and token.
+        </li>
+        <li>
+          <strong>A URL</strong> (ChatGPT, Claude.ai, Cursor's <code>url</code>-style config, OpenClaw, or
+          any other client that speaks <a href="https://modelcontextprotocol.io/specification/2025-03-26/basic/transports" target="_blank" rel="noopener">Streamable HTTP</a>):
+          point it at <code>https://your-postfox-host/mcp</code> with your token as a standard
+          bearer header &mdash; no local process to run.
+        </li>
+      </ul>
+      <pre><code>Authorization: Bearer pf_&lt;your token&gt;</code></pre>
+      <p class="hint">
+        Not an MCP client? The plain REST API above works from anywhere that can make an HTTPS
+        request with a bearer token &mdash; a Custom GPT Action, a script, or any other agent.
+      </p>
     </section>
   </main>
 
   <footer class="landing-footer">
     <span>&copy; <%= new Date().getFullYear() %> Postfox</span>
+    <a href="/blog">Blog</a>
   </footer>
 </div>
+<%- include('partials/analytics') %>
 </body>
 </html>

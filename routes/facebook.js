@@ -5,6 +5,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { sanitizeUrl } from '../lib/url.js';
 import { logProductEvent } from '../lib/activityLog.js';
 import { logger } from '../lib/logger.js';
+import { limitsForPlan } from '../lib/billing.js';
 
 const router = Router();
 const GRAPH_VERSION = 'v19.0';
@@ -91,7 +92,32 @@ router.get(
     }
     const { data: pages } = await pagesRes.json();
 
+    // Reconnecting an account already on the books just refreshes its token, so it's always
+    // allowed; brand-new accounts are capped by the user's plan. Track a running count so
+    // one callback can't blow past the limit by connecting many Pages at once.
+    const accountCap = limitsForPlan(req.user.plan).accounts;
+    const { rows: currentAccounts } = await pool.query(
+      'SELECT platform, external_account_id FROM social_accounts WHERE user_id = $1',
+      [req.user.id]
+    );
+    const known = new Set(currentAccounts.map((r) => `${r.platform}:${r.external_account_id}`));
+    let accountCount = currentAccounts.length;
+    let skippedAny = false;
+
+    function reserveSlot(platform, externalId) {
+      const key = `${platform}:${externalId}`;
+      if (known.has(key)) return true;
+      if (accountCap !== Infinity && accountCount >= accountCap) {
+        skippedAny = true;
+        return false;
+      }
+      known.add(key);
+      accountCount += 1;
+      return true;
+    }
+
     for (const page of pages) {
+      if (!reserveSlot('facebook', page.id)) continue;
       await upsertSocialAccount({
         userId: req.user.id,
         platform: 'facebook',
@@ -107,6 +133,7 @@ router.get(
       if (!igRes.ok) continue;
       const { instagram_business_account: igAccount } = await igRes.json();
       if (!igAccount) continue;
+      if (!reserveSlot('instagram', igAccount.id)) continue;
 
       const igInfoRes = await fetch(
         `https://graph.facebook.com/${GRAPH_VERSION}/${igAccount.id}?fields=username,profile_picture_url&access_token=${encodeURIComponent(page.access_token)}`
@@ -123,7 +150,7 @@ router.get(
       });
     }
 
-    res.redirect('/accounts');
+    res.redirect(skippedAny ? '/accounts?error=plan_limit' : '/accounts');
   })
 );
 

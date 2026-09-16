@@ -44,6 +44,129 @@ router.post('/login', authLimiter, validate(loginSchema), (req, res, next) => {
   })(req, res, next);
 });
 
+// "Sign in with Google" — a login/signup alternative to email+password, hand-rolled with raw
+// fetch() the same way every other OAuth flow in this codebase is (Mastodon/Facebook/Threads/
+// YouTube/TikTok), not a passport strategy package. Reuses the same GOOGLE_CLIENT_ID/SECRET as
+// routes/youtube.js's channel-connect flow (one Google Cloud OAuth client, two redirect URIs,
+// different scopes) — but is otherwise unrelated: this never touches social_accounts or stores
+// a Google access token, it only needs the one-time profile lookup to establish a session.
+const GOOGLE_AUTH_SCOPE = 'openid email profile';
+
+function googleRedirectUri() {
+  return `${process.env.BASE_URL}/api/auth/google/callback`;
+}
+
+router.get(
+  '/google',
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      return res.status(503).send('Google sign-in is not configured on this server.');
+    }
+    const state = crypto.randomBytes(16).toString('hex');
+    req.session.googleAuthState = state;
+    // Carried through to the callback so a signup flow (?plan=standard, from /pricing) still
+    // lands on checkout afterward, same as local email/password signup does.
+    req.session.googleAuthPlan = typeof req.query.plan === 'string' ? req.query.plan.slice(0, 40) : null;
+
+    const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    url.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID);
+    url.searchParams.set('redirect_uri', googleRedirectUri());
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('scope', GOOGLE_AUTH_SCOPE);
+    url.searchParams.set('state', state);
+    res.redirect(url.toString());
+  })
+);
+
+router.get(
+  '/google/callback',
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const { code, state } = req.query;
+    const plan = req.session.googleAuthPlan;
+    delete req.session.googleAuthPlan;
+    if (!code || !state || state !== req.session.googleAuthState) {
+      return res.status(400).send('Invalid or expired sign-in attempt. Please try again.');
+    }
+    delete req.session.googleAuthState;
+
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: googleRedirectUri(),
+        grant_type: 'authorization_code',
+        code: String(code),
+      }),
+    });
+    const token = await tokenRes.json().catch(() => ({}));
+    if (!tokenRes.ok || !token.access_token) {
+      return res.status(502).send('Failed to complete sign-in with Google.');
+    }
+
+    const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${token.access_token}` },
+    });
+    const profile = await profileRes.json().catch(() => ({}));
+    if (!profile.sub || !profile.email) {
+      return res.status(502).send('Google did not return a usable account profile.');
+    }
+    if (profile.email_verified === false) {
+      return res.status(400).send("That Google account's email address is not verified.");
+    }
+
+    const googleId = profile.sub;
+    const email = String(profile.email).toLowerCase();
+
+    // Match an existing account by google_id first, then fall back to matching by email —
+    // that links this Google sign-in to a pre-existing password account instead of creating a
+    // duplicate — and only create a new row if neither matched.
+    let result = await pool.query('SELECT id, email FROM users WHERE google_id = $1', [googleId]);
+    let isNewUser = false;
+
+    if (result.rows.length === 0) {
+      const byEmail = await pool.query('SELECT id, email, google_id FROM users WHERE email = $1', [email]);
+      if (byEmail.rows.length > 0) {
+        if (!byEmail.rows[0].google_id) {
+          await pool.query('UPDATE users SET google_id = $1 WHERE id = $2', [googleId, byEmail.rows[0].id]);
+        }
+        result = byEmail;
+      } else {
+        // Google already verified this email, so there's no point making them click a
+        // verification link we'd send ourselves — mark it verified immediately.
+        result = await pool.query(
+          `INSERT INTO users (email, google_id, password_hash, email_verified_at)
+           VALUES ($1, $2, NULL, now())
+           RETURNING id, email`,
+          [email, googleId]
+        );
+        isNewUser = true;
+      }
+    }
+
+    const user = result.rows[0];
+
+    req.login({ id: user.id, email: user.email }, async (err) => {
+      if (err) {
+        req.log.error({ err }, 'failed to establish session after Google sign-in');
+        return res.status(500).send('Signed in with Google, but starting your session failed. Please try again.');
+      }
+      await logAuthEvent(req, isNewUser ? 'signup' : 'login_success', {
+        userId: user.id,
+        email: user.email,
+      }).catch((logErr) => req.log.error({ err: logErr }, 'failed to record auth event'));
+
+      if (isNewUser) {
+        return res.redirect(plan ? `/pricing?start=${encodeURIComponent(plan)}` : '/pricing');
+      }
+      res.redirect('/dashboard');
+    });
+  })
+);
+
 router.post('/logout', (req, res, next) => {
   const loggedOutUser = req.user;
   req.logout(async (err) => {
@@ -142,8 +265,11 @@ router.post(
   })
 );
 
+// currentPassword is optional because a Google-only account (no password_hash yet) has
+// nothing to verify against — this doubles as "set a password" for that case, so a Google
+// sign-in also has a fallback way in if they ever lose access to that Google account.
 const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1),
+  currentPassword: z.string().min(1).optional(),
   newPassword: z.string().min(8).max(255),
 });
 
@@ -155,8 +281,8 @@ router.post(
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
     const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
-    const valid = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
-    if (!valid) {
+    const existingHash = result.rows[0].password_hash;
+    if (existingHash && !(currentPassword && (await bcrypt.compare(currentPassword, existingHash)))) {
       return res.status(401).json({ error: 'current password is incorrect' });
     }
     const password_hash = await bcrypt.hash(newPassword, 10);
@@ -183,7 +309,9 @@ router.post(
   })
 );
 
-const deleteAccountSchema = z.object({ password: z.string().min(1) });
+// password is optional for the same reason as /change-password above — a Google-only account
+// has none to check, so the active authenticated session is the only factor available there.
+const deleteAccountSchema = z.object({ password: z.string().min(1).optional() });
 
 router.post(
   '/delete-account',
@@ -193,8 +321,8 @@ router.post(
   asyncHandler(async (req, res) => {
     const { password } = req.body;
     const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
-    const valid = await bcrypt.compare(password, result.rows[0].password_hash);
-    if (!valid) {
+    const existingHash = result.rows[0].password_hash;
+    if (existingHash && !(password && (await bcrypt.compare(password, existingHash)))) {
       return res.status(401).json({ error: 'password is incorrect' });
     }
 

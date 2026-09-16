@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/theme-init.js"></script>
+<meta name="color-scheme" content="light dark">
+<title>Blog - Postfox</title>
+<meta name="description" content="Guides for getting the most out of Postfox &mdash; connecting accounts, scheduling and cross-posting, and why teams self-host their social scheduler.">
+<link rel="canonical" href="<%= process.env.BASE_URL %>/blog<%= (page > 1 || activeCategory) ? `?${[page > 1 ? `page=${page}` : '', activeCategory ? `category=${encodeURIComponent(activeCategory)}` : ''].filter(Boolean).join('&')}` : '' %>">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Postfox">
+<meta property="og:title" content="Postfox Blog">
+<meta property="og:description" content="Guides for getting the most out of Postfox &mdash; connecting accounts, scheduling and cross-posting, and why teams self-host their social scheduler.">
+<meta property="og:url" content="<%= process.env.BASE_URL %>/blog">
+<meta name="twitter:card" content="summary">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="landing dark-canvas">
+  <%- include('partials/site-header') %>
+
+  <main class="blog-main blog-index-main">
+    <header class="blog-hero">
+      <h1>Postfox <span class="underline-mark">blog.<svg class="underline-mark-line" viewBox="0 0 320 22" preserveAspectRatio="none" aria-hidden="true"><path d="M5 14C70 5 150 5 210 10s70 6 105 1" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/></svg></span></h1>
+      <p class="landing-subhead">Guides for getting the most out of Postfox, and why teams choose to self-host their scheduler.</p>
+    </header>
+
+    <div class="blog-filter">
+      <p class="blog-filter-label">Browse by category</p>
+      <div class="blog-filter-pills">
+        <a href="/blog" class="blog-filter-pill<%= activeCategory ? '' : ' active' %>">All</a>
+        <% categories.forEach((cat) => { %>
+        <a href="/blog?category=<%= encodeURIComponent(cat) %>" class="blog-filter-pill<%= activeCategory && activeCategory.toLowerCase() === cat.toLowerCase() ? ' active' : '' %>"><%= cat %></a>
+        <% }); %>
+      </div>
+    </div>
+
+    <% if (posts.length === 0) { %>
+    <p class="blog-empty"><%= activeCategory ? `Nothing in "${activeCategory}" yet.` : 'Nothing published yet — check back soon.' %></p>
+    <% } %>
+
+    <section class="blog-grid">
+      <% posts.forEach((post) => { %>
+      <article class="blog-card">
+        <a href="/blog/<%= post.slug %>" class="blog-card-link">
+          <div class="blog-card-thumb<%= post.image ? '' : ` blog-card-thumb-${post.cardArt.palette}` %>">
+            <% if (post.image) { %>
+            <img src="<%= post.image %>" alt="" class="blog-card-thumb-img">
+            <% } else { %>
+            <svg class="blog-card-thumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <% if (post.cardArt.icon === 0) { %>
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              <% } else if (post.cardArt.icon === 1) { %>
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              <% } else if (post.cardArt.icon === 2) { %>
+              <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+              <% } else { %>
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              <% } %>
+            </svg>
+            <% } %>
+          </div>
+          <div class="blog-card-body">
+            <% if (post.tags.length) { %><p class="blog-card-category"><%= post.tags[0] %></p><% } %>
+            <h2><%= post.title %></h2>
+            <p class="blog-card-excerpt"><%= post.description %></p>
+            <p class="blog-card-meta">
+              <span class="blog-card-avatar" aria-hidden="true">
+                <% if (post.author.avatar) { %><img src="<%= post.author.avatar %>" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">
+                <% } else { %><%= post.author.initial %><% } %>
+              </span>
+              <span class="blog-card-author"><%= post.author.name %></span>
+              <span aria-hidden="true">&middot;</span>
+              <time datetime="<%= post.date.toISOString() %>"><%= post.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></time>
+            </p>
+          </div>
+        </a>
+      </article>
+      <% }); %>
+    </section>
+
+    <% if (totalPages > 1) { %>
+    <nav class="blog-pagination" aria-label="Blog pagination">
+      <% const pageHref = (p) => `/blog?${[`page=${p}`, activeCategory ? `category=${encodeURIComponent(activeCategory)}` : ''].filter(Boolean).join('&')}`; %>
+      <% if (hasPrev) { %><a href="<%= pageHref(page - 1) %>" rel="prev">&larr; Newer</a><% } else { %><span></span><% } %>
+      <span class="blog-pagination-status">Page <%= page %> of <%= totalPages %></span>
+      <% if (hasNext) { %><a href="<%= pageHref(page + 1) %>" rel="next">Older &rarr;</a><% } else { %><span></span><% } %>
+    </nav>
+    <% } %>
+  </main>
+
+  <footer class="landing-footer">
+    <span>&copy; <%= new Date().getFullYear() %> Postfox</span>
+    <a href="/pricing">Pricing</a>
+    <a href="/api-docs">API docs</a>
+  </footer>
+</div>
+<%- include('partials/analytics') %>
+</body>
+</html>

@@ -43,19 +43,74 @@
       </div>
 
       <div class="connect-option">
+        <h3>Telegram</h3>
+        <p class="hint">
+          Create a bot with <a href="https://t.me/botfather" target="_blank" rel="noopener">@BotFather</a>, add it
+          to your channel as an admin, then paste its token and the channel (e.g. <code>@yourchannel</code>).
+        </p>
+        <form id="telegram-connect-form">
+          <input type="text" name="token" placeholder="Bot token (123456789:AA…)" required>
+          <input type="text" name="chat_id" placeholder="@yourchannel or -100…" required>
+          <button type="submit">Connect Telegram</button>
+        </form>
+      </div>
+
+      <div class="connect-option">
+        <h3>Bluesky</h3>
+        <p class="hint">
+          Enter your handle and an
+          <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">app password</a>
+          (Settings &rarr; App Passwords) &mdash; not your main account password.
+        </p>
+        <form id="bluesky-connect-form">
+          <input type="text" name="handle" placeholder="yourname.bsky.social" required>
+          <input type="text" name="app_password" placeholder="xxxx-xxxx-xxxx-xxxx" required>
+          <button type="submit">Connect Bluesky</button>
+        </form>
+      </div>
+
+      <% platforms.filter((p) => p.connect === 'oauth' && p.connectPath && p.id !== 'facebook').forEach((p) => { %>
+      <div class="connect-option">
+        <h3><%= p.label %></h3>
+        <% if (p.hint) { %><p class="hint"><%= p.hint %></p><% } %>
+        <a href="<%= p.connectPath %>" class="btn-link">Connect <%= p.label %></a>
+      </div>
+      <% }); %>
+
+      <% const stubPlatforms = platforms.filter((p) => p.status === 'stub' && p.connect === 'manual'); %>
+      <% if (stubPlatforms.length) { %>
+      <div class="connect-option">
         <h3>Other platforms</h3>
-        <p class="hint">Twitter/X, LinkedIn, TikTok, and Threads aren't wired up to real posting yet — this adds a placeholder account useful for testing scheduling.</p>
+        <p class="hint">
+          <%= stubPlatforms.map((p) => p.label).join(', ') %> aren't wired up to real posting yet
+          &mdash; this adds a placeholder account useful for testing scheduling.
+        </p>
         <form id="account-form">
           <select name="platform" required>
-            <option value="twitter">Twitter/X</option>
-            <option value="linkedin">LinkedIn</option>
-            <option value="tiktok">TikTok</option>
-            <option value="threads">Threads</option>
+            <% stubPlatforms.forEach((p) => { %>
+            <option value="<%= p.id %>"><%= p.label %></option>
+            <% }); %>
           </select>
           <input type="text" name="display_name" placeholder="Display name (e.g. @handle)" required>
           <button type="submit">Add placeholder account</button>
         </form>
       </div>
+      <% } %>
+
+      <% const unsupportedPlatforms = platforms.filter((p) => p.status === 'unsupported'); %>
+      <% if (unsupportedPlatforms.length) { %>
+      <div class="connect-option">
+        <h3>Not yet available</h3>
+        <p class="hint">These platforms have no public content-publishing API to schedule against.</p>
+        <ul class="platform-unavailable-list">
+          <% unsupportedPlatforms.forEach((p) => { %>
+          <li>
+            <strong><%= p.label %></strong><% if (p.hint) { %> &mdash; <%= p.hint %><% } %>
+          </li>
+          <% }); %>
+        </ul>
+      </div>
+      <% } %>
     </section>
   </main>
 </div>

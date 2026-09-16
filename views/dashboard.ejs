@@ -54,6 +54,7 @@
 
     <div class="composer-field">
       <span class="composer-label">Post to</span>
+      <p id="crosspost-hint" class="hint">Pick one or more channels &mdash; posting to several cross-posts the same content.</p>
       <div id="account-picker" class="account-picker"></div>
       <input type="hidden" name="social_account_id" id="account-select" required>
     </div>
@@ -81,6 +82,21 @@
         <button type="button" class="schedule-option" data-mode="schedule">Schedule</button>
       </div>
       <input type="datetime-local" name="scheduled_for" id="scheduled-for-input" disabled>
+      <div id="repeat-fields" class="repeat-fields" hidden>
+        <label class="repeat-field">
+          <span>Repeat</span>
+          <select id="repeat-select">
+            <option value="">Don't repeat</option>
+            <option value="daily">Every day</option>
+            <option value="weekly">Every week</option>
+            <option value="monthly">Every month</option>
+          </select>
+        </label>
+        <label class="repeat-field" id="repeat-until-field" hidden>
+          <span>Until</span>
+          <input type="datetime-local" id="repeat-until-input">
+        </label>
+      </div>
     </div>
 
     <div class="dialog-actions">

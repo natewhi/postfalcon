@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pool } from '../db/pool.js';
-import { processDuePosts } from '../scheduler.js';
+import { processDuePosts, refreshPostMetrics } from '../scheduler.js';
 import { uploadDir } from '../middleware/upload.js';
 
 function jsonResponse(body, status = 200) {
@@ -431,5 +431,704 @@ describe('scheduler', () => {
     const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
     expect(rows[0].status).toBe('posted');
     expect(rows[0].platform_post_id).toBe('ig-carousel-post-1');
+  });
+
+  it('posts a due text-only Telegram post', async () => {
+    const userId = await createUser('tg-sched1@example.com');
+    const accountRes = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       VALUES ($1, 'telegram', 'My Channel', '-1001234567890', 'bot-token') RETURNING id`,
+      [userId]
+    );
+    const postId = await createScheduledPost(userId, accountRes.rows[0].id, 'hello telegram');
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, options) => {
+        expect(String(url)).toBe('https://api.telegram.org/botbot-token/sendMessage');
+        const body = JSON.parse(options.body);
+        expect(body).toEqual({ chat_id: '-1001234567890', text: 'hello telegram' });
+        return jsonResponse({ ok: true, result: { message_id: 4242 } });
+      })
+    );
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('posted');
+    expect(rows[0].platform_post_id).toBe('4242');
+  });
+
+  it('sends a single Telegram photo with the caption', async () => {
+    const userId = await createUser('tg-sched2@example.com');
+    const accountRes = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       VALUES ($1, 'telegram', 'My Channel', '-100999', 'bot-token') RETURNING id`,
+      [userId]
+    );
+    const filename = `test-${crypto.randomUUID()}.jpg`;
+    await fs.writeFile(path.join(uploadDir, filename), 'fake-image-bytes');
+    const postId = await createScheduledPost(userId, accountRes.rows[0].id, 'a photo caption');
+    await createPostMedia(postId, { url: `${process.env.BASE_URL}/uploads/${filename}` });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, options) => {
+        expect(String(url)).toBe('https://api.telegram.org/botbot-token/sendPhoto');
+        expect(options.body).toBeInstanceOf(FormData);
+        expect(options.body.get('caption')).toBe('a photo caption');
+        return jsonResponse({ ok: true, result: { message_id: 7 } });
+      })
+    );
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('posted');
+    expect(rows[0].platform_post_id).toBe('7');
+
+    await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
+  });
+
+  it('sends multiple Telegram media as an album and records the first message id', async () => {
+    const userId = await createUser('tg-sched3@example.com');
+    const accountRes = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       VALUES ($1, 'telegram', 'My Channel', '-100777', 'bot-token') RETURNING id`,
+      [userId]
+    );
+    const filenames = [1, 2].map(() => `test-${crypto.randomUUID()}.jpg`);
+    await Promise.all(filenames.map((f) => fs.writeFile(path.join(uploadDir, f), 'fake-image-bytes')));
+    const postId = await createScheduledPost(userId, accountRes.rows[0].id, 'album caption');
+    await createPostMedia(postId, { url: `${process.env.BASE_URL}/uploads/${filenames[0]}`, position: 0 });
+    await createPostMedia(postId, { url: `${process.env.BASE_URL}/uploads/${filenames[1]}`, position: 1 });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, options) => {
+        expect(String(url)).toBe('https://api.telegram.org/botbot-token/sendMediaGroup');
+        const spec = JSON.parse(options.body.get('media'));
+        expect(spec).toHaveLength(2);
+        expect(spec[0]).toMatchObject({ type: 'photo', media: 'attach://file0', caption: 'album caption' });
+        expect(spec[1]).toMatchObject({ type: 'photo', media: 'attach://file1' });
+        expect(spec[1].caption).toBeUndefined();
+        return jsonResponse({ ok: true, result: [{ message_id: 11 }, { message_id: 12 }] });
+      })
+    );
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('posted');
+    expect(rows[0].platform_post_id).toBe('11');
+
+    await Promise.all(filenames.map((f) => fs.unlink(path.join(uploadDir, f)).catch(() => {})));
+  });
+
+  async function createVideoAccount(userId, platform) {
+    const res = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, refresh_token, token_expires_at)
+       VALUES ($1, $2, '@vid', 'ext-vid', 'valid-token', 'refresh-token', now() + interval '1 hour') RETURNING id`,
+      [userId, platform]
+    );
+    return res.rows[0].id;
+  }
+
+  it('uploads a due YouTube video via the resumable flow', async () => {
+    const userId = await createUser('yt-sched@example.com');
+    const accountId = await createVideoAccount(userId, 'youtube');
+    const filename = `test-${crypto.randomUUID()}.mp4`;
+    await fs.writeFile(path.join(uploadDir, filename), 'fake-video-bytes');
+    const postId = await createScheduledPost(userId, accountId, 'my video');
+    await createPostMedia(postId, { url: `${process.env.BASE_URL}/uploads/${filename}`, mediaType: 'video' });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, options) => {
+        const u = String(url);
+        if (u.startsWith('https://www.googleapis.com/upload/youtube/v3/videos')) {
+          expect(JSON.parse(options.body).snippet.title).toBe('my video');
+          return { ok: true, status: 200, headers: { get: () => 'https://upload.googleapis.com/resume/abc' } };
+        }
+        if (u === 'https://upload.googleapis.com/resume/abc') {
+          expect(options.method).toBe('PUT');
+          return jsonResponse({ id: 'yt-vid-1' });
+        }
+        throw new Error(`unexpected fetch: ${u}`);
+      })
+    );
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('posted');
+    expect(rows[0].platform_post_id).toBe('yt-vid-1');
+
+    await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
+  });
+
+  it('fails a YouTube post that has no video', async () => {
+    const userId = await createUser('yt-novideo@example.com');
+    const accountId = await createVideoAccount(userId, 'youtube');
+    const postId = await createScheduledPost(userId, accountId, 'text only');
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('failed');
+    expect(rows[0].error_message).toMatch(/need a video/);
+  });
+
+  it('publishes a due LinkedIn text post', async () => {
+    const userId = await createUser('li-sched@example.com');
+    const res = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       VALUES ($1, 'linkedin', 'Alice', 'li-123', 'valid-token') RETURNING id`,
+      [userId]
+    );
+    const postId = await createScheduledPost(userId, res.rows[0].id, 'a LinkedIn update');
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, options) => {
+        expect(String(url)).toBe('https://api.linkedin.com/rest/posts');
+        expect(JSON.parse(options.body).author).toBe('urn:li:person:li-123');
+        return { ok: true, status: 201, headers: { get: (h) => (h === 'x-restli-id' ? 'urn:li:share:999' : null) } };
+      })
+    );
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('posted');
+    expect(rows[0].platform_post_id).toBe('urn:li:share:999');
+  });
+
+  it('fails a LinkedIn post with media attached (not supported yet)', async () => {
+    const userId = await createUser('li-media@example.com');
+    const res = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       VALUES ($1, 'linkedin', 'Alice', 'li-124', 'valid-token') RETURNING id`,
+      [userId]
+    );
+    const postId = await createScheduledPost(userId, res.rows[0].id, 'with a photo');
+    await createPostMedia(postId, { url: `${process.env.BASE_URL}/uploads/whatever.jpg` });
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('failed');
+    expect(rows[0].error_message).toMatch(/not supported yet/);
+  });
+
+  it('publishes a due Pinterest pin using the board stored at connect time', async () => {
+    const userId = await createUser('pin-sched@example.com');
+    const res = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, metadata)
+       VALUES ($1, 'pinterest', 'alice', 'alice', 'valid-token', $2) RETURNING id`,
+      [userId, JSON.stringify({ board_id: 'board-1', board_name: 'My Board' })]
+    );
+    const filename = `test-${crypto.randomUUID()}.jpg`;
+    await fs.writeFile(path.join(uploadDir, filename), 'fake-image-bytes');
+    const postId = await createScheduledPost(userId, res.rows[0].id, 'a pin');
+    await createPostMedia(postId, { url: `${process.env.BASE_URL}/uploads/${filename}` });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, options) => {
+        expect(String(url)).toBe('https://api.pinterest.com/v5/pins');
+        expect(JSON.parse(options.body).board_id).toBe('board-1');
+        return jsonResponse({ id: 'pin-1' }, 201);
+      })
+    );
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('posted');
+    expect(rows[0].platform_post_id).toBe('pin-1');
+
+    await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
+  });
+
+  it('fails a Pinterest post with no image attached', async () => {
+    const userId = await createUser('pin-noimage@example.com');
+    const res = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, metadata)
+       VALUES ($1, 'pinterest', 'alice', 'alice', 'valid-token', $2) RETURNING id`,
+      [userId, JSON.stringify({ board_id: 'board-1', board_name: 'My Board' })]
+    );
+    const postId = await createScheduledPost(userId, res.rows[0].id, 'text only');
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('failed');
+    expect(rows[0].error_message).toMatch(/need an image/);
+  });
+
+  it('publishes a due TikTok video and polls until complete', async () => {
+    const userId = await createUser('tk-sched@example.com');
+    const accountId = await createVideoAccount(userId, 'tiktok');
+    const filename = `test-${crypto.randomUUID()}.mp4`;
+    await fs.writeFile(path.join(uploadDir, filename), 'fake-video-bytes');
+    const postId = await createScheduledPost(userId, accountId, 'tiktok clip');
+    await createPostMedia(postId, { url: `${process.env.BASE_URL}/uploads/${filename}`, mediaType: 'video' });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        const u = String(url);
+        if (u === 'https://open.tiktokapis.com/v2/post/publish/video/init/') {
+          return jsonResponse({ error: { code: 'ok' }, data: { publish_id: 'pub-1', upload_url: 'https://up.tiktok/xyz' } });
+        }
+        if (u === 'https://up.tiktok/xyz') {
+          return jsonResponse({});
+        }
+        if (u === 'https://open.tiktokapis.com/v2/post/publish/status/fetch/') {
+          return jsonResponse({ error: { code: 'ok' }, data: { status: 'PUBLISH_COMPLETE' } });
+        }
+        throw new Error(`unexpected fetch: ${u}`);
+      })
+    );
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('posted');
+    expect(rows[0].platform_post_id).toBe('pub-1');
+
+    await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
+  });
+
+  it('publishes a due Bluesky post with an image', async () => {
+    const userId = await createUser('bs-sched@example.com');
+    const account = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       VALUES ($1, 'bluesky', '@alice.bsky.social', 'did:plc:abc123', 'abcd-efgh-ijkl-mnop') RETURNING id`,
+      [userId]
+    );
+    const filename = `test-${crypto.randomUUID()}.jpg`;
+    await fs.writeFile(path.join(uploadDir, filename), 'fake-image-bytes');
+    const postId = await createScheduledPost(userId, account.rows[0].id, 'hello bluesky');
+    await createPostMedia(postId, { url: `${process.env.BASE_URL}/uploads/${filename}`, altText: 'a nice photo' });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, options) => {
+        const u = String(url);
+        if (u === 'https://bsky.social/xrpc/com.atproto.server.createSession') {
+          const body = JSON.parse(options.body);
+          expect(body).toEqual({ identifier: 'did:plc:abc123', password: 'abcd-efgh-ijkl-mnop' });
+          return jsonResponse({ did: 'did:plc:abc123', handle: 'alice.bsky.social', accessJwt: 'jwt-1' });
+        }
+        if (u === 'https://bsky.social/xrpc/com.atproto.repo.uploadBlob') {
+          expect(options.headers.Authorization).toBe('Bearer jwt-1');
+          return jsonResponse({ blob: { $type: 'blob', ref: { $link: 'bafy1' }, mimeType: 'image/jpeg' } });
+        }
+        if (u === 'https://bsky.social/xrpc/com.atproto.repo.createRecord') {
+          const body = JSON.parse(options.body);
+          expect(body.repo).toBe('did:plc:abc123');
+          expect(body.record.text).toBe('hello bluesky');
+          expect(body.record.embed.images[0].alt).toBe('a nice photo');
+          return jsonResponse({ uri: 'at://did:plc:abc123/app.bsky.feed.post/xyz', cid: 'cid1' });
+        }
+        throw new Error(`unexpected fetch: ${u}`);
+      })
+    );
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('posted');
+    expect(rows[0].platform_post_id).toBe('at://did:plc:abc123/app.bsky.feed.post/xyz');
+
+    await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
+  });
+
+  it('fails a Bluesky post that has a video attached', async () => {
+    const userId = await createUser('bs-video@example.com');
+    const account = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       VALUES ($1, 'bluesky', '@alice.bsky.social', 'did:plc:abc123', 'abcd-efgh-ijkl-mnop') RETURNING id`,
+      [userId]
+    );
+    const postId = await createScheduledPost(userId, account.rows[0].id, 'video post');
+    await createPostMedia(postId, { url: 'http://example.test/uploads/clip.mp4', mediaType: 'video' });
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('failed');
+    expect(rows[0].error_message).toMatch(/video posting is not supported/);
+  });
+
+  it('publishes a due text-only Threads post and polls until complete', async () => {
+    const userId = await createUser('th-sched@example.com');
+    const account = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, token_expires_at)
+       VALUES ($1, 'threads', '@alice', 'th-123', 'long-token', now() + interval '30 days') RETURNING id`,
+      [userId]
+    );
+    const postId = await createScheduledPost(userId, account.rows[0].id, 'hello threads');
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, options) => {
+        const u = String(url);
+        if (u === 'https://graph.threads.net/v1.0/th-123/threads') {
+          const body = JSON.parse(options.body);
+          expect(body).toMatchObject({ media_type: 'TEXT', text: 'hello threads', access_token: 'long-token' });
+          return jsonResponse({ id: 'container-1' });
+        }
+        if (u.startsWith('https://graph.threads.net/v1.0/container-1?')) {
+          return jsonResponse({ status: 'FINISHED' });
+        }
+        if (u === 'https://graph.threads.net/v1.0/th-123/threads_publish') {
+          const body = JSON.parse(options.body);
+          expect(body.creation_id).toBe('container-1');
+          return jsonResponse({ id: 'threads-post-1' });
+        }
+        throw new Error(`unexpected fetch: ${u}`);
+      })
+    );
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('posted');
+    expect(rows[0].platform_post_id).toBe('threads-post-1');
+  });
+
+  it('refreshes an expiring Threads token before publishing', async () => {
+    const userId = await createUser('th-refresh@example.com');
+    const account = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, token_expires_at)
+       VALUES ($1, 'threads', '@alice', 'th-123', 'stale-token', now() + interval '1 day') RETURNING id`,
+      [userId]
+    );
+    const postId = await createScheduledPost(userId, account.rows[0].id, 'refreshed post');
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        const u = String(url);
+        if (u.startsWith('https://graph.threads.net/refresh_access_token')) {
+          expect(u).toContain('access_token=stale-token');
+          return jsonResponse({ access_token: 'fresh-token', expires_in: 5184000 });
+        }
+        if (u === 'https://graph.threads.net/v1.0/th-123/threads') {
+          return jsonResponse({ id: 'container-2' });
+        }
+        if (u.startsWith('https://graph.threads.net/v1.0/container-2?')) {
+          return jsonResponse({ status: 'FINISHED' });
+        }
+        if (u === 'https://graph.threads.net/v1.0/th-123/threads_publish') {
+          return jsonResponse({ id: 'threads-post-2' });
+        }
+        throw new Error(`unexpected fetch: ${u}`);
+      })
+    );
+
+    await processDuePosts();
+
+    const { rows } = await pool.query(
+      'SELECT posts.status, posts.platform_post_id, social_accounts.access_token FROM posts JOIN social_accounts ON social_accounts.id = posts.social_account_id WHERE posts.id = $1',
+      [postId]
+    );
+    expect(rows[0].status).toBe('posted');
+    expect(rows[0].platform_post_id).toBe('threads-post-2');
+    expect(rows[0].access_token).toBe('fresh-token');
+  });
+
+  describe('webhooks', () => {
+    // The scheduler fires webhooks without awaiting them (a slow endpoint must not stall the
+    // publish loop), so tests wait for the delivery to land rather than assuming it's done.
+    async function waitFor(predicate, { timeout = 2000, interval = 20 } = {}) {
+      const deadline = Date.now() + timeout;
+      while (Date.now() < deadline) {
+        if (await predicate()) return;
+        await new Promise((r) => setTimeout(r, interval));
+      }
+      throw new Error('waitFor: condition not met before timeout');
+    }
+
+    async function addWebhook(userId, events = ['post.published', 'post.failed']) {
+      const res = await pool.query(
+        `INSERT INTO webhooks (user_id, url, secret, events) VALUES ($1, 'https://hook.test/in', 'whsec_abc', $2) RETURNING id`,
+        [userId, events]
+      );
+      return res.rows[0].id;
+    }
+
+    it('delivers a signed post.published webhook after a post goes out', async () => {
+      const userId = await createUser('wh-published@example.com');
+      const accountId = await createMastodonAccount(userId);
+      const postId = await createScheduledPost(userId, accountId);
+      await addWebhook(userId);
+
+      const calls = [];
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url, options) => {
+          const u = String(url);
+          if (u === 'https://example.social/api/v1/statuses') return jsonResponse({ id: 'remote-1' });
+          if (u === 'https://hook.test/in') {
+            calls.push(options);
+            return jsonResponse({ ok: true });
+          }
+          throw new Error(`unexpected fetch: ${u}`);
+        })
+      );
+
+      await processDuePosts();
+      await waitFor(() => calls.length === 1);
+
+      expect(calls[0].headers['X-Postfox-Event']).toBe('post.published');
+      expect(calls[0].headers['X-Postfox-Signature']).toMatch(/^sha256=[0-9a-f]{64}$/);
+      const body = JSON.parse(calls[0].body);
+      expect(body.event).toBe('post.published');
+      expect(body.data).toMatchObject({ post_id: postId, platform: 'mastodon', platform_post_id: 'remote-1' });
+
+      await waitFor(async () => {
+        const { rows } = await pool.query('SELECT last_delivery_status FROM webhooks WHERE user_id = $1', [userId]);
+        return rows[0].last_delivery_status === 200;
+      });
+    });
+
+    it('delivers a post.failed webhook when publishing fails', async () => {
+      const userId = await createUser('wh-failed@example.com');
+      const accountId = await createMastodonAccount(userId);
+      await createScheduledPost(userId, accountId);
+      await addWebhook(userId);
+
+      const calls = [];
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url, options) => {
+          const u = String(url);
+          if (u === 'https://example.social/api/v1/statuses') return jsonResponse({ error: 'nope' }, 422);
+          if (u === 'https://hook.test/in') {
+            calls.push(JSON.parse(options.body));
+            return jsonResponse({ ok: true });
+          }
+          throw new Error(`unexpected fetch: ${u}`);
+        })
+      );
+
+      await processDuePosts();
+      await waitFor(() => calls.length === 1);
+
+      expect(calls[0].event).toBe('post.failed');
+      expect(calls[0].data.error).toMatch(/422/);
+    });
+
+    it('does not call an endpoint not subscribed to the event', async () => {
+      const userId = await createUser('wh-partial@example.com');
+      const accountId = await createMastodonAccount(userId);
+      await createScheduledPost(userId, accountId);
+      await addWebhook(userId, ['post.failed']); // only failures
+
+      const hookCalls = [];
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url) => {
+          const u = String(url);
+          if (u === 'https://example.social/api/v1/statuses') return jsonResponse({ id: 'remote-2' });
+          if (u === 'https://hook.test/in') {
+            hookCalls.push(u);
+            return jsonResponse({ ok: true });
+          }
+          throw new Error(`unexpected fetch: ${u}`);
+        })
+      );
+
+      await processDuePosts();
+      await new Promise((r) => setTimeout(r, 100)); // give any (wrongly) fired delivery a chance to land
+      expect(hookCalls).toHaveLength(0);
+    });
+  });
+
+  describe('recurring posts', () => {
+    it('queues the next occurrence with copied media after a recurring post publishes', async () => {
+      const userId = await createUser('repeat1@example.com');
+      const accountId = await createMastodonAccount(userId);
+
+      const filename = `test-${crypto.randomUUID()}.jpg`;
+      await fs.writeFile(path.join(uploadDir, filename), 'fake-image-bytes');
+
+      const { rows: made } = await pool.query(
+        `INSERT INTO posts (user_id, social_account_id, content, status, scheduled_for, repeat_interval)
+         VALUES ($1, $2, 'daily digest', 'scheduled', now() - interval '1 minute', 'daily')
+         RETURNING id`,
+        [userId, accountId]
+      );
+      const postId = made[0].id;
+      await createPostMedia(postId, { url: `${process.env.BASE_URL}/uploads/${filename}`, altText: 'chart' });
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url, options) => {
+          const u = String(url);
+          if (u === 'https://example.social/api/v2/media') return jsonResponse({ id: 'm-1' });
+          if (u === 'https://example.social/api/v1/statuses') return jsonResponse({ id: 'remote-1' });
+          throw new Error(`unexpected fetch: ${u}`);
+        })
+      );
+
+      await processDuePosts();
+
+      const { rows: next } = await pool.query(
+        `SELECT * FROM posts WHERE user_id = $1 AND status = 'scheduled' AND repeat_parent_id = $2`,
+        [userId, postId]
+      );
+      expect(next).toHaveLength(1);
+      expect(next[0].content).toBe('daily digest');
+      expect(next[0].repeat_interval).toBe('daily');
+      expect(new Date(next[0].scheduled_for).getTime()).toBeGreaterThan(Date.now());
+
+      const { rows: media } = await pool.query('SELECT * FROM post_media WHERE post_id = $1', [next[0].id]);
+      expect(media).toHaveLength(1);
+      const copiedName = path.basename(media[0].url);
+      expect(copiedName).not.toBe(filename);
+      expect((await fs.stat(path.join(uploadDir, copiedName))).isFile()).toBe(true);
+
+      await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
+      await fs.unlink(path.join(uploadDir, copiedName)).catch(() => {});
+    });
+
+    it('stops recurring once past repeat_until', async () => {
+      const userId = await createUser('repeat2@example.com');
+      const accountId = await createMastodonAccount(userId);
+
+      const { rows: made } = await pool.query(
+        `INSERT INTO posts (user_id, social_account_id, content, status, scheduled_for, repeat_interval, repeat_until)
+         VALUES ($1, $2, 'last one', 'scheduled', now() - interval '1 minute', 'daily', now())
+         RETURNING id`,
+        [userId, accountId]
+      );
+
+      vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ id: 'remote-1' })));
+      await processDuePosts();
+
+      const { rows } = await pool.query(
+        `SELECT COUNT(*)::int AS n FROM posts WHERE user_id = $1 AND status = 'scheduled'`,
+        [userId]
+      );
+      expect(rows[0].n).toBe(0);
+    });
+  });
+});
+
+async function createPostedPost(userId, accountId, { platformPostId, postedAt = new Date(), content = 'posted content' }) {
+  const res = await pool.query(
+    `INSERT INTO posts (user_id, social_account_id, content, status, posted_at, platform_post_id)
+     VALUES ($1, $2, $3, 'posted', $4, $5)
+     RETURNING id`,
+    [userId, accountId, content, postedAt, platformPostId]
+  );
+  return res.rows[0].id;
+}
+
+describe('post metrics refresh', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('fetches and stores metrics for a posted Mastodon post', async () => {
+    const userId = await createUser('metrics-mastodon@example.com');
+    const accountId = await createMastodonAccount(userId);
+    const postId = await createPostedPost(userId, accountId, { platformPostId: 'remote-status-1' });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        expect(String(url)).toBe('https://example.social/api/v1/statuses/remote-status-1');
+        return jsonResponse({ favourites_count: 5, replies_count: 2, reblogs_count: 1 });
+      })
+    );
+
+    const result = await refreshPostMetrics();
+    expect(result.refreshed).toBe(1);
+
+    const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].metric_likes).toBe(5);
+    expect(rows[0].metric_comments).toBe(2);
+    expect(rows[0].metric_shares).toBe(1);
+    expect(rows[0].metric_views).toBeNull();
+    expect(rows[0].metrics_updated_at).not.toBeNull();
+  });
+
+  it('skips a platform with no metrics adapter (Telegram) without touching its metric columns', async () => {
+    const userId = await createUser('metrics-telegram@example.com');
+    const { rows: acct } = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       VALUES ($1, 'telegram', 'My channel', '12345', 'bot-token') RETURNING id`,
+      [userId]
+    );
+    const postId = await createPostedPost(userId, acct[0].id, { platformPostId: '99' });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('fetch should not be called for a platform with no fetchMetrics adapter');
+      })
+    );
+
+    const result = await refreshPostMetrics();
+    expect(result.refreshed).toBe(0);
+
+    const { rows } = await pool.query('SELECT metric_likes, metrics_updated_at FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].metric_likes).toBeNull();
+    expect(rows[0].metrics_updated_at).toBeNull();
+  });
+
+  it('isolates a metrics-fetch failure on one post from the rest of the run', async () => {
+    const userId = await createUser('metrics-partial-fail@example.com');
+    const accountId = await createMastodonAccount(userId);
+    const failingPostId = await createPostedPost(userId, accountId, { platformPostId: 'bad-status', content: 'a' });
+    const okPostId = await createPostedPost(userId, accountId, { platformPostId: 'good-status', content: 'b' });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        if (String(url).includes('bad-status')) {
+          return { ok: false, status: 500, text: async () => 'boom' };
+        }
+        return jsonResponse({ favourites_count: 9, replies_count: 0, reblogs_count: 0 });
+      })
+    );
+
+    const result = await refreshPostMetrics();
+    expect(result.checked).toBe(2);
+    expect(result.refreshed).toBe(1);
+
+    const { rows } = await pool.query(
+      'SELECT id, metric_likes FROM posts WHERE id = ANY($1) ORDER BY id',
+      [[failingPostId, okPostId]]
+    );
+    const failing = rows.find((r) => r.id === failingPostId);
+    const ok = rows.find((r) => r.id === okPostId);
+    expect(failing.metric_likes).toBeNull();
+    expect(ok.metric_likes).toBe(9);
+  });
+
+  it('only considers posts from the last 30 days', async () => {
+    const userId = await createUser('metrics-old@example.com');
+    const accountId = await createMastodonAccount(userId);
+    await createPostedPost(userId, accountId, {
+      platformPostId: 'ancient-status',
+      postedAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
+    });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('fetch should not be called for a post older than the lookback window');
+      })
+    );
+
+    const result = await refreshPostMetrics();
+    expect(result.checked).toBe(0);
   });
 });

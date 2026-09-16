@@ -1,0 +1,112 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { pool } from '../db/pool.js';
+import { validate } from '../middleware/validate.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import {
+  PLANS,
+  PAID_PLAN_IDS,
+  TRIAL_DAYS,
+  limitsForPlan,
+  getStripe,
+  billingConfigured,
+  priceIdForPlan,
+} from '../lib/billing.js';
+
+const router = Router();
+
+const checkoutSchema = z.object({ plan: z.enum(PAID_PLAN_IDS) });
+
+function limitOrNull(value) {
+  return value === Infinity ? null : value;
+}
+
+async function getOrCreateCustomer(user) {
+  if (user.stripe_customer_id) return user.stripe_customer_id;
+  const stripe = await getStripe();
+  const customer = await stripe.customers.create({
+    email: user.email,
+    metadata: { userId: String(user.id) },
+  });
+  await pool.query('UPDATE users SET stripe_customer_id = $1 WHERE id = $2', [customer.id, user.id]);
+  return customer.id;
+}
+
+// Current plan, its limits, and the user's usage against them. Drives the pricing page's
+// "current plan" state and the settings page's billing section.
+router.get(
+  '/status',
+  asyncHandler(async (req, res) => {
+    const limits = limitsForPlan(req.user.plan);
+    const [{ rows: accountRows }, { rows: postRows }] = await Promise.all([
+      pool.query('SELECT COUNT(*)::int AS n FROM social_accounts WHERE user_id = $1', [req.user.id]),
+      pool.query("SELECT COUNT(*)::int AS n FROM posts WHERE user_id = $1 AND status = 'scheduled'", [req.user.id]),
+    ]);
+    res.json({
+      plan: req.user.plan,
+      planName: PLANS[req.user.plan]?.name ?? req.user.plan,
+      planStatus: req.user.plan_status,
+      renewsAt: req.user.plan_renews_at,
+      billingConfigured: billingConfigured(),
+      hasBillingAccount: Boolean(req.user.stripe_customer_id),
+      capabilities: PLANS[req.user.plan]?.capabilities ?? {},
+      limits: { accounts: limitOrNull(limits.accounts), scheduledPosts: limitOrNull(limits.scheduledPosts) },
+      usage: { accounts: accountRows[0].n, scheduledPosts: postRows[0].n },
+    });
+  })
+);
+
+// Starts a Stripe Checkout session for a paid plan and returns its hosted URL.
+router.post(
+  '/checkout',
+  validate(checkoutSchema),
+  asyncHandler(async (req, res) => {
+    if (!billingConfigured()) {
+      return res.status(503).json({ error: 'billing_unavailable', message: 'Billing is not configured on this server.' });
+    }
+    const priceId = priceIdForPlan(req.body.plan);
+    if (!priceId) {
+      return res.status(503).json({ error: 'billing_unavailable', message: `No Stripe price configured for the ${req.body.plan} plan.` });
+    }
+
+    const customerId = await getOrCreateCustomer(req.user);
+    const stripe = await getStripe();
+    // Only offer the trial to accounts that have never subscribed before.
+    const trial = req.user.stripe_customer_id ? {} : { subscription_data: { trial_period_days: TRIAL_DAYS } };
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: customerId,
+      client_reference_id: String(req.user.id),
+      line_items: [{ price: priceId, quantity: 1 }],
+      allow_promotion_codes: true,
+      // Always collect a card, even when the subscription starts in a trial, so the plan
+      // converts automatically when the trial ends.
+      payment_method_collection: 'always',
+      ...trial,
+      success_url: `${process.env.BASE_URL}/settings?checkout=success`,
+      cancel_url: `${process.env.BASE_URL}/pricing?checkout=cancelled`,
+    });
+    res.json({ url: session.url });
+  })
+);
+
+// Opens the Stripe Billing Portal so the user can change plan, update card, or cancel.
+router.post(
+  '/portal',
+  asyncHandler(async (req, res) => {
+    if (!billingConfigured()) {
+      return res.status(503).json({ error: 'billing_unavailable', message: 'Billing is not configured on this server.' });
+    }
+    if (!req.user.stripe_customer_id) {
+      return res.status(400).json({ error: 'no_billing_account', message: "You don't have a billing account yet." });
+    }
+    const stripe = await getStripe();
+    const session = await stripe.billingPortal.sessions.create({
+      customer: req.user.stripe_customer_id,
+      return_url: `${process.env.BASE_URL}/settings`,
+    });
+    res.json({ url: session.url });
+  })
+);
+
+export default router;

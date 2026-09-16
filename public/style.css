@@ -18,6 +18,34 @@
   --color-danger-border: #f3c1c1;
   --hover-tint: rgba(0, 0, 0, 0.045);
 
+  /* Shared site header — always-dark on every page (same call as the sidebar), so the
+     top bar is identical on the landing page, pricing, docs and the auth screens. */
+  --site-header-bg: #14151c;
+  --site-header-fg: #f3f4f6;
+  --site-header-dim: #a2a6b2;
+  --site-header-border: rgba(255, 255, 255, 0.09);
+
+  /* Landing page: an always-dark canvas + one accent, regardless of the site theme
+     (same deliberate choice as the always-dark sidebar). */
+  --home-ink: #0e0f13;
+  --home-ink-band: #121319;
+  --home-ink-lift: #16171e;
+  --home-ink-2: #191b22;
+  --home-ink-border: #2a2d38;
+  --home-on-ink: #f3f4f6;
+  --home-on-ink-dim: #9ca0ac;
+  --accent: #6d4dff;
+  --accent-strong: #5a3af0;
+
+  /* landing type scale */
+  --home-fs-display: clamp(2.15rem, 7vw, 4.9rem);
+  --home-fs-h2: clamp(1.7rem, 3.4vw, 2.35rem);
+  --home-fs-h3: 1.15rem;
+  --home-fs-body: 1.02rem;
+  --home-fs-lead: 1.16rem;
+  --home-fs-overline: 0.76rem;
+  --home-fs-caption: 0.85rem;
+
   --status-draft-bg: #e5e5e5;   --status-draft-text: #444444;   --status-draft-border: #bbbbbb;
   --status-scheduled-bg: #dbeafe; --status-scheduled-text: #1d4ed8; --status-scheduled-border: #93c5fd;
   --status-posting-bg: #fef3c7;   --status-posting-text: #92400e;   --status-posting-border: #fcd34d;
@@ -61,7 +89,7 @@
   --status-failed-bg: #3a1c1c;    --status-failed-text: #fca5a5;    --status-failed-border: #6b2c2c;
   --status-canceled-bg: #2c1f4d;  --status-canceled-text: #c4b5fd;  --status-canceled-border: #47337e;
 
-  --shadow-sm: none;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px -6px rgba(0, 0, 0, 0.45);
   --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.6);
 }
 
@@ -69,7 +97,7 @@
   color-scheme: light;
 }
 
-[data-theme="dark"] section,
+[data-theme="dark"] .app-main section,
 [data-theme="dark"] .auth-card {
   border: 1px solid var(--color-border);
 }
@@ -78,17 +106,42 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   background: var(--color-bg);
   color: var(--color-text);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 a {
   color: var(--color-primary);
 }
 
-[data-theme="dark"] a {
+/* :where() keeps this at plain-element specificity (same as the `a` rule above it) rather
+   than the attribute selector's usual weight — so ANY class-based rule reliably wins here
+   (.home-btn-primary, .btn-link, .btn-secondary, sidebar .nav-link, etc.), current or future,
+   instead of this generic "links are light blue in dark mode" rule silently overriding a
+   button's own intended text color just because the button happens to be an <a> tag. That
+   was quietly making every solid-color button's text render as this dim blue instead of its
+   real color on dark theme. */
+:where([data-theme="dark"]) a {
   color: #7fa2ff;
 }
 
@@ -240,6 +293,18 @@ a {
   line-height: 1;
 }
 
+/* real brand mark inside a platform badge (sprite: views/partials/platform-icons.ejs) */
+.platform-glyph {
+  width: 9px;
+  height: 9px;
+  fill: currentColor;
+}
+
+.cal-platform-badge .platform-glyph {
+  width: 10px;
+  height: 10px;
+}
+
 .sidebar-footer {
   display: flex;
   flex-direction: column;
@@ -306,6 +371,8 @@ a {
 .page-header h1 {
   margin: 0;
   font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 main {
@@ -328,10 +395,24 @@ section {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--status-posting-bg);
-  color: var(--status-posting-text);
   gap: var(--space-4);
   flex-wrap: wrap;
+  background: color-mix(in srgb, var(--status-posting-bg) 55%, var(--color-surface));
+  color: var(--status-posting-text);
+  border: 1px solid var(--status-posting-border);
+  border-left: 3px solid var(--status-posting-text);
+  box-shadow: var(--shadow-sm);
+}
+
+.verify-banner button {
+  background: transparent;
+  color: var(--status-posting-text);
+  border: 1px solid var(--status-posting-text);
+  flex-shrink: 0;
+}
+
+.verify-banner button:hover {
+  background: color-mix(in srgb, var(--status-posting-text) 15%, transparent);
 }
 
 .attention-banner {
@@ -393,6 +474,105 @@ section h2 {
   border-bottom: 1px solid var(--color-border);
 }
 
+/* ---- analytics page ---- */
+.analytics-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+
+.analytics-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.analytics-stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.analytics-stat-label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.analytics-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  height: 180px;
+  padding-top: var(--space-4);
+}
+
+.analytics-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  gap: var(--space-1);
+}
+
+.analytics-bar-value {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  min-height: 1em;
+}
+
+.analytics-bar-track {
+  width: 100%;
+  max-width: 40px;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.analytics-bar-fill {
+  width: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-sm);
+  min-height: 2px;
+}
+
+.analytics-bar-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.analytics-insight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 0.9rem;
+}
+
+.analytics-insight .cal-platform-badge {
+  width: 20px;
+  height: 20px;
+  font-size: 9px;
+}
+
+.analytics-coverage {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .analytics-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .connect-option {
   padding: var(--space-4) 0;
   border-bottom: 1px solid var(--color-border);
@@ -414,6 +594,20 @@ section h2 {
 
 .connect-option .hint {
   margin-bottom: var(--space-3);
+}
+
+.platform-unavailable-list {
+  margin-bottom: 0;
+}
+
+.platform-unavailable-list li {
+  display: block;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+}
+
+.platform-unavailable-list strong {
+  color: var(--color-text);
 }
 
 ul {
@@ -596,21 +790,291 @@ button:disabled {
   height: 30px;
 }
 
-.auth-card {
-  max-width: 360px;
-  margin: 4rem auto;
-  background: var(--color-surface);
-  padding: 2rem;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+/* Auth pages (login/signup/forgot/reset/404) center this card on the dark grid canvas —
+   see body.dark-canvas below. */
+body.dark-canvas {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+}
+
+body.dark-canvas .auth-card {
+  margin: auto;
+}
+
+.auth-card {
+  max-width: 400px;
+  width: 100%;
+  margin: 4rem auto;
+  background: var(--color-surface);
+  padding: 2.25rem 2rem;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* browser/OS default margins on headings and paragraphs used to stack on top of the flex
+   gap below, producing huge accidental whitespace between the button and the footer links —
+   the card owns all vertical rhythm now. */
+.auth-card h1,
+.auth-card p {
+  margin: 0;
+}
+
+.auth-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.auth-card h1 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.auth-sub {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .auth-card form {
   flex-direction: column;
   align-items: stretch;
+  gap: var(--space-4);
+}
+
+.auth-card form label {
+  gap: var(--space-2);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.auth-card input {
+  padding: 0.65rem 0.8rem;
+  font-size: 0.95rem;
+}
+
+.password-field {
+  position: relative;
+  display: flex;
+}
+
+.password-field input {
+  width: 100%;
+  padding-right: 2.4rem;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.password-toggle:hover {
+  color: var(--color-text);
+}
+
+.password-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-eye-slash.is-hidden {
+  display: none;
+}
+
+.auth-card button[type="submit"] {
+  margin-top: var(--space-1);
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: background-color 0.15s ease, transform 0.05s ease;
+}
+
+.auth-card button[type="submit"]:active {
+  transform: translateY(1px);
+}
+
+.auth-card .error {
+  min-height: 0;
+}
+
+.auth-card .error:empty,
+#message:empty {
+  display: none;
+}
+
+#message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+/* Secondary links (forgot password, sign up / log in, back-links) get their own row below a
+   divider instead of loose <p> tags, so they read as one deliberate footer, not stray text. */
+.auth-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+}
+
+.auth-card-footer a {
+  font-weight: 600;
+}
+
+.auth-card-footer-sep {
+  color: var(--color-border);
+}
+
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-input-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-google:hover {
+  background: var(--hover-tint);
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* keep browser autofill from painting inputs its own mismatched yellow */
+.auth-card input:-webkit-autofill,
+.auth-card input:-webkit-autofill:hover,
+.auth-card input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--color-surface) inset;
+  box-shadow: 0 0 0 1000px var(--color-surface) inset;
+  caret-color: var(--color-text);
+  transition: background-color 600000s 0s, color 600000s 0s;
+}
+
+/* --- committed-dark version, for the .dark-canvas auth pages --- */
+.dark-canvas .auth-card {
+  background: var(--home-ink-lift);
+  color: var(--home-on-ink);
+  border-color: var(--home-ink-border);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+}
+
+.dark-canvas .auth-sub,
+.dark-canvas #message {
+  color: var(--home-on-ink-dim);
+}
+
+/* the card is committed-dark regardless of site theme, so pin error text to a red that
+   reads on that dark background instead of following the (possibly dark-on-dark) theme value */
+.dark-canvas .error {
+  color: #f87171;
+}
+
+.dark-canvas .auth-card input {
+  background: var(--home-ink);
+  border-color: var(--home-ink-border);
+  color: var(--home-on-ink);
+}
+
+.dark-canvas .auth-card input::placeholder {
+  color: var(--home-on-ink-dim);
+}
+
+.dark-canvas .auth-card input:focus-visible {
+  outline-color: var(--accent);
+}
+
+.dark-canvas .password-toggle {
+  color: var(--home-on-ink-dim);
+}
+
+.dark-canvas .password-toggle:hover {
+  color: var(--home-on-ink);
+}
+
+.dark-canvas .auth-card input:-webkit-autofill,
+.dark-canvas .auth-card input:-webkit-autofill:hover,
+.dark-canvas .auth-card input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--home-on-ink);
+  -webkit-box-shadow: 0 0 0 1000px var(--home-ink) inset;
+  box-shadow: 0 0 0 1000px var(--home-ink) inset;
+  caret-color: var(--home-on-ink);
+}
+
+.dark-canvas .auth-card-footer {
+  color: var(--home-on-ink-dim);
+  border-top-color: var(--home-ink-border);
+}
+
+.dark-canvas .auth-card-footer a {
+  color: var(--accent);
+}
+
+.dark-canvas .btn-google {
+  background: var(--home-ink);
+  border-color: var(--home-ink-border);
+  color: var(--home-on-ink);
+}
+
+.dark-canvas .btn-google:hover {
+  border-color: var(--accent);
+}
+
+.dark-canvas .auth-divider {
+  color: var(--home-on-ink-dim);
+}
+
+.dark-canvas .auth-divider::before,
+.dark-canvas .auth-divider::after {
+  background: var(--home-ink-border);
 }
 
 .btn-link.btn-lg,
@@ -643,6 +1107,77 @@ button:disabled {
   min-height: 100vh;
 }
 
+/* ===== Shared site header (all public + auth pages) ===== */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--site-header-bg);
+  color: var(--site-header-fg);
+  border-bottom: 1px solid var(--site-header-border);
+}
+
+.site-header-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.site-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--site-header-fg);
+  text-decoration: none;
+}
+
+.site-brand-mark {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.site-nav a {
+  color: var(--site-header-dim);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.site-nav a:hover {
+  color: var(--site-header-fg);
+}
+
+.site-nav a.btn-link {
+  color: var(--color-primary-text);
+}
+
+.site-nav a.btn-link:hover {
+  color: var(--color-primary-text);
+}
+
+@media (max-width: 560px) {
+  .site-header-inner {
+    padding: var(--space-3) var(--space-4);
+    gap: var(--space-3);
+  }
+
+  .site-nav {
+    gap: var(--space-3);
+  }
+}
+
 .landing-nav {
   display: flex;
   align-items: center;
@@ -664,26 +1199,100 @@ button:disabled {
   gap: var(--space-4);
 }
 
-.landing-nav-links a:not(.btn-link) {
+.landing-nav-links a:not(.btn-link):not(.home-btn) {
   color: var(--color-text);
   text-decoration: none;
 }
 
-.landing-nav-links a:not(.btn-link):hover {
+.landing-nav-links a:not(.btn-link):not(.home-btn):hover {
   color: var(--color-primary);
 }
 
-.landing-hero {
-  max-width: 700px;
-  margin: 0 auto;
-  padding: var(--space-5) var(--space-5) calc(var(--space-5) * 2);
-  text-align: center;
+.pricing-main {
+  position: relative;
 }
 
-.landing-hero h1 {
-  font-size: 2.5rem;
-  line-height: 1.15;
+/* loose hand-drawn accent lines, same idea as the landing hero's .home-squig */
+/* Decorative lines live in the open band below the plan cards (footnote + footer area) and
+   sit above the cards in z-order, so they're actually visible rather than hidden behind an
+   opaque card. */
+.pricing-squig {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  color: var(--home-on-ink-dim);
+}
+
+/* Spread across the page like the landing hero's squiggles — top-left, top-right, and down
+   by the footer — rather than bunched together in one spot. Each sits in the margin beside
+   the centered hero text or footnote, clear of the plan cards (z-index:1 would draw a line
+   straight across a card if it overlapped one, unlike the landing hero's squiggles which sit
+   behind everything). */
+.pricing-squig-1 {
+  width: 100px;
+  height: 22px;
+  top: 56px;
+  left: 1%;
+  opacity: 0.32;
+  transform: rotate(-6deg);
+}
+
+.pricing-squig-2 {
+  width: 88px;
+  height: 72px;
+  top: 104px;
+  right: 2%;
+  color: var(--accent);
+  opacity: 0.45;
+  transform: rotate(10deg);
+}
+
+.pricing-squig-3 {
+  width: 224px;
+  height: 42px;
+  bottom: 30px;
+  left: 6%;
+  opacity: 0.3;
+  transform: rotate(2deg);
+}
+
+.pricing-hero {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: calc(var(--space-5) * 1.5) var(--space-5) var(--space-5);
+  text-align: center;
+  /* opt out of the generic card-like `section` styling */
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.pricing-hero h1 {
   margin: 0 0 var(--space-4);
+  font-size: var(--home-fs-display);
+  line-height: 1.03;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+}
+
+/* Hand-drawn accent underline under one word of a hero heading — shared by pricing and blog. */
+.underline-mark {
+  position: relative;
+  white-space: nowrap;
+}
+
+.underline-mark-line {
+  position: absolute;
+  left: -0.04em;
+  bottom: -0.14em;
+  width: calc(100% + 0.08em);
+  height: 0.28em;
+  color: var(--accent);
+  overflow: visible;
+}
+
+.pricing-hero .landing-subhead {
+  margin: 0;
 }
 
 .landing-subhead {
@@ -700,43 +1309,1215 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-.landing-features {
-  max-width: 1100px;
+/* ===== Landing page ===== */
+/* Committed-dark regardless of the site theme (same call as the always-dark sidebar):
+   every colour below is a fixed value, not a themed token. */
+
+.landing-home {
+  background: var(--home-ink);
+  color: var(--home-on-ink);
+}
+
+/* Inline icon sprite — must take no layout space (it was pushing the whole page down). */
+.svg-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* Full-bleed bands: strip the app-shell's constrained main/section chrome. */
+.landing-home main {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+}
+
+.landing-home section {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* base "section h2" adds a divider these headings don't want */
+.landing-home h1,
+.landing-home h2 {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* section banding — subtle alternation so the dark page still has rhythm */
+.home-hero,
+.home-showcase,
+.home-agent {
+  background: var(--home-ink);
+}
+
+.home-analytics-section,
+.home-faq {
+  background: var(--home-ink-band);
+}
+
+.home-section--why,
+.home-pricing-teaser {
+  background: var(--home-ink);
+}
+
+.home-agent {
+  background: var(--home-ink-lift);
+}
+
+/* ---- shared section shell ---- */
+.home-section {
+  padding: calc(var(--space-5) * 3.4) var(--space-5);
+  border-top: 1px solid var(--home-ink-border);
+}
+
+.home-band {
+  max-width: 1000px;
   margin: 0 auto;
-  width: 100%;
-  padding: 0 var(--space-5) calc(var(--space-5) * 2);
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+}
+
+.home-overline {
+  margin: 0 0 var(--space-3);
+  font-size: var(--home-fs-overline);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.home-h2 {
+  margin: 0 0 calc(var(--space-5) * 1.8);
+  font-size: var(--home-fs-h2);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+/* ---- nav ---- */
+.landing-home .landing-nav {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  background: var(--home-ink);
+  border-bottom: 1px solid var(--home-ink-border);
+}
+
+.landing-nav-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-4);
 }
 
-.landing-feature {
-  background: var(--color-surface);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  box-shadow: var(--shadow-sm);
+.landing-home .landing-brand {
+  color: var(--home-on-ink);
 }
 
-[data-theme="dark"] .landing-feature {
-  border: 1px solid var(--color-border);
+.landing-home .landing-nav-links a:not(.home-btn) {
+  color: var(--home-on-ink);
+  opacity: 0.72;
+  text-decoration: none;
 }
 
-.landing-feature-icon {
-  font-size: 1.5rem;
-  display: block;
-  margin-bottom: var(--space-2);
+.landing-home .landing-nav-links a:not(.home-btn):hover {
+  opacity: 1;
 }
 
-.landing-feature h3 {
-  margin: 0 0 var(--space-2);
-  font-size: 1rem;
+/* ---- shared pill button ---- */
+.home-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 22px;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
 
-.landing-feature p {
+.home-btn:active {
+  transform: translateY(1px);
+}
+
+.home-btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.home-btn-primary:hover {
+  background: var(--accent-strong);
+}
+
+.home-btn-lg {
+  padding: 15px 30px;
+  font-size: 1.05rem;
+}
+
+.home-textlink {
+  color: var(--home-on-ink);
+  opacity: 0.82;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.home-textlink:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ---- hero ---- */
+.home-hero {
+  position: relative;
+  overflow: hidden;
+  padding: calc(var(--space-5) * 2.4) var(--space-5) calc(var(--space-5) * 5.5);
+}
+
+/* soft accent glow + faint calendar-grid surface behind the headline */
+.home-hero::before {
+  content: "";
+  position: absolute;
+  inset: -6% 0 auto 50%;
+  width: 1100px;
+  height: 820px;
+  transform: translateX(-50%);
+  background:
+    radial-gradient(closest-side, rgba(124, 92, 255, 0.16), rgba(124, 92, 255, 0) 70%);
+  pointer-events: none;
+}
+
+.home-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(125% 92% at 50% -6%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(125% 92% at 50% -6%, #000 0%, transparent 72%);
+  pointer-events: none;
+}
+
+/* loose hand-drawn squiggles scattered behind the headline */
+.home-squig {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  color: var(--home-on-ink-dim);
+}
+
+.home-squig-1 {
+  width: 214px;
+  height: 57px;
+  top: 13%;
+  left: 3%;
+  opacity: 0.38;
+  transform: rotate(-4deg);
+}
+
+.home-squig-2 {
+  width: 104px;
+  height: 75px;
+  top: 28%;
+  right: 5%;
+  color: var(--accent);
+  opacity: 0.46;
+  transform: rotate(7deg);
+}
+
+.home-squig-3 {
+  width: 244px;
+  height: 48px;
+  bottom: 14%;
+  left: 6%;
+  opacity: 0.28;
+  transform: rotate(2deg);
+}
+
+.home-hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 780px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.home-kicker {
+  margin: 0 0 var(--space-3);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  color: var(--home-on-ink-dim);
+}
+
+.home-hero h1 {
+  margin: 0 0 calc(var(--space-5) * 1.2);
+  font-size: var(--home-fs-display);
+  line-height: 1.03;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+}
+
+.home-mark {
+  position: relative;
+  white-space: nowrap;
+}
+
+.home-mark-line {
+  position: absolute;
+  left: -0.05em;
+  bottom: -0.12em;
+  width: calc(100% + 0.1em);
+  height: 0.3em;
+  color: var(--accent);
+  overflow: visible;
+}
+
+.home-hero-lead {
+  max-width: 42ch;
+  margin: 0 auto calc(var(--space-5) * 1.7);
+  font-size: var(--home-fs-lead);
+  line-height: 1.6;
+  color: var(--home-on-ink-dim);
+}
+
+.home-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.home-tiles {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 100%;
+  margin: calc(var(--space-5) * 3) auto 0;
+  overflow-x: auto;
+}
+
+.home-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: var(--tile, var(--accent));
+  color: #fff;
+}
+
+.home-tile.is-live {
+  width: 52px;
+  height: 52px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 8px 20px -8px rgba(0, 0, 0, 0.5);
+}
+
+.home-tile.is-live .home-tile-glyph {
+  width: 24px;
+  height: 24px;
+}
+
+.home-tile-glyph {
+  fill: currentColor;
+}
+
+/* ---- product showcase ---- */
+.home-showcase {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: calc(var(--space-5) * 2);
+  padding: calc(var(--space-5) * 3) var(--space-5) calc(var(--space-5) * 3.5);
+}
+
+.home-shot {
   margin: 0;
-  color: var(--color-text-muted);
-  font-size: 0.9rem;
+  width: 100%;
+  max-width: 840px;
+}
+
+.home-shot-compose {
+  max-width: 380px;
+}
+
+.home-shot figcaption {
+  margin-top: var(--space-4);
+  text-align: center;
+  font-size: var(--home-fs-caption);
+  color: var(--home-on-ink-dim);
+}
+
+/* The mock mirrors the dashboard's FullCalendar month view in dark mode. */
+.home-window {
+  position: relative;
+  z-index: 1;
+  margin-top: calc(var(--space-5) * -5);
+  border: 1px solid #2e313c;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #191b22;
+  color: #e8e9ec;
+  box-shadow: 0 28px 70px -24px rgba(0, 0, 0, 0.75);
+}
+
+.home-window-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 18px;
+  background: #20222b;
+  border-bottom: 1px solid #2e313c;
+}
+
+.home-window-bar > span:not(.home-window-title) {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #3f424d;
+}
+
+.home-window-title {
+  margin-left: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #8b8f9b;
+}
+
+.home-window-body {
+  padding: 14px 16px 16px;
+}
+
+.fcm-filter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 0.72rem;
+}
+
+.fcm-filter > span:first-child {
+  margin-right: 2px;
+  color: #8b8f9b;
+}
+
+.fcm-chip {
+  padding: 3px 10px;
+  border: 1px solid #3a3d48;
+  border-radius: 999px;
+  color: #9ca0ac;
+}
+
+.fcm-chip.is-on {
+  background: #3a6cf6;
+  border-color: #3a6cf6;
+  color: #fff;
+}
+
+.fcm-chip.is-on::before {
+  content: "\2713\00a0";
+}
+
+.fcm-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.fcm-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.fcm-btns button,
+.fcm-views button {
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 4px;
+  background: #2c3e50;
+  color: #fff;
+  cursor: default;
+}
+
+.fcm-nav,
+.fcm-views {
+  display: inline-flex;
+}
+
+.fcm-nav button:first-child,
+.fcm-views button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.fcm-nav button:last-child,
+.fcm-views button:last-child {
+  border-radius: 0 4px 4px 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.fcm-nav button:not(:first-child):not(:last-child) {
+  border-radius: 0;
+}
+
+.fcm-views button.is-active {
+  background: #17212b;
+}
+
+.fcm-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #f3f4f6;
+}
+
+.fcm-grid {
+  border: 1px solid #2e313c;
+  border-bottom: none;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.fcm-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.fcm-head > div {
+  padding: 6px 7px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8b8f9b;
+  text-align: right;
+  background: #1c1e26;
+  border-right: 1px solid #2e313c;
+  border-bottom: 1px solid #2e313c;
+}
+
+.fcm-head > div:last-child {
+  border-right: none;
+}
+
+.fcm-day {
+  min-height: 86px;
+  padding: 2px 3px 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+  border-right: 1px solid #2e313c;
+  border-bottom: 1px solid #2e313c;
+}
+
+.fcm-day:nth-child(7n) {
+  border-right: none;
+}
+
+.fcm-daynum {
+  align-self: flex-end;
+  padding: 2px 5px;
+  font-size: 0.72rem;
+  color: #cdd0d8;
+}
+
+.fcm-day.is-other .fcm-daynum {
+  color: #5b5f6b;
+}
+
+.fcm-day.is-past {
+  background: #15161c;
+}
+
+.fcm-day.is-past .fcm-daynum {
+  color: #757985;
+}
+
+.fcm-day.is-today {
+  background: rgba(255, 220, 40, 0.1);
+}
+
+.fcm-day.is-today .fcm-daynum {
+  font-weight: 700;
+  color: #fff;
+}
+
+.fcm-event {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 1px;
+  padding: 1px 3px;
+  border: 1px solid;
+  border-radius: 3px;
+  font-size: 0.66rem;
+  line-height: 1.4;
+  overflow: hidden;
+}
+
+.fcm-event.ev-scheduled { background: #1c2b4d; border-color: #2f4a85; color: #93c5fd; }
+.fcm-event.ev-posted    { background: #133b21; border-color: #1f5c34; color: #86efac; }
+.fcm-event.ev-failed    { background: #3a1c1c; border-color: #6b2c2c; color: #fca5a5; }
+
+.fcm-badge {
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--b);
+  color: #fff;
+  font-size: 6px;
+  font-weight: 800;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fcm-time {
+  flex-shrink: 0;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.fcm-evtitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Static replica of the "New post" composer dialog (dashboard.ejs #post-dialog), same
+   hand-coded-dark-mode treatment as the .fcm-* calendar mock above — not the live form. */
+.mock-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mock-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #262832;
+}
+
+.mock-field:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.mock-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #8b8f9b;
+}
+
+.mock-accounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 6px;
+  border-radius: 999px;
+  border: 1.5px solid #2e313c;
+  font-size: 0.72rem;
+  color: #6b6f7c;
+}
+
+.mock-chip.is-selected {
+  border-color: var(--accent);
+  color: #e8e9ec;
+  background: rgba(109, 77, 255, 0.16);
+}
+
+.mock-chip-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+.mock-textarea {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #2e313c;
+  border-radius: var(--radius-sm);
+  background: #14151b;
+  color: #d7dae1;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.mock-meta {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 0.68rem;
+  color: #6b6f7c;
+}
+
+.mock-media {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mock-media-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #7c5cff, #5b8def);
+  flex-shrink: 0;
+}
+
+.mock-upload {
+  font-size: 0.72rem;
+  color: #6b6f7c;
+  border: 1px dashed #2e313c;
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+
+.mock-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.mock-toggle span {
+  flex: 1;
+  text-align: center;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #2e313c;
+  font-size: 0.72rem;
+  color: #6b6f7c;
+}
+
+.mock-toggle span.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.mock-datetime {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #d7dae1;
+}
+
+.mock-repeat {
+  font-size: 0.68rem;
+  color: #8b8f9b;
+}
+
+.mock-save {
+  display: block;
+  text-align: center;
+  padding: 9px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/* ---- centered section text (faq) ---- */
+.home-faq .home-band {
+  text-align: center;
+}
+
+/* ---- why postfox: visual left, copy right — deliberately the reverse of the analytics/agent
+   bands above and below it, so the page doesn't read as the same 2-col block repeated 3 times ---- */
+.home-why-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(var(--space-5) * 2.5);
+  align-items: center;
+}
+
+.home-why-copy .home-h2 {
+  margin-bottom: var(--space-4);
+}
+
+.home-why-copy p {
+  margin: 0 0 var(--space-4);
+  color: var(--home-on-ink-dim);
+  line-height: 1.65;
+}
+
+.home-why-copy p:last-child {
+  margin-bottom: 0;
+}
+
+.home-why-copy p a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.home-why-copy p a:hover {
+  color: var(--accent-strong);
+}
+
+.home-why-inner .home-window {
+  margin-top: 0;
+}
+
+.home-why-inner .home-why-mock {
+  padding: var(--space-4) 18px 18px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.9;
+  color: #d7dae1;
+}
+
+.home-why-mock p {
+  margin: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.home-why-prompt {
+  color: #6b7280;
+  margin-right: 0.5em;
+}
+
+.home-why-mock p.home-why-ok {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid #2e313c;
+  white-space: normal;
+  color: #8b8f9b;
+}
+
+.home-why-ok strong {
+  color: #e8e9ec;
+}
+
+/* ---- analytics band (replaced the old 3-step "how it works" section) ---- */
+.home-analytics-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(var(--space-5) * 2.5);
+  align-items: center;
+}
+
+.home-analytics-copy .home-h2 {
+  margin-bottom: var(--space-4);
+}
+
+.home-analytics-copy p {
+  margin: 0 0 var(--space-4);
+  color: var(--home-on-ink-dim);
+  line-height: 1.65;
+}
+
+/* Reuses .home-window (the dark "browser chrome" card from the compose/calendar mocks in
+   .home-showcase) so all three product screenshots share one visual language. Numbers here
+   are illustrative/static, same as those mocks — this is aria-hidden decoration, the copy
+   column carries the real message. The negative margin-top .home-window normally gets (to
+   pull it up under the hero, including its own responsive override) doesn't apply here — this
+   sits in a plain 2-col grid, not right below the hero — so override it at higher specificity
+   (the descendant selector) rather than relying on source order against that media query. */
+.home-analytics-inner .home-window {
+  margin-top: 0;
+}
+
+.home-analytics-inner .home-analytics-mock {
+  padding: var(--space-4) 18px 18px;
+}
+
+.home-analytics-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.home-analytics-stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-analytics-stats strong {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #e8e9ec;
+}
+
+.home-analytics-stats span {
+  font-size: 0.7rem;
+  color: #8b8f9b;
+}
+
+.home-analytics-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  height: 90px;
+  padding: 0 2px;
+}
+
+.home-analytics-chart span {
+  flex: 1;
+  height: var(--h);
+  min-height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: rgba(124, 92, 255, 0.35);
+}
+
+.home-analytics-chart span.is-peak {
+  background: var(--accent);
+}
+
+.home-analytics-insight {
+  margin: var(--space-4) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid #2e313c;
+  font-size: 0.8rem;
+  color: #8b8f9b;
+}
+
+.home-analytics-insight strong {
+  color: #e8e9ec;
+}
+
+/* ---- agent band ---- */
+.home-agent-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(var(--space-5) * 2.5);
+  align-items: start;
+}
+
+.home-agent-copy .home-h2 {
+  margin-bottom: var(--space-4);
+}
+
+.home-agent-copy p {
+  margin: 0 0 var(--space-5);
+  color: var(--home-on-ink-dim);
+  line-height: 1.65;
+}
+
+/* Numbered "fastest way in" steps, left column of the agent band. */
+.home-agent-steps {
+  margin: 0 0 var(--space-5);
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.home-agent-steps li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  color: var(--home-on-ink-dim);
+  line-height: 1.55;
+  font-size: 0.92rem;
+}
+
+.home-agent-steps strong {
+  color: var(--home-on-ink);
+  font-weight: 600;
+}
+
+.home-agent-step-num {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(124, 92, 255, 0.18);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* Dark "window" card shared by the curl-style examples and the agent chat mockup below. */
+.home-terminal {
+  min-width: 0;
+  border: 1px solid var(--home-ink-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #14151b;
+}
+
+.home-terminal-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #1b1c23;
+  border-bottom: 1px solid var(--home-ink-border);
+}
+
+.home-terminal-dots {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.home-terminal-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3a3d48;
+}
+
+.home-terminal-label {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.72rem;
+  color: #8b8f9b;
+}
+
+/* ---- agent chat mockup: what a connected agent's tool calls look like ---- */
+.home-agent-chat-body {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home-agent-msg,
+.home-agent-reply {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.85rem;
   line-height: 1.5;
+  max-width: 92%;
+}
+
+.home-agent-msg {
+  align-self: flex-end;
+  background: rgba(124, 92, 255, 0.22);
+  color: #f3f2ff;
+  border-bottom-right-radius: 4px;
+}
+
+.home-agent-reply {
+  align-self: flex-start;
+  background: #1f2027;
+  color: #d7dae1;
+  border-bottom-left-radius: 4px;
+}
+
+.home-agent-tool {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid #2c2e38;
+  background: #1b1c23;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.75rem;
+}
+
+.home-agent-tool-name {
+  color: #f3f4f6;
+  font-weight: 700;
+}
+
+.home-agent-tool-detail {
+  color: #8b8f9b;
+}
+
+.home-agent-tool-check {
+  width: 13px;
+  height: 13px;
+  color: #4ade80;
+}
+
+/* ---- pricing: the real plan cards from /pricing, not just a teaser blurb — same kicker/
+   underline-mark/lead recipe as the hero for the heading, widened to fit the card grid ---- */
+.home-pricing-teaser {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+}
+
+.home-pricing-teaser .home-h2 {
+  margin-bottom: 0;
+}
+
+.home-pricing-teaser .home-hero-lead {
+  margin: 0;
+}
+
+.home-pricing-teaser .pricing-grid {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+.home-pricing-teaser .pricing-footnote {
+  padding: 0;
+  margin: 0 auto;
+}
+
+/* ---- FAQ ---- */
+.home-faq .home-faq-list {
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: left;
+  border-top: 1px solid var(--home-ink-border);
+}
+
+.home-faq-list details {
+  border-bottom: 1px solid var(--home-ink-border);
+}
+
+.home-faq-list summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.005em;
+  color: var(--home-on-ink);
+  transition: color 0.15s ease;
+}
+
+.home-faq-list summary:hover {
+  color: var(--accent);
+}
+
+.home-faq-list details[open] summary {
+  color: var(--accent);
+}
+
+.home-faq-list summary::-webkit-details-marker {
+  display: none;
+}
+
+.home-faq-list summary::after {
+  content: "+";
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+  font-size: 1.3rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--home-on-ink-dim);
+}
+
+.home-faq-list details[open] summary::after {
+  content: "\2212"; /* − */
+}
+
+.home-faq-list details p {
+  margin: 0;
+  padding: 0 0 var(--space-4);
+  color: var(--home-on-ink-dim);
+  line-height: 1.65;
+}
+
+/* ---- final cta ---- */
+/* Same dark canvas + soft accent glow as .home-hero/.pricing-hero/.blog-post-hero, rather than
+   a saturated full-bleed gradient block — the page ends the way it started instead of spiking
+   into a jarring bright-purple banner right before the footer. */
+.home-final {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  padding: calc(var(--space-5) * 5) var(--space-5);
+  background: var(--home-ink);
+  color: var(--home-on-ink);
+}
+
+.home-final::before {
+  content: "";
+  position: absolute;
+  inset: -30% 0 auto 50%;
+  width: 1000px;
+  height: 700px;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(124, 92, 255, 0.24), rgba(124, 92, 255, 0) 70%);
+  pointer-events: none;
+}
+
+.home-final h2,
+.home-final > a {
+  position: relative;
+  z-index: 1;
+}
+
+.home-final h2 {
+  margin: 0 auto calc(var(--space-5) * 1.6);
+  max-width: 22ch;
+  font-size: clamp(1.9rem, 4vw, 2.7rem);
+  line-height: 1.12;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.home-final .home-btn-primary {
+  box-shadow: 0 14px 34px -10px rgba(109, 77, 255, 0.55);
+}
+
+.home-final .home-btn-primary:hover {
+  box-shadow: 0 18px 40px -10px rgba(109, 77, 255, 0.6);
+}
+
+/* ---- footer ---- */
+.landing-home .landing-footer {
+  background: var(--home-ink);
+  border-top: 1px solid var(--home-ink-border);
+  color: var(--home-on-ink-dim);
+}
+
+.landing-home .landing-footer a {
+  color: var(--home-on-ink-dim);
+}
+
+.landing-home .landing-footer a:hover {
+  color: var(--home-on-ink);
 }
 
 .landing-footer {
@@ -746,6 +2527,892 @@ button:disabled {
   color: var(--color-text-muted);
   font-size: 0.85rem;
   border-top: 1px solid var(--color-border);
+  display: flex;
+  gap: var(--space-4);
+  justify-content: center;
+}
+
+.pricing-grid {
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  /* stretch so all three cards share the tallest card's height */
+  align-items: stretch;
+  /* opt out of the generic card-like `section` styling — the plan cards are the cards */
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.pricing-card {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-4);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.pricing-card-featured {
+  border-color: var(--color-primary);
+  border-width: 2px;
+}
+
+.pricing-badge {
+  position: absolute;
+  top: calc(var(--space-3) * -1);
+  left: var(--space-4);
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2em 0.6em;
+  border-radius: var(--radius-sm);
+}
+
+.pricing-card h2,
+.pricing-card h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.pricing-price {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.pricing-price span {
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.pricing-tagline {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.pricing-channels {
+  margin: 0;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.95rem;
+  color: var(--color-text);
+}
+
+.pricing-channels strong {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.pricing-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 0.9rem;
+}
+
+.pricing-features li {
+  padding: 0;
+  border: none;
+  display: grid;
+  grid-template-columns: 1.1em 1fr;
+  gap: var(--space-2);
+  align-items: start;
+  line-height: 1.45;
+}
+
+.pricing-features li::before {
+  content: "✓";
+  color: var(--color-primary);
+  font-weight: 700;
+  line-height: inherit;
+}
+
+.pricing-cta {
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+
+.pricing-cta > * {
+  width: 100%;
+}
+
+.pricing-footnote {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-5) calc(var(--space-5) * 2);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.pricing-portal-link {
+  display: inline;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+@media (max-width: 800px) {
+  .pricing-grid {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+  }
+}
+
+/* ===== Shared committed-dark canvas + calendar-grid backdrop (landing look, on every
+   public / auth page: pricing, api-docs, login, signup, password, 404) ===== */
+.dark-canvas {
+  background: var(--home-ink);
+  color: var(--home-on-ink);
+}
+
+/* faint 64px grid, fixed to the viewport and fading out toward the bottom — same recipe as
+   .home-hero::after on the landing page */
+.dark-canvas::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(130% 90% at 50% -4%, #000 0%, transparent 74%);
+  mask-image: radial-gradient(130% 90% at 50% -4%, #000 0%, transparent 74%);
+  pointer-events: none;
+}
+
+/* lift the real content above the fixed grid layer (the sticky .site-header already sits
+   above it with its own z-index, so leave it alone) */
+.dark-canvas > main,
+.dark-canvas > .landing-footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* strip the generic card-like `section` chrome so the grid shows through (don't touch
+   padding — each section sets its own) */
+.dark-canvas section {
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.dark-canvas .landing-subhead {
+  color: var(--home-on-ink-dim);
+}
+
+/* --- api-docs on the dark canvas --- */
+.dark-canvas .api-docs-section {
+  border-top-color: var(--home-ink-border);
+}
+
+.dark-canvas .api-docs code,
+.dark-canvas .api-docs pre {
+  background: var(--home-ink-lift);
+  border-color: var(--home-ink-border);
+  color: var(--home-on-ink);
+}
+
+.dark-canvas .api-docs pre code {
+  background: none;
+  border: none;
+}
+
+.dark-canvas .api-docs-table th,
+.dark-canvas .api-docs-table td {
+  border-bottom-color: var(--home-ink-border);
+}
+
+.dark-canvas .api-docs-table th {
+  color: var(--home-on-ink-dim);
+}
+
+.dark-canvas .api-docs a {
+  color: var(--accent);
+}
+
+.dark-canvas .hint {
+  color: var(--home-on-ink-dim);
+}
+
+/* soft accent glow behind the pricing headline, like .home-hero::before */
+.pricing-page .pricing-hero {
+  position: relative;
+}
+
+.pricing-page .pricing-hero::before {
+  content: "";
+  position: absolute;
+  inset: -45% 0 auto 50%;
+  width: 900px;
+  height: 620px;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(124, 92, 255, 0.16), rgba(124, 92, 255, 0) 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Also applied on .landing-home (the landing page's own pricing section reuses these same
+   /pricing card components — see .home-pricing-teaser) so both stay in sync automatically. */
+.pricing-page .pricing-card,
+.landing-home .pricing-card {
+  background: var(--home-ink-lift);
+  border-color: var(--home-ink-border);
+  color: var(--home-on-ink);
+  box-shadow: 0 14px 36px -14px rgba(0, 0, 0, 0.65);
+}
+
+.pricing-page .pricing-card-featured,
+.landing-home .pricing-card-featured {
+  border-color: var(--accent);
+}
+
+.pricing-page .pricing-badge,
+.landing-home .pricing-badge {
+  background: var(--accent);
+  color: #fff;
+}
+
+.pricing-page .pricing-tagline,
+.pricing-page .pricing-price span,
+.pricing-page .pricing-footnote,
+.landing-home .pricing-tagline,
+.landing-home .pricing-price span,
+.landing-home .pricing-footnote {
+  color: var(--home-on-ink-dim);
+}
+
+.pricing-page .pricing-channels,
+.landing-home .pricing-channels {
+  color: var(--home-on-ink);
+  border-bottom-color: var(--home-ink-border);
+}
+
+.pricing-page .pricing-features li::before,
+.landing-home .pricing-features li::before {
+  color: var(--accent);
+}
+
+.pricing-page .pricing-cta .btn-link,
+.landing-home .pricing-cta .btn-link {
+  background: var(--accent);
+}
+
+.pricing-page .pricing-cta .btn-link:hover,
+.landing-home .pricing-cta .btn-link:hover {
+  background: var(--accent-strong);
+}
+
+.pricing-page .btn-secondary,
+.landing-home .btn-secondary {
+  color: var(--home-on-ink-dim);
+  border-color: var(--home-ink-border);
+}
+
+.pricing-page .pricing-portal-link,
+.landing-home .pricing-portal-link {
+  color: var(--accent);
+}
+
+.dark-canvas .landing-footer {
+  background: transparent;
+  border-top-color: var(--home-ink-border);
+  color: var(--home-on-ink-dim);
+}
+
+.dark-canvas .landing-footer a {
+  color: var(--home-on-ink-dim);
+}
+
+.dark-canvas .landing-footer a:hover {
+  color: var(--home-on-ink);
+}
+
+/* ===== Blog ===== */
+.blog-main {
+  max-width: 920px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--space-5) calc(var(--space-5) * 2);
+}
+
+.blog-hero {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: calc(var(--space-5) * 1.5) 0 var(--space-4);
+  text-align: center;
+}
+
+.blog-hero h1 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--home-fs-display);
+  line-height: 1.03;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+}
+
+.blog-empty {
+  text-align: center;
+  color: var(--home-on-ink-dim);
+  padding: var(--space-5) 0;
+}
+
+.blog-index-main {
+  max-width: 1100px;
+}
+
+/* "Browse by category" pill row, filtering the grid below by tag (?category=) */
+.blog-filter {
+  margin: 0 0 var(--space-4);
+}
+
+.blog-filter-label {
+  margin: 0 0 var(--space-3);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--home-on-ink-dim);
+}
+
+.blog-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--home-ink-border);
+}
+
+.blog-filter-pill {
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--home-ink-border);
+  color: var(--home-on-ink-dim);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.blog-filter-pill:hover {
+  border-color: var(--accent);
+  color: var(--home-on-ink);
+}
+
+.blog-filter-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.blog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+  padding: 0;
+  margin: var(--space-4) 0;
+}
+
+.blog-card {
+  border: 1px solid var(--home-ink-border);
+  border-radius: var(--radius-md);
+  background: var(--home-ink-lift);
+  overflow: hidden;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.blog-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-3px);
+}
+
+.blog-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Generated card art: every post gets a gradient + decorative icon, picked deterministically
+   from its slug (lib/blog.js cardArt()) so the grid isn't a wall of identical blank thumbnails.
+   Set frontmatter `image:` on a post to show a real picture here instead. */
+.blog-card-thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.blog-card-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.blog-card-thumb-icon {
+  width: 25%;
+  height: 25%;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.blog-card-thumb-1 { background: linear-gradient(135deg, #7c5cff, #5b8def); }
+.blog-card-thumb-2 { background: linear-gradient(135deg, #ff7a59, #ffb199); }
+.blog-card-thumb-3 { background: linear-gradient(135deg, #22c55e, #86efac); }
+.blog-card-thumb-4 { background: linear-gradient(135deg, #f59e0b, #fde68a); }
+.blog-card-thumb-5 { background: linear-gradient(135deg, #ec4899, #f9a8d4); }
+.blog-card-thumb-6 { background: linear-gradient(135deg, #0ea5e9, #7dd3fc); }
+
+.blog-card-body {
+  padding: var(--space-4);
+}
+
+.blog-card-category {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.blog-card h2 {
+  margin: 0 0 var(--space-2);
+  font-size: 1.08rem;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--home-on-ink);
+}
+
+.blog-card-excerpt {
+  margin: 0 0 var(--space-3);
+  color: var(--home-on-ink-dim);
+  line-height: 1.55;
+  font-size: 0.9rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.blog-card-meta {
+  margin: 0;
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--home-on-ink-dim);
+}
+
+.blog-card-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(124, 92, 255, 0.2);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.7rem;
+}
+
+.blog-card-author {
+  color: var(--home-on-ink);
+  font-weight: 600;
+}
+
+.blog-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--home-ink-border);
+  font-size: 0.9rem;
+}
+
+.blog-pagination a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.blog-pagination a:hover {
+  text-decoration: underline;
+}
+
+.blog-pagination-status {
+  color: var(--home-on-ink-dim);
+}
+
+/* ---- single post: full-bleed colour band, like a proper published article ---- */
+/* Same dark canvas + soft accent glow as .home-hero/.pricing-hero, rather than a flat block
+   of --accent — reads as part of the site instead of a jarring bright-purple banner. */
+.blog-post-hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--home-ink);
+  color: var(--home-on-ink);
+  text-align: center;
+}
+
+.blog-post-hero::before {
+  content: "";
+  position: absolute;
+  inset: -25% 0 auto 50%;
+  width: 900px;
+  height: 620px;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(124, 92, 255, 0.24), rgba(124, 92, 255, 0) 70%);
+  pointer-events: none;
+}
+
+/* lifted above the fixed grid same as .dark-canvas > main — see that rule for why */
+.dark-canvas > .blog-post-hero {
+  position: relative;
+  z-index: 1;
+}
+
+.blog-post-hero-inner {
+  position: relative;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: calc(var(--space-5) * 1.8) var(--space-5) calc(var(--space-5) * 1.6);
+}
+
+.blog-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+}
+
+.blog-tag {
+  background: rgba(124, 92, 255, 0.16);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3em 0.8em;
+  border-radius: 999px;
+}
+
+.blog-post-hero h1 {
+  margin: 0 0 var(--space-5);
+  font-size: clamp(1.9rem, 4vw, 2.7rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+
+.blog-byline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  text-align: left;
+}
+
+.blog-author-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(124, 92, 255, 0.18);
+  border: 1px solid rgba(124, 92, 255, 0.4);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.blog-author-name {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.blog-author-title {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.blog-byline-meta {
+  margin-left: auto;
+  text-align: right;
+  font-size: 0.82rem;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.blog-byline-meta span + span::before {
+  content: "\00b7";
+  margin: 0 0.4em;
+}
+
+@media (max-width: 560px) {
+  .blog-byline {
+    justify-content: flex-start;
+  }
+
+  .blog-byline-meta {
+    margin-left: 0;
+    text-align: left;
+    width: 100%;
+  }
+}
+
+/* ---- post body: optional sticky "Contents" sidebar + prose ---- */
+.blog-post-body {
+  max-width: 900px;
+  margin: 0 auto;
+  padding-top: calc(var(--space-5) * 1.6);
+}
+
+.blog-post-body.has-toc {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: calc(var(--space-5) * 1.5);
+  align-items: start;
+}
+
+.blog-toc {
+  position: sticky;
+  top: calc(var(--space-5) * 2);
+  font-size: 0.85rem;
+}
+
+.blog-toc-title {
+  margin: 0 0 var(--space-3);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+  color: var(--home-on-ink-dim);
+  border-bottom: 1px solid var(--home-ink-border);
+  padding-bottom: var(--space-2);
+}
+
+.blog-toc ul {
+  display: block;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.blog-toc li {
+  display: list-item;
+  align-items: normal;
+  gap: 0;
+  padding: 0;
+  border: none;
+  margin-bottom: var(--space-2);
+}
+
+.blog-toc a {
+  color: var(--home-on-ink-dim);
+  text-decoration: none;
+  line-height: 1.4;
+}
+
+.blog-toc a:hover {
+  color: var(--accent);
+}
+
+@media (max-width: 800px) {
+  .blog-post-body.has-toc {
+    display: block;
+  }
+
+  .blog-toc {
+    position: static;
+    margin: 0 0 var(--space-5);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--home-ink-border);
+    border-radius: var(--radius-md);
+    background: var(--home-ink-lift);
+  }
+
+  .blog-toc ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
+  }
+
+  .blog-toc li {
+    margin-bottom: 0;
+  }
+}
+
+.blog-prose {
+  max-width: 680px;
+  padding-bottom: calc(var(--space-5) * 2);
+  color: var(--home-on-ink);
+  line-height: 1.75;
+  font-size: 1.02rem;
+}
+
+.blog-post-body:not(.has-toc) .blog-prose {
+  margin: 0 auto;
+}
+
+.blog-prose h2 {
+  margin: calc(var(--space-5) * 1.4) 0 var(--space-3);
+  font-size: 1.4rem;
+  letter-spacing: -0.01em;
+}
+
+.blog-prose h3 {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: 1.15rem;
+}
+
+.blog-prose p {
+  margin: 0 0 var(--space-4);
+}
+
+.blog-prose ul,
+.blog-prose ol {
+  display: block;
+  margin: 0 0 var(--space-4);
+  padding-left: 1.4em;
+}
+
+.blog-prose ul {
+  list-style: disc;
+}
+
+.blog-prose ol {
+  list-style: decimal;
+}
+
+.blog-prose li {
+  display: list-item;
+  align-items: normal;
+  gap: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  margin-bottom: var(--space-2);
+}
+
+.blog-prose li:last-child {
+  margin-bottom: 0;
+}
+
+.blog-prose a {
+  color: var(--accent);
+}
+
+.blog-prose strong {
+  color: var(--home-on-ink);
+}
+
+.blog-prose blockquote {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--accent);
+  background: var(--home-ink-lift);
+  color: var(--home-on-ink-dim);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.blog-prose blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.blog-prose code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  background: var(--home-ink-lift);
+  border: 1px solid var(--home-ink-border);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.4em;
+  font-size: 0.9em;
+}
+
+.blog-prose pre {
+  background: var(--home-ink-lift);
+  border: 1px solid var(--home-ink-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  overflow-x: auto;
+  margin: 0 0 var(--space-4);
+}
+
+.blog-prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.blog-prose img {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+  margin: var(--space-4) 0;
+}
+
+.blog-prose hr {
+  border: none;
+  border-top: 1px solid var(--home-ink-border);
+  margin: calc(var(--space-5) * 1.2) 0;
+}
+
+.blog-cta {
+  max-width: 640px;
+  margin: calc(var(--space-5) * 1.5) auto 0;
+  padding: var(--space-5);
+  text-align: center;
+  border: 1px solid var(--home-ink-border);
+  border-radius: var(--radius-md);
+  background: var(--home-ink-lift);
+}
+
+.blog-cta h3 {
+  margin: 0 0 var(--space-2);
+}
+
+.blog-cta p {
+  margin: 0 0 var(--space-4);
+  color: var(--home-on-ink-dim);
+}
+
+@media (max-width: 600px) {
+  .blog-pagination {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    gap: var(--space-2);
+  }
 }
 
 .api-docs {
@@ -824,19 +3491,137 @@ button:disabled {
   font-size: 0.85rem;
 }
 
-@media (max-width: 800px) {
-  .landing-features {
-    grid-template-columns: repeat(2, 1fr);
+@media (max-width: 920px) {
+  .home-squig,
+  .pricing-squig {
+    display: none;
   }
 }
 
-@media (max-width: 480px) {
-  .landing-hero h1 {
-    font-size: 1.9rem;
+@media (max-width: 900px) {
+  .home-agent-inner {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
   }
 
-  .landing-features {
+  .home-analytics-inner {
+    /* Visual first on mobile — the chart is the hook, the copy is the explanation. */
+    display: flex;
+    flex-direction: column-reverse;
+    gap: var(--space-5);
+  }
+
+  .home-why-inner {
+    /* Already visual-then-copy in source order, so a plain stack (no reverse) keeps that. */
     grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
+}
+
+@media (max-width: 860px) {
+  .home-hero {
+    padding-bottom: calc(var(--space-5) * 5);
+  }
+
+  .home-window {
+    margin-top: calc(var(--space-5) * -3);
+  }
+}
+
+@media (max-width: 680px) {
+  .landing-nav-inner {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  .landing-home .landing-nav-links {
+    gap: var(--space-3);
+    font-size: 0.9rem;
+  }
+
+  .home-nav-hideable {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .home-hero {
+    padding: calc(var(--space-5) * 1.6) var(--space-4) calc(var(--space-5) * 4);
+  }
+
+  .home-hero-actions {
+    flex-direction: column;
+  }
+
+  .home-hero-actions .home-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .home-tiles {
+    margin-top: calc(var(--space-5) * 2);
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .home-tile.is-live {
+    width: 42px;
+    height: 42px;
+  }
+
+  .home-tile.is-live .home-tile-glyph {
+    width: 20px;
+    height: 20px;
+  }
+
+  .home-showcase {
+    padding: calc(var(--space-5) * 2.5) var(--space-4);
+  }
+
+  .home-window-body {
+    padding: 12px 10px 12px;
+  }
+
+  .fcm-day {
+    min-height: 58px;
+  }
+
+  .fcm-time,
+  .fcm-evtitle {
+    display: none;
+  }
+
+  .fcm-event {
+    justify-content: center;
+    padding: 2px;
+  }
+
+  .fcm-title {
+    font-size: 0.95rem;
+  }
+
+  .home-section {
+    padding: calc(var(--space-5) * 2.6) var(--space-4);
+  }
+
+  .home-final {
+    padding: calc(var(--space-5) * 3.5) var(--space-4);
+  }
+
+  .home-mark {
+    white-space: normal;
+  }
+
+  .home-mark-line {
+    display: none;
+  }
+
+  .pricing-hero {
+    padding: var(--space-5) var(--space-4) var(--space-4);
+  }
+
+  .pricing-hero h1 {
+    font-size: 2.25rem;
   }
 }
 
@@ -852,15 +3637,104 @@ button:disabled {
   font-size: 0.85rem;
 }
 
+/* FullCalendar ships its own default look (a different border color, button chrome, and
+   "today" highlight than the rest of the app) — override its documented theming variables so
+   it reads as part of Postfox instead of a stock widget dropped onto a dark page. Purely
+   visual: no FullCalendar markup/JS is touched. */
 #calendar {
   margin-top: var(--space-2);
   position: relative;
   min-height: 200px;
+  --fc-border-color: var(--color-border);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: transparent;
+  --fc-neutral-text-color: var(--color-text-muted);
+  --fc-today-bg-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  --fc-highlight-color: var(--hover-tint);
+  --fc-now-indicator-color: var(--color-danger);
+  --fc-small-font-size: 0.78em;
+}
+
+.fc .fc-scrollgrid {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.fc .fc-col-header-cell-cushion {
+  padding: var(--space-2) 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+/* Re-themed to match the app's own chip/button language instead of FullCalendar's default
+   button-group chrome (which came with its own border-radius, font, and button colors). */
+.fc .fc-button {
+  background: transparent;
+  border: 1px solid var(--color-input-border);
+  color: var(--color-text);
+  box-shadow: none;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: var(--space-1) var(--space-3);
+  text-transform: capitalize;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.fc .fc-button:hover:not(:disabled) {
+  background: var(--hover-tint);
+  border-color: var(--color-input-border);
+  color: var(--color-text);
+}
+
+.fc .fc-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.fc .fc-button-group {
+  gap: 2px;
+}
+
+.fc .fc-daygrid-day-number {
+  padding: var(--space-2);
+  font-size: 0.85rem;
+}
+
+.fc .fc-day-today .fc-daygrid-day-number {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.fc .fc-event {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  border-width: 1px;
+  padding: 2px 4px;
+  font-weight: 600;
 }
 
 .fc .fc-daygrid-day-frame,
 .fc .fc-timegrid-col-frame {
   cursor: pointer;
+  transition: background-color 0.12s ease;
 }
 
 .fc .fc-daygrid-day:hover .fc-daygrid-day-frame {
@@ -869,10 +3743,6 @@ button:disabled {
 
 .fc .fc-timegrid-col:hover .fc-timegrid-col-frame {
   background: var(--hover-tint);
-}
-
-.fc .fc-event {
-  cursor: pointer;
 }
 
 .fc .fc-daygrid-day.fc-day-past .fc-daygrid-day-frame {
@@ -1244,6 +4114,26 @@ dialog#post-dialog label .label-optional {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
+.repeat-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.repeat-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.repeat-field select,
+.repeat-field input {
+  font-size: 0.85rem;
+}
+
 #scheduled-for-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -1400,6 +4290,45 @@ a.toast {
   flex-direction: column;
   align-items: stretch;
   max-width: 320px;
+}
+
+.webhooks-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.webhooks-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.webhooks-list li.empty {
+  color: var(--color-text-muted);
+  font-style: italic;
+  justify-content: flex-start;
+}
+
+.webhook-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.webhook-url {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+  word-break: break-all;
 }
 
 .admin-section {

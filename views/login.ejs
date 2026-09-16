@@ -8,19 +8,39 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body class="dark-canvas">
+<%- include('partials/site-header') %>
 <main class="auth-card">
-  <h1>Postfox</h1>
+  <div class="auth-card-head">
+    <h1>Log in to Postfox</h1>
+  </div>
+  <a href="/api/auth/google" class="btn-google">Continue with Google</a>
+  <div class="auth-divider"><span>or</span></div>
   <form id="login-form">
-    <label>Email <input type="email" name="email" required></label>
-    <label>Password <input type="password" name="password" required></label>
+    <label>Email <input type="email" name="email" autocomplete="email" autofocus required></label>
+    <label>Password
+      <div class="password-field">
+        <input type="password" name="password" id="login-password" autocomplete="current-password" required>
+        <button type="button" class="password-toggle" aria-label="Hold to show password" aria-pressed="false">
+          <svg class="icon-eye" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+            <line class="icon-eye-slash" x1="2" y1="2" x2="22" y2="22"/>
+          </svg>
+        </button>
+      </div>
+    </label>
     <button type="submit">Log in</button>
   </form>
   <p id="error" class="error"></p>
-  <p><a href="/forgot-password">Forgot password?</a></p>
-  <p>No account? <a href="/signup">Sign up</a></p>
+  <div class="auth-card-footer">
+    <a href="/forgot-password">Forgot password?</a>
+    <span class="auth-card-footer-sep" aria-hidden="true">&middot;</span>
+    <span>No account? <a href="/signup">Sign up</a></span>
+  </div>
 </main>
 <script src="/csrf.js"></script>
 <script src="/login.js"></script>
+<%- include('partials/analytics') %>
 </body>
 </html>

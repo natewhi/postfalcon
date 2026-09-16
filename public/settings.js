@@ -71,6 +71,122 @@ revokeTokenBtn.addEventListener(
 
 loadApiTokenStatus();
 
+async function loadPlan() {
+  const summary = document.getElementById('plan-summary');
+  const manageBtn = document.getElementById('manage-billing-btn');
+  try {
+    const s = await apiJson('/api/billing/status');
+    const accountsLimit = s.limits.accounts === null ? 'unlimited' : s.limits.accounts;
+    const postsLimit = s.limits.scheduledPosts === null ? 'unlimited' : s.limits.scheduledPosts;
+    let line = `${s.planName} plan — ${s.usage.accounts}/${accountsLimit} connected accounts, ${s.usage.scheduledPosts}/${postsLimit} scheduled posts.`;
+    if (s.planStatus && s.planStatus !== 'active') line += ` Status: ${s.planStatus}.`;
+    if (s.renewsAt && s.plan !== 'free') line += ` Renews ${new Date(s.renewsAt).toLocaleDateString()}.`;
+    summary.textContent = line;
+    manageBtn.hidden = !s.hasBillingAccount;
+
+    if (s.capabilities && s.capabilities.webhooks) {
+      document.getElementById('webhooks-section').hidden = false;
+      loadWebhooks();
+    }
+  } catch (err) {
+    summary.textContent = 'Failed to load plan details.';
+    showToast(err.message);
+  }
+}
+
+const manageBillingBtn = document.getElementById('manage-billing-btn');
+manageBillingBtn.addEventListener(
+  'click',
+  withLoading(manageBillingBtn, 'Opening…', async () => {
+    try {
+      const { url } = await apiJson('/api/billing/portal', { method: 'POST' });
+      window.location.href = url;
+    } catch (err) {
+      showToast(err.message);
+    }
+  })
+);
+
+if (new URLSearchParams(location.search).get('checkout') === 'success') {
+  showToast('Subscription active — thanks!', 'success');
+  history.replaceState(null, '', location.pathname);
+}
+
+loadPlan();
+
+async function loadWebhooks() {
+  const list = document.getElementById('webhooks-list');
+  try {
+    const hooks = await apiJson('/api/v1/webhooks');
+    if (hooks.length === 0) {
+      list.innerHTML = '<li class="empty">No webhooks yet.</li>';
+      return;
+    }
+    list.innerHTML = hooks
+      .map((h) => {
+        const last = h.last_delivery_at
+          ? `last delivery ${new Date(h.last_delivery_at).toLocaleString()} (HTTP ${h.last_delivery_status ?? '—'})`
+          : 'no deliveries yet';
+        return `
+          <li>
+            <div class="webhook-row">
+              <span class="webhook-url">${escapeHtml(h.url)}</span>
+              <span class="hint">${escapeHtml(h.events.join(', '))} — ${escapeHtml(last)}</span>
+            </div>
+            <button type="button" class="delete-btn" data-id="${h.id}">Remove</button>
+          </li>`;
+      })
+      .join('');
+    list.querySelectorAll('.delete-btn').forEach((btn) => {
+      btn.addEventListener(
+        'click',
+        withLoading(btn, 'Removing…', async () => {
+          const ok = await confirmDialog('Remove this webhook?', { confirmText: 'Remove' });
+          if (!ok) return;
+          try {
+            await apiJson(`/api/v1/webhooks/${btn.dataset.id}`, { method: 'DELETE' });
+            loadWebhooks();
+          } catch (err) {
+            showToast(err.message);
+          }
+        })
+      );
+    });
+  } catch (err) {
+    list.innerHTML = '<li class="empty">Failed to load webhooks.</li>';
+    showToast(err.message);
+  }
+}
+
+const webhookAddForm = document.getElementById('webhook-add-form');
+webhookAddForm.addEventListener(
+  'submit',
+  withLoading(webhookAddForm.querySelector('button[type="submit"]'), 'Adding…', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+      const hook = await apiJson('/api/v1/webhooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: form.url.value }),
+      });
+      document.getElementById('webhook-secret-value').value = hook.secret;
+      document.getElementById('webhook-secret-reveal').hidden = false;
+      form.reset();
+      loadWebhooks();
+    } catch (err) {
+      showToast(err.message);
+    }
+  })
+);
+
+document.getElementById('webhook-secret-copy').addEventListener('click', async () => {
+  const input = document.getElementById('webhook-secret-value');
+  input.select();
+  await navigator.clipboard.writeText(input.value);
+  showToast('Copied to clipboard.', 'success');
+});
+
 const changePasswordForm = document.getElementById('change-password-form');
 changePasswordForm.addEventListener(
   'submit',
@@ -82,10 +198,13 @@ changePasswordForm.addEventListener(
       return;
     }
     try {
+      // form.currentPassword doesn't exist at all for a Google-only account setting its first
+      // password (see views/settings.ejs) — optional chaining leaves it undefined, which
+      // JSON.stringify drops, matching the backend's optional currentPassword field.
       await apiJson('/api/auth/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword: form.currentPassword.value, newPassword: form.newPassword.value }),
+        body: JSON.stringify({ currentPassword: form.currentPassword?.value, newPassword: form.newPassword.value }),
       });
       form.reset();
       showToast('Password updated. Other logged-in sessions have been signed out.', 'success');
@@ -109,7 +228,7 @@ deleteAccountForm.addEventListener(
       await apiJson('/api/auth/delete-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: form.password.value }),
+        body: JSON.stringify({ password: form.password?.value }),
       });
       window.location.href = '/login';
     } catch (err) {

@@ -10,7 +10,8 @@ async function authenticateBearerToken(req) {
 
   const tokenHash = hashToken(token);
   const result = await pool.query(
-    `SELECT users.id, users.email, users.email_verified_at, users.created_at
+    `SELECT users.id, users.email, users.email_verified_at, users.created_at,
+            users.stripe_customer_id, users.plan, users.plan_status, users.plan_renews_at
      FROM api_tokens
      JOIN users ON users.id = api_tokens.user_id
      WHERE api_tokens.token_hash = $1`,

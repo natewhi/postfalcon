@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/theme-init.js"></script>
+<meta name="color-scheme" content="light dark">
+<title>Analytics - Postfox</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <%- include('partials/sidebar', { active: 'analytics', email }) %>
+
+  <main class="app-main">
+    <%- include('partials/verify-banner', { emailVerified }) %>
+
+    <div class="page-header">
+      <h1>Analytics</h1>
+    </div>
+
+    <div id="analytics-loading" class="loading"><span class="spinner"></span> Loading analytics&hellip;</div>
+
+    <div id="analytics-content" hidden>
+      <section class="analytics-stats">
+        <div class="analytics-stat">
+          <span class="analytics-stat-value" id="stat-views">0</span>
+          <span class="analytics-stat-label">Views</span>
+        </div>
+        <div class="analytics-stat">
+          <span class="analytics-stat-value" id="stat-likes">0</span>
+          <span class="analytics-stat-label">Likes</span>
+        </div>
+        <div class="analytics-stat">
+          <span class="analytics-stat-value" id="stat-comments">0</span>
+          <span class="analytics-stat-label">Comments</span>
+        </div>
+        <div class="analytics-stat">
+          <span class="analytics-stat-value" id="stat-shares">0</span>
+          <span class="analytics-stat-label">Shares</span>
+        </div>
+      </section>
+
+      <section class="analytics-chart-section">
+        <h2>Views, last 7 days</h2>
+        <div class="analytics-chart" id="analytics-chart"></div>
+      </section>
+
+      <div id="analytics-top-post" class="analytics-insight" hidden></div>
+
+      <p id="analytics-empty" class="hint" hidden></p>
+
+      <p class="hint analytics-coverage">
+        Metrics are pulled from each connected account's API a few times a day. Bluesky, Facebook,
+        Instagram, Mastodon, Threads, and YouTube report likes and comments (YouTube and Threads
+        also report views). Telegram and TikTok don&rsquo;t expose post metrics through their APIs yet.
+      </p>
+    </div>
+  </main>
+</div>
+
+<script src="/csrf.js"></script>
+<script src="/common.js"></script>
+<script src="/analytics.js"></script>
+</body>
+</html>

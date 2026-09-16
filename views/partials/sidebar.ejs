@@ -1,7 +1,9 @@
+<%- include('platform-icons') %>
 <aside class="sidebar">
   <div class="sidebar-brand">Postfox</div>
   <nav class="sidebar-nav">
     <a href="/dashboard" class="nav-link<%= active === 'calendar' ? ' active' : '' %>">Calendar</a>
+    <a href="/analytics" class="nav-link<%= active === 'analytics' ? ' active' : '' %>">Analytics</a>
     <a href="/accounts" class="nav-link<%= active === 'accounts' ? ' active' : '' %>">Accounts</a>
     <a href="/settings" class="nav-link<%= active === 'settings' ? ' active' : '' %>">Settings</a>
   </nav>

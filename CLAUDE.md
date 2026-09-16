@@ -1,9 +1,17 @@
 # Postfox
 
 Social media post scheduler. Node.js/Express backend, Postgres, EJS server-rendered views, vanilla JS on the
-frontend (no framework, no bundler). Users connect social accounts (Mastodon, Facebook, Instagram, and stubs for
-Twitter/LinkedIn/TikTok/Threads), compose posts as drafts or schedule them, and a per-minute cron job publishes
-due posts. AI agents can also create/manage posts via an MCP server.
+frontend (no framework, no bundler). Users connect social accounts (live: Mastodon, Bluesky, Facebook, Instagram,
+Threads, Telegram, YouTube, TikTok, Pinterest, LinkedIn; hidden stubs, no adapter yet: Reddit, Google Business
+Profile — see `lib/platforms.js`). Deliberately out of scope: messaging apps (WhatsApp, WeChat, Messenger) —
+Postfox schedules social *posts*, not chat messages, and none of them have a public feed to publish to. Twitter/X
+is excluded too, but for a different reason: its posting API is paid. Users compose posts as drafts or schedule
+them, and a per-minute cron job publishes due posts.
+A post can target several channels at once (cross-posting) and can recur (daily/weekly/monthly). There is no
+free tier: every account is on a paid plan (Standard / Team / Pro, Stripe) starting with a 7-day trial, and
+each plan carries `limits` (channel count) plus `capabilities` (webhooks, priority support, …). Team/Pro can
+register outbound webhooks that fire on publish/failure. AI agents can also create/manage posts via an MCP
+server.
 
 ## Dev environment
 
@@ -19,30 +27,116 @@ due posts. AI agents can also create/manage posts via an MCP server.
   pm2 reload) — run it manually on the VPS; there's still no CI/CD, and none should be added unless asked.
 - `.env` values (DB creds, session secret, OAuth app IDs/secrets) are entered by the user directly. Don't invent
   or insert real secrets — use placeholders in `.env.example` and let the user fill in `.env`/`.env.test`.
+- Traffic/SEO analytics (referrers, top pages, trends) runs as a separate self-hosted Umami instance, not part
+  of this app's own DB — Postfox only proxies its script/data same-origin via `/stats/*` (`routes/analytics.js`)
+  when `UMAMI_HOST`/`UMAMI_WEBSITE_ID` are set. Setup/deploy steps for Umami itself: `docs/analytics-setup.md`.
 
 ## Architecture
 
 ```
 app.js              Express app: helmet/CSP, sessions, CSRF, passport, route mounting, error handlers
 index.js            Entry point: starts the HTTP server + the cron scheduler
-scheduler.js         node-cron jobs: per-minute "publish due posts", daily 3am media cleanup
+scheduler.js         node-cron jobs: per-minute "publish due posts", daily 3am media cleanup, and a
+                     post-metrics refresh every 3 hours. sendPost() dispatches to a per-platform
+                     adapter via lib/platforms.js; refreshPostMetrics() does the same for any adapter
+                     that exports fetchMetrics().
+lib/platforms.js     The platform registry — the ONE place a social platform is defined (label,
+                     badge/color, status live|stub|unsupported, connect style). lib/platforms/<id>.js
+                     is that platform's publish adapter (only for status:'live'). Adding a platform =
+                     one registry entry (+ an adapter for a live one), not edits scattered across
+                     routes/scheduler/views. public/common.js's PLATFORM_META mirrors badge/color;
+                     views/partials/platform-icons.ejs is the brand-mark SVG sprite (dashboard + landing).
+                     YouTube/TikTok are video-only and use short-lived OAuth tokens — their adapters
+                     refresh via lib/platforms/oauthRefresh.js (needs refresh_token + token_expires_at,
+                     which scheduler.js's due-posts query selects). Threads uses a long-lived
+                     (~60-day) access token with no separate refresh_token — it self-refreshes via a
+                     bespoke helper inside lib/platforms/threads.js rather than oauthRefresh.js. Bluesky
+                     has no third-party OAuth at all: the user supplies a handle + an "app password"
+                     (connect:'token', like Telegram's bot token), stored as access_token, and the
+                     adapter just logs in fresh (short-lived session) on every publish. An adapter can
+                     also export `fetchMetrics(post) -> {views, likes, comments, shares}` (any field
+                     null if that platform doesn't report it) — optional, only mastodon/bluesky/
+                     facebook/instagram/threads/youtube have one; telegram/tiktok/pinterest/linkedin
+                     don't (no metrics API available via the scopes Postfox already requests).
+                     Pinterest and LinkedIn both use access levels open to any registered app (not
+                     the partner-approval-gated tiers each platform also has): Pinterest posts a Pin
+                     to whichever board was picked automatically at connect time (stored in
+                     social_accounts.metadata, same place Mastodon keeps its instance domain) and
+                     always needs an image — there's no text-only Pin. LinkedIn posts to the user's
+                     personal profile (not a Company Page) and is text-only for now; its access
+                     token has no refresh_token for standard apps, so it just expires (~60 days)
+                     and surfaces as a normal failed-post error until reconnected.
 routes/              One file per resource, mounted in app.js. requireAuth applied at app.use() level,
                      not per-route (pages.js is the exception — it applies requirePageAuth per-route since
                      login/signup must stay reachable while logged out). '/' is the public landing page;
                      the authenticated calendar app lives at '/dashboard', not '/'.
-middleware/          auth (session + Bearer token), validate (zod), upload (multer), rateLimit
+middleware/          auth (session + Bearer token), validate (zod), upload (multer), rateLimit,
+                     planLimit (per-plan channel caps + requireCapability(cap) gate)
+routes/auth.js       Session auth: local email/password (passport-local, lib/passport.js) plus
+                     "Sign in with Google" (hand-rolled OAuth, same raw-fetch pattern as every
+                     platform adapter — not a passport strategy package) at GET /google +
+                     /google/callback. Shares GOOGLE_CLIENT_ID/SECRET with routes/youtube.js's
+                     channel-connect flow (one Google Cloud OAuth client, two redirect URIs). A
+                     Google sign-in matches an existing account by google_id, then by email
+                     (linking rather than duplicating), else creates one with password_hash NULL
+                     and email_verified_at set immediately (Google already verified it).
+                     users.password_hash is nullable for this reason — /change-password and
+                     /delete-account both treat "no password_hash" as "nothing to verify, the
+                     session itself is the only factor" rather than calling bcrypt on null.
 lib/                 passport strategy, mailer (real SMTP via nodemailer, falls back to console.log if
-                     SMTP_* env vars are unset), token hashing, media cleanup logic
+                     SMTP_* env vars are unset), token hashing, media cleanup logic,
+                     billing.js (Stripe client + PLANS catalogue: per-plan limits + capabilities + trial),
+                     webhooks.js (deliverWebhooks() — HMAC-signed outbound POST, fire-and-forget)
+routes/billing.js    Stripe Checkout / Billing Portal / plan-status endpoints (session auth, /api/billing)
+routes/billingWebhook Stripe webhook — mounted in app.js with express.raw() BEFORE express.json() and
+                     csrfProtection (Stripe authenticates by signature). Updates users.plan/plan_status.
+routes/webhooks.js   /api/v1/webhooks CRUD for user-registered outbound webhook endpoints (Team/Pro only,
+                     gated by requireCapability('webhooks'))
+content/blog/*.md    The blog — one Markdown file per post (frontmatter: title, slug, description, date,
+                     optional updated/draft/image/redirects/tags/author — see _template.md), read fresh
+                     from disk on every request (no DB table, no admin UI, no caching) so editing a file —
+                     including its `slug`, i.e. its URL — takes effect immediately. lib/blog.js parses them
+                     (gray-matter + marked), assigns heading ids and builds each post's table of contents,
+                     and resolves `author` against the AUTHORS map (placeholder initial-letter avatar until
+                     a real photo is set). routes/blog.js serves /blog (paginated index) and /blog/:slug. A
+                     post's old slug(s) can be listed under `redirects:` to 301 old URLs to the new one
+                     after a rename. routes/pages.js's /sitemap.xml and /robots.txt are generated from the
+                     same list.
+routes/analytics.js  Reverse-proxies /stats/* to a self-hosted Umami instance (see docs/analytics-setup.md)
+                     so the tracking script/data stay same-origin — mounted with express.raw() BEFORE
+                     express.json(), same reasoning as the Stripe webhook. 404s if UMAMI_HOST is unset.
+                     Unrelated to routes/postAnalytics.js below — this one is Postfox's own traffic/SEO
+                     analytics for the site owner, not user-facing post performance.
+routes/postAnalytics.js  /api/v1/analytics/summary — aggregates the metric_* columns scheduler.js keeps
+                     refreshed into a 7-day chart, totals, and a top post. Backs views/analytics.ejs
+                     (the "Analytics" sidebar page) and is also just another /api/v1 endpoint, so
+                     GET /api/v1/posts carries the same raw metric_* fields on every post for scripts/
+                     agents (lib/mcpServer.js's get_analytics_summary tool wraps this endpoint).
 db/                  pool.js (pg Pool), migrate.js (runner), migrations/NNN_name.sql (hand-written SQL)
 views/*.ejs          One view per page; each has its own full <head> (no shared layout — see below)
-views/partials/      sidebar, verify-banner — included via <%- include(...) %>
+views/partials/      sidebar, verify-banner, site-header, analytics (public/auth pages) — included via
+                     <%- include(...) %>
 public/*.js          One script per page, matching the view name (dashboard.ejs -> dashboard.js)
 public/csrf.js       Loaded on every page (before common.js / before the page script on pages without it).
                      Exposes getCsrfToken(), lazily fetched from GET /api/csrf-token and cached in memory.
 public/common.js     Shared helpers, loaded before the page script on pages that have a sidebar
 public/style.css     Single stylesheet, CSS custom properties for theming, BEM-ish flat class names
-mcp/server.js        MCP stdio server exposing list_accounts/list_posts/create_post/update_post/delete_post,
-                     authenticates against the running app via a Bearer api_token (POSTFOX_BASE_URL/POSTFOX_API_TOKEN)
+lib/mcpServer.js     createMcpServer({baseUrl, token}) — the one place all 6 MCP tools
+                     (list_accounts/list_posts/create_post/update_post/delete_post/
+                     get_analytics_summary) are defined, each a thin call against Postfox's own
+                     REST API. Shared by both ways to reach them:
+mcp/server.js        ...over stdio, for clients that spawn a local process (Claude Desktop,
+                     Cursor's `command` config) — reads POSTFOX_BASE_URL/POSTFOX_API_TOKEN from
+                     the environment.
+routes/mcp.js        ...over Streamable HTTP at POST /mcp, for clients that connect via a URL
+                     instead (ChatGPT, Claude.ai, Cursor's `url` config, or any other Streamable
+                     HTTP client) — a fresh McpServer + transport per request (stateless mode,
+                     no session id), authenticated by the caller's own `Authorization: Bearer
+                     pf_...` header (the same api_tokens a user generates for the REST API — no
+                     separate MCP-specific token). Own CORS (origin '*', like /api/v1); not
+                     mounted under /api since it isn't versioned REST and doesn't need
+                     csrfProtection (Bearer-only, same reasoning as everything else under
+                     /api/v1).
 tests/               vitest + supertest, one file per resource, run against a real Postgres test DB
 ```
 
@@ -68,9 +162,33 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   also the only part of `/api` with CORS enabled (`app.js`, scoped to `/api/v1`, no credentials — safe to open
   since Bearer auth can't be forged cross-origin the way a cookie session can) and rate-limited per user via
   `apiLimiter` in `middleware/rateLimit.js` (keyed by `req.user.id`, not IP, since it runs after `requireAuth`).
-  `auth`/`users`/`mastodon`/`facebook`/`csrf-token` stay unversioned — they're session/cookie-based web-app
-  plumbing (login, OAuth redirects, CSRF issuance), not part of the external contract. If you add a new
-  externally-useful resource route, mount it under `/api/v1`, add `apiLimiter`, and add it to `/api-docs`.
+  `auth`/`users`/`mastodon`/`facebook`/`telegram`/`billing`/`csrf-token` stay unversioned — they're
+  session/cookie-based web-app plumbing (login, OAuth redirects, platform connect flows, checkout, CSRF
+  issuance), not part of the external contract. If you add a new externally-useful resource route, mount it
+  under `/api/v1`, add `apiLimiter`, and add it to `/api-docs`.
+- Billing: plans live in `lib/billing.js` (`PLANS` — each has `priceUsd`, `limits`, `capabilities`, `features`);
+  `users.plan`/`plan_status`/`plan_renews_at` are the app's read-fast copy of Stripe state, written only by
+  `routes/billingWebhook.js`. There is no free plan — new rows default to `plan='standard'`,
+  `plan_status='trialing'` (migration 013) and Checkout adds a 7-day `trial_period_days` for never-subscribed
+  customers. `isEntitled(user)` (plan_status in active/trialing/past_due) is the "can still publish" gate;
+  when a subscription lapses the `plan` string sticks and `plan_status` drives the lockout. Enforce with the
+  middleware in `middleware/planLimit.js`: `enforceAccountLimit` (402 `plan_limit`), `enforceScheduledPostLimit`
+  (still entitlement-checks even though every paid queue is unlimited), and `requireCapability('webhooks'|…)`
+  (402 `plan_capability`) — added to the route chain after `validate()`. In a handler, gate features with
+  `planHasCapability(req.user.plan, cap)`; never read Stripe directly in a request. The Stripe SDK is lazy
+  (`getStripe()` in `lib/billing.js`); tests mock the `stripe` module and set `STRIPE_PRICE_*` env in a `beforeAll`.
+- Cross-posting: `POST /api/v1/posts` takes `social_account_ids` (JSON array / repeated field / single) as well
+  as `social_account_id`. It writes one `posts` row per channel sharing a `crosspost_group_id`; the first keeps
+  the uploaded files, the rest get copied media (so per-post media cleanup can't orphan another's file). N>1
+  responds `{ crosspost_group_id, posts: [...] }`; N==1 responds the bare post (unchanged). Gated by the
+  `crossPosting` capability.
+- Repeated posts: `posts.repeat_interval` (daily/weekly/monthly) + optional `repeat_until` + `repeat_parent_id`.
+  After a recurring post publishes, `scheduler.js` `scheduleNextOccurrence()` clones the next occurrence (with
+  copied media, 1-year hard cap). Gated by the `repeatedPosts` capability.
+- Outbound webhooks: `lib/webhooks.js` `deliverWebhooks(userId, event, data)` — fired (not awaited) from
+  `scheduler.js` on `post.published` / `post.failed`. Each POST carries `X-Postfox-Event` and
+  `X-Postfox-Signature: sha256=<hmac-sha256 of the raw body with the endpoint secret>`, 8s timeout, no retry.
+  The signing secret is returned only once, at creation.
 - Every mutating `/api/*` route is behind CSRF protection (`app.js`, via `csrf-csrf`'s double-submit cookie
   pattern) — GET/HEAD are exempt automatically, and requests carrying an `Authorization: Bearer` header are
   exempt too (Bearer auth isn't cookie-based, so it isn't CSRF-able; this matters for MCP/agent callers, who
@@ -94,6 +212,24 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
 - Every page's `<head>` repeats the same boilerplate (charset, `theme-init.js`, color-scheme meta, title, favicon,
   stylesheet). There's no shared layout partial for `<head>` — if you add a new page, copy the existing head block
   from another view rather than improvising a different structure.
+- The public + auth pages (landing, pricing, api-docs, login, signup, forgot/reset-password, 404) share one
+  header via `<%- include('partials/site-header') %>` — an always-dark bar (its own `--site-header-*` tokens,
+  same call as the always-dark sidebar) with the "P" mark, "Postfox", and Pricing / API / Log in / Start free
+  trial links. It reads an optional `loggedIn` local (guarded with `typeof`) to swap the auth links for "Open
+  app". The in-app pages use `partials/sidebar.ejs` instead — don't put the site-header there. `favicon.svg` is
+  the same "P" mark.
+- Those same pages also carry `class="dark-canvas"` (on the `.landing` wrapper, or `<body>` for the auth
+  pages) — a committed-dark background with a fixed 64px calendar-grid `::before` (masked radial fade), the
+  landing-page look. `.dark-canvas` also holds the dark overrides for `.api-docs` code/tables and floats the
+  `.auth-card` as a light panel on the grid; `.pricing-page` adds only the pricing-card-specific dark styling
+  and the headline glow. `/dashboard` and the rest of the app keep the theme-aware light/dark chrome.
+- Trial/onboarding flow: every "Start free trial" CTA points to `/pricing`. A logged-out visitor picking a plan
+  goes to `/signup?plan=<id>`; `signup.js` creates the account, auto-logs-in, and redirects to
+  `/pricing?start=<id>`, where `pricing.js` immediately calls `POST /api/billing/checkout` and hands off to the
+  Stripe Checkout page (card always collected — `payment_method_collection: 'always'`). Plain `login.js` just
+  goes to `/dashboard` — plan selection is a signup-time step, not a gate on every login. `/pricing` only marks
+  a plan as "current" (disabling its button) once the user has a Stripe customer, so a brand-new account on the
+  `standard` default can still start any plan.
 - Never use native `alert()`/`confirm()`. Use `showToast(message, type, link)` for messages and
   `confirmDialog(message, { confirmText, cancelText })` for anything that needs a yes/no — both are in
   `public/common.js`. This was an explicit product requirement; don't regress it.
@@ -131,8 +267,28 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   `views/api-docs.ejs`.
 - **New page?** New `views/<name>.ejs` with the standard head boilerplate, matching `public/<name>.js`, add the
   route in `routes/pages.js` behind `requirePageAuth`, add a sidebar nav link if it belongs in the main app shell.
+  A public/marketing/auth page instead includes `partials/site-header` (and skips `requirePageAuth`).
   Load `<script src="/csrf.js">` before the page script (and before `common.js`, if used) if the page will ever
   POST/PATCH/DELETE.
+- **New social platform?** Add/adjust its entry in `lib/platforms.js` (`status`, `connect`, badge/color). For a
+  `live` one: write `lib/platforms/<id>.js` exporting `publish(post) -> platformPostId`, add the connect flow
+  (OAuth router, or a `/api/<platform>/connect` token route like `routes/telegram.js`), mirror badge/color into
+  `public/common.js`'s `PLATFORM_META`, and add a bespoke connect block in `views/accounts.ejs` if `connect`
+  isn't `manual`. Tests: `tests/<platform>.test.js` for the connect route + a posting case in
+  `tests/scheduler.test.js`. Widen the `social_accounts.platform` CHECK in a new migration if the id is new.
+  If the platform's API exposes engagement counts, also export `fetchMetrics(post) -> {views, likes,
+  comments, shares}` (null for whatever it doesn't report) — scheduler.js picks it up automatically, no
+  other change needed for it to show up in Analytics.
+- **New blog post?** Copy `content/blog/_template.md` (a draft — safe to leave in place, it's never listed),
+  fill in `title`/`slug`/`description`/`date`, remove `draft: true` when ready. Optional frontmatter: `tags`
+  (pills on the post + index card), `author` (id into the `AUTHORS` map in `lib/blog.js` — add a person there
+  before referencing them), `image`, `redirects` (old slugs that 301 here after a rename). `##`/`###`
+  headings automatically get anchor ids and populate the "Contents" sidebar — no manual markup needed. No
+  route/view/DB change needed for a new post either way.
+- **New author avatar?** Just drop an image at `public/images/authors/<author-id>.jpg` (or `.png`/`.webp`) —
+  matched by the same id used in `AUTHORS`/frontmatter `author:`, re-checked on every request (no caching, no
+  code change). Falls back to a plain initial-letter badge when no file matches. See
+  `public/images/authors/README.md`.
 - **New user-facing message?** `showToast`/`confirmDialog`, never a native dialog.
 - **New color?** A CSS custom property with both a light default and a `[data-theme="dark"]` override.
 - **New external script?** Self-host it under `public/` (or `public/vendor/` via `copy-vendor.js`) — the CSP

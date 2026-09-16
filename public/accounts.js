@@ -41,8 +41,9 @@ async function loadAccounts() {
   }
 }
 
+// The placeholder-account form is only rendered when there are stub platforms to add.
 const accountForm = document.getElementById('account-form');
-accountForm.addEventListener(
+accountForm?.addEventListener(
   'submit',
   withLoading(accountForm.querySelector('button[type="submit"]'), 'Adding…', async (e) => {
     e.preventDefault();
@@ -61,5 +62,54 @@ accountForm.addEventListener(
     }
   })
 );
+
+const telegramForm = document.getElementById('telegram-connect-form');
+telegramForm?.addEventListener(
+  'submit',
+  withLoading(telegramForm.querySelector('button[type="submit"]'), 'Connecting…', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+      await apiJson('/api/telegram/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: form.token.value.trim(), chat_id: form.chat_id.value.trim() }),
+      });
+      form.reset();
+      showToast('Telegram channel connected.', 'success');
+      loadAccounts();
+      loadSidebarAccounts();
+    } catch (err) {
+      showToast(err.message);
+    }
+  })
+);
+
+const blueskyForm = document.getElementById('bluesky-connect-form');
+blueskyForm?.addEventListener(
+  'submit',
+  withLoading(blueskyForm.querySelector('button[type="submit"]'), 'Connecting…', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+      await apiJson('/api/bluesky/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handle: form.handle.value.trim(), app_password: form.app_password.value.trim() }),
+      });
+      form.reset();
+      showToast('Bluesky account connected.', 'success');
+      loadAccounts();
+      loadSidebarAccounts();
+    } catch (err) {
+      showToast(err.message);
+    }
+  })
+);
+
+if (new URLSearchParams(location.search).get('error') === 'plan_limit') {
+  showToast('Some accounts were not connected — your plan’s account limit was reached.', 'error', '/pricing');
+  history.replaceState(null, '', location.pathname);
+}
 
 loadAccounts();

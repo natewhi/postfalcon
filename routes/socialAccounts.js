@@ -7,21 +7,18 @@ import { validate } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { uploadDir } from '../middleware/upload.js';
 import { logProductEvent } from '../lib/activityLog.js';
+import { PLATFORMS, PLATFORM_IDS } from '../lib/platforms.js';
+import { enforceAccountLimit } from '../middleware/planLimit.js';
 
 const router = Router();
 
-const PLATFORMS = ['twitter', 'instagram', 'facebook', 'linkedin', 'tiktok', 'threads', 'mastodon'];
-
-// facebook/instagram (routes/facebook.js) and mastodon (routes/mastodon.js) all have real OAuth
-// connect flows now — this generic endpoint manually inserting a row with an arbitrary
-// access_token would let a client (or a public API caller) bypass that OAuth entirely and plant
-// a forged/stolen token. Left open for the platforms that don't have an OAuth flow yet. Skipped
-// in tests (same NODE_ENV=test pattern csrfProtection/apiLimiter already use) since the test
-// suite creates OAuth-backed accounts directly through this endpoint as fixture setup.
-const OAUTH_PLATFORMS = ['facebook', 'instagram', 'mastodon'];
-
+// Platforms with a real connect flow (OAuth, or Telegram's token form) are rejected here:
+// manually inserting a row with an arbitrary access_token would bypass that verification and
+// let a caller plant a forged/stolen token. Only `connect: 'manual'` stub platforms are
+// allowed through. The check is skipped in tests (same NODE_ENV=test pattern
+// csrfProtection/apiLimiter use) since the suite seeds OAuth-backed accounts through here.
 const createAccountSchema = z.object({
-  platform: z.enum(PLATFORMS),
+  platform: z.enum(PLATFORM_IDS),
   display_name: z.string().trim().min(1).max(255),
   external_account_id: z.string().trim().max(255).optional(),
   access_token: z.string().optional(),
@@ -42,10 +39,15 @@ router.get(
 router.post(
   '/',
   validate(createAccountSchema),
+  enforceAccountLimit,
   asyncHandler(async (req, res) => {
     const { platform, display_name, external_account_id, access_token, refresh_token } = req.body;
-    if (OAUTH_PLATFORMS.includes(platform) && process.env.NODE_ENV !== 'test') {
-      return res.status(400).json({ error: `${platform} accounts must be connected via OAuth, not created manually` });
+    const { connect } = PLATFORMS[platform];
+    if (connect === 'none') {
+      return res.status(400).json({ error: `${platform} isn't available to connect yet` });
+    }
+    if (connect !== 'manual' && process.env.NODE_ENV !== 'test') {
+      return res.status(400).json({ error: `${platform} must be connected through its own flow, not created manually` });
     }
     const result = await pool.query(
       `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, refresh_token)

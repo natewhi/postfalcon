@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import app from '../app.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -57,7 +58,7 @@ describe('mcp server', () => {
     try {
       const { tools } = await client.listTools();
       expect(tools.map((t) => t.name).sort()).toEqual(
-        ['create_post', 'delete_post', 'list_accounts', 'list_posts', 'update_post'].sort()
+        ['create_post', 'delete_post', 'get_analytics_summary', 'list_accounts', 'list_posts', 'update_post'].sort()
       );
     } finally {
       await client.close();
@@ -123,6 +124,19 @@ describe('mcp server', () => {
     }
   }, 20000);
 
+  it('get_analytics_summary wraps the real analytics endpoint', async () => {
+    const { token } = await createUserWithToken('mcp-analytics@example.com');
+    const client = await connectMcpClient(token);
+    try {
+      const summary = toolJson(await client.callTool({ name: 'get_analytics_summary', arguments: {} }));
+      expect(summary.days).toHaveLength(7);
+      expect(summary.totals).toEqual({ views: 0, likes: 0, comments: 0, shares: 0 });
+      expect(summary.topPost).toBeNull();
+    } finally {
+      await client.close();
+    }
+  }, 20000);
+
   it('surfaces an invalid social_account_id as an MCP tool error, not a crash', async () => {
     const { token } = await createUserWithToken('mcp-error@example.com');
     const client = await connectMcpClient(token);
@@ -163,6 +177,70 @@ describe('mcp server', () => {
       expect(accountsForB).toHaveLength(0);
     } finally {
       await clientB.close();
+    }
+  }, 20000);
+});
+
+// The remote counterpart to the stdio tests above — same tools (lib/mcpServer.js is the one
+// place their behavior lives), reached at a URL instead of a locally-spawned process. This is
+// what a client that can't run a local command (ChatGPT, Claude.ai, or any other Streamable
+// HTTP-speaking agent) connects to instead of mcp/server.js.
+async function connectRemoteMcpClient(token) {
+  const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+    requestInit: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const client = new Client({ name: 'test-http-client', version: '1.0.0' });
+  await client.connect(transport);
+  return client;
+}
+
+describe('remote MCP endpoint (Streamable HTTP)', () => {
+  it('rejects a request with no Authorization header', async () => {
+    const res = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('drives the same tools over HTTP as the stdio server exposes', async () => {
+    const { agent, token } = await createUserWithToken('mcp-http-lifecycle@example.com');
+    const account = await agent.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@http' });
+
+    const client = await connectRemoteMcpClient(token);
+    try {
+      const { tools } = await client.listTools();
+      expect(tools.map((t) => t.name).sort()).toEqual(
+        ['create_post', 'delete_post', 'get_analytics_summary', 'list_accounts', 'list_posts', 'update_post'].sort()
+      );
+
+      const created = await client.callTool({
+        name: 'create_post',
+        arguments: { social_account_id: String(account.body.id), content: 'hello from remote mcp' },
+      });
+      const post = toolJson(created);
+      expect(post.content).toBe('hello from remote mcp');
+
+      const analytics = toolJson(await client.callTool({ name: 'get_analytics_summary', arguments: {} }));
+      expect(analytics.days).toHaveLength(7);
+
+      await client.callTool({ name: 'delete_post', arguments: { post_id: String(post.id) } });
+      const after = toolJson(await client.callTool({ name: 'list_posts', arguments: {} }));
+      expect(after).toHaveLength(0);
+    } finally {
+      await client.close();
+    }
+  }, 20000);
+
+  it('surfaces an invalid token as a tool error, same as the stdio server does', async () => {
+    const client = await connectRemoteMcpClient('pf_not_a_real_token');
+    try {
+      const result = await client.callTool({ name: 'list_accounts', arguments: {} });
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toMatch(/401/);
+    } finally {
+      await client.close();
     }
   }, 20000);
 });

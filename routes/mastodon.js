@@ -4,6 +4,7 @@ import { pool } from '../db/pool.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { sanitizeUrl } from '../lib/url.js';
 import { logProductEvent } from '../lib/activityLog.js';
+import { atAccountLimit } from '../middleware/planLimit.js';
 
 const router = Router();
 
@@ -109,6 +110,16 @@ router.get(
       return res.status(502).send('Failed to fetch Mastodon account details.');
     }
     const account = await accountRes.json();
+
+    // A reconnect of an already-connected instance account just refreshes its token, so it's
+    // allowed even at the plan cap; a brand-new one isn't.
+    const alreadyConnected = await pool.query(
+      `SELECT 1 FROM social_accounts WHERE user_id = $1 AND platform = 'mastodon' AND external_account_id = $2`,
+      [req.user.id, account.id]
+    );
+    if (alreadyConnected.rows.length === 0 && (await atAccountLimit(req.user))) {
+      return res.redirect('/accounts?error=plan_limit');
+    }
 
     // xmax = 0 is true only for a row this statement just inserted (Postgres system column
     // trick for upserts) — used below to log a connect event only for a genuinely new

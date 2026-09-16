@@ -17,11 +17,26 @@ import usersRouter from './routes/users.js';
 import authRouter from './routes/auth.js';
 import socialAccountsRouter from './routes/socialAccounts.js';
 import postsRouter from './routes/posts.js';
+import postAnalyticsRouter from './routes/postAnalytics.js';
+import mcpRouter from './routes/mcp.js';
 import mastodonRouter from './routes/mastodon.js';
 import facebookRouter from './routes/facebook.js';
+import telegramRouter from './routes/telegram.js';
+import youtubeRouter from './routes/youtube.js';
+import tiktokRouter from './routes/tiktok.js';
+import blueskyRouter from './routes/bluesky.js';
+import threadsRouter from './routes/threads.js';
+import pinterestRouter from './routes/pinterest.js';
+import linkedinRouter from './routes/linkedin.js';
 import pagesRouter from './routes/pages.js';
+import blogRouter from './routes/blog.js';
+import analyticsRouter from './routes/analytics.js';
 import adminRouter from './routes/admin.js';
+import billingRouter from './routes/billing.js';
+import billingWebhookRouter from './routes/billingWebhook.js';
+import webhooksRouter from './routes/webhooks.js';
 import { requireAuth, requireAdmin } from './middleware/auth.js';
+import { requireCapability } from './middleware/planLimit.js';
 import { apiLimiter } from './middleware/rateLimit.js';
 
 dotenv.config();
@@ -53,6 +68,18 @@ app.use(
 );
 app.use(pinoHttp({ logger }));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: isProduction ? '7d' : '5m' }));
+
+// Stripe webhook needs the raw request body for signature verification, so it's mounted
+// ahead of express.json() (and ahead of csrfProtection — it authenticates by signature,
+// not a cookie/session).
+app.use('/api/billing/webhook', express.raw({ type: 'application/json' }), billingWebhookRouter);
+
+// Same reasoning as the webhook above, minus the signature check: the analytics proxy just
+// relays whatever the tracking script sends, so it forwards the exact raw bytes rather than
+// parsing and re-serializing JSON. Also ahead of csrfProtection — it's not under /api and
+// isn't cookie/session-authenticated at all.
+app.use('/stats', express.raw({ type: '*/*', limit: '256kb' }), analyticsRouter);
+
 app.use(express.json({ limit: '100kb' }));
 app.use(
   session({
@@ -134,15 +161,31 @@ const publicApiCors = cors({
 });
 app.use('/api/v1', publicApiCors);
 
+// Remote MCP endpoint — same Bearer api_token as /api/v1, so a token generated once in
+// Settings works for both. Not mounted under /api: it isn't versioned REST, and it has its own
+// CORS policy (set inside routes/mcp.js) rather than /api/v1's.
+app.use('/mcp', mcpRouter);
+
 app.use('/api', csrfProtection);
 app.use('/api/users', usersRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/mastodon', requireAuth, mastodonRouter);
 app.use('/api/facebook', requireAuth, facebookRouter);
+app.use('/api/telegram', requireAuth, telegramRouter);
+app.use('/api/youtube', requireAuth, youtubeRouter);
+app.use('/api/tiktok', requireAuth, tiktokRouter);
+app.use('/api/bluesky', requireAuth, blueskyRouter);
+app.use('/api/threads', requireAuth, threadsRouter);
+app.use('/api/pinterest', requireAuth, pinterestRouter);
+app.use('/api/linkedin', requireAuth, linkedinRouter);
+app.use('/api/billing', requireAuth, billingRouter);
 app.use('/api/v1/social-accounts', requireAuth, apiLimiter, socialAccountsRouter);
 app.use('/api/v1/posts', requireAuth, apiLimiter, postsRouter);
+app.use('/api/v1/analytics', requireAuth, apiLimiter, postAnalyticsRouter);
+app.use('/api/v1/webhooks', requireAuth, apiLimiter, requireCapability('webhooks'), webhooksRouter);
 app.use('/api/admin', requireAdmin, adminRouter);
 
+app.use('/blog', blogRouter);
 app.use('/', pagesRouter);
 
 app.use((req, res) => {

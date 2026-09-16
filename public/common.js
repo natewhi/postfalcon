@@ -175,15 +175,36 @@ if (resendBtn) {
   );
 }
 
+// Per-platform badge colour + a one/two-char text fallback. The real brand mark is drawn
+// from the SVG sprite in views/partials/platform-icons.ejs (included via the sidebar) —
+// PLATFORM_GLYPHS lists the ids that have a <symbol id="pi-<id>"> there.
 const PLATFORM_META = {
-  mastodon: { label: 'M', color: '#6364FF' },
-  twitter: { label: 'X', color: '#000000' },
   facebook: { label: 'f', color: '#1877F2' },
   instagram: { label: 'IG', color: '#E1306C' },
+  mastodon: { label: 'M', color: '#6364FF' },
+  youtube: { label: 'YT', color: '#FF0000' },
+  tiktok: { label: 'TT', color: '#111111' },
+  telegram: { label: 'TG', color: '#26A5E4' },
+  bluesky: { label: 'BS', color: '#1185FE' },
+  threads: { label: '@', color: '#111111' },
+  pinterest: { label: 'P', color: '#E60023' },
+  reddit: { label: 'R', color: '#FF4500' },
+  twitter: { label: 'X', color: '#111111' },
   linkedin: { label: 'in', color: '#0A66C2' },
-  tiktok: { label: 'TT', color: '#000000' },
-  threads: { label: '@', color: '#000000' },
 };
+
+const PLATFORM_GLYPHS = new Set([
+  'facebook', 'instagram', 'mastodon', 'telegram', 'youtube', 'tiktok', 'twitter', 'linkedin',
+  'bluesky', 'threads', 'pinterest',
+]);
+
+// Contents of a platform badge: the real brand mark when we have one, else the text label.
+function platformBadgeInner(platform) {
+  if (PLATFORM_GLYPHS.has(platform)) {
+    return `<svg class="platform-glyph" viewBox="0 0 24 24" aria-hidden="true"><use href="#pi-${platform}"></use></svg>`;
+  }
+  return escapeHtml((PLATFORM_META[platform] || { label: '?' }).label);
+}
 
 function accountAvatarHtml(account) {
   const meta = PLATFORM_META[account.platform] || { label: '?', color: '#666666' };
@@ -193,7 +214,7 @@ function accountAvatarHtml(account) {
   return `
     <span class="account-avatar">
       ${avatar}
-      <span class="account-badge" style="background:${meta.color}">${meta.label}</span>
+      <span class="account-badge" style="background:${meta.color}">${platformBadgeInner(account.platform)}</span>
     </span>
   `;
 }

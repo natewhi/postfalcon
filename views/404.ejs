@@ -8,11 +8,17 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body class="dark-canvas">
+<%- include('partials/site-header') %>
 <main class="auth-card">
-  <h1>Postfox</h1>
-  <p>404 &mdash; that page doesn't exist.</p>
-  <p><a href="/">Back to Postfox</a></p>
+  <div class="auth-card-head">
+    <h1>Page not found</h1>
+    <p class="auth-sub">404 &mdash; that page doesn't exist.</p>
+  </div>
+  <div class="auth-card-footer">
+    <a href="/">Back to Postfox</a>
+  </div>
 </main>
+<%- include('partials/analytics') %>
 </body>
 </html>

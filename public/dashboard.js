@@ -95,10 +95,12 @@ const PLATFORM_CHAR_LIMITS = {
   twitter: 280,
   mastodon: 500,
   threads: 500,
+  bluesky: 300,
   facebook: 63206,
   instagram: 2200,
   linkedin: 3000,
   tiktok: 2200,
+  pinterest: 500,
 };
 
 async function loadAccountOptions() {
@@ -125,16 +127,33 @@ function renderAccountPicker() {
     .join('');
 
   picker.querySelectorAll('.account-chip').forEach((chip) => {
-    chip.addEventListener('click', () => selectAccount(chip.dataset.accountId));
+    chip.addEventListener('click', () => toggleAccount(chip.dataset.accountId));
   });
 }
 
+function selectedAccountIds() {
+  return [...document.querySelectorAll('#account-picker .account-chip.selected')].map((c) => c.dataset.accountId);
+}
+
+function syncAccountSelection() {
+  const ids = selectedAccountIds();
+  document.getElementById('account-select').value = ids[0] || '';
+  updateCharCount();
+}
+
+// New-post picker is multi-select (cross-posting); the edit dialog locks it to one channel.
+function toggleAccount(id) {
+  const picker = document.getElementById('account-picker');
+  if (picker.classList.contains('locked')) return;
+  picker.querySelector(`.account-chip[data-account-id="${id}"]`)?.classList.toggle('selected');
+  syncAccountSelection();
+}
+
 function selectAccount(id) {
-  document.getElementById('account-select').value = id;
   document.querySelectorAll('#account-picker .account-chip').forEach((chip) => {
     chip.classList.toggle('selected', chip.dataset.accountId === String(id));
   });
-  updateCharCount();
+  syncAccountSelection();
 }
 
 function updateCharCount() {
@@ -222,24 +241,41 @@ mediaInput.addEventListener('change', () => {
 });
 
 const scheduledForInput = document.getElementById('scheduled-for-input');
+const repeatSelect = document.getElementById('repeat-select');
+const repeatUntilInput = document.getElementById('repeat-until-input');
+const repeatUntilField = document.getElementById('repeat-until-field');
+const repeatFields = document.getElementById('repeat-fields');
 
 function refreshScheduleMin() {
   scheduledForInput.min = toLocalInputValue(new Date());
+  repeatUntilInput.min = toLocalInputValue(new Date());
+}
+
+function setScheduleMode(isSchedule) {
+  scheduledForInput.disabled = !isSchedule;
+  scheduledForInput.required = isSchedule;
+  repeatFields.hidden = !isSchedule;
+  if (isSchedule) {
+    refreshScheduleMin();
+  } else {
+    scheduledForInput.value = '';
+    repeatSelect.value = '';
+    repeatUntilInput.value = '';
+    repeatUntilField.hidden = true;
+  }
 }
 
 document.querySelectorAll('.schedule-option').forEach((btn) => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.schedule-option').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
-    const isSchedule = btn.dataset.mode === 'schedule';
-    scheduledForInput.disabled = !isSchedule;
-    scheduledForInput.required = isSchedule;
-    if (isSchedule) {
-      refreshScheduleMin();
-    } else {
-      scheduledForInput.value = '';
-    }
+    setScheduleMode(btn.dataset.mode === 'schedule');
   });
+});
+
+repeatSelect.addEventListener('change', () => {
+  repeatUntilField.hidden = repeatSelect.value === '';
+  if (repeatSelect.value === '') repeatUntilInput.value = '';
 });
 
 async function loadDrafts() {
@@ -252,7 +288,7 @@ async function loadDrafts() {
         .map(
           (p) => `
       <li>
-        <span class="cal-platform-badge" style="background:${(PLATFORM_META[p.platform] || { color: '#666666' }).color}" title="${escapeHtml(p.platform || '')}">${(PLATFORM_META[p.platform] || { label: '?' }).label}</span>
+        <span class="cal-platform-badge" style="background:${(PLATFORM_META[p.platform] || { color: '#666666' }).color}" title="${escapeHtml(p.platform || '')}">${platformBadgeInner(p.platform)}</span>
         <span class="status status-${p.status}">${p.status}</span>
         ${
           p.media && p.media.length > 0
@@ -315,6 +351,7 @@ function openPostDialog(prefillDate) {
   document.getElementById('post-dialog-title').textContent = 'New post';
   document.getElementById('post-dialog-delete').hidden = true;
   document.getElementById('account-picker').classList.remove('locked');
+  document.getElementById('crosspost-hint').hidden = false;
   document.getElementById('media-edit-hint').hidden = true;
   mediaUploadLabel.style.display = '';
 
@@ -332,10 +369,11 @@ function openPostDialog(prefillDate) {
   document.querySelectorAll('.schedule-option').forEach((b) => {
     b.classList.toggle('active', b.dataset.mode === scheduleMode);
   });
-  scheduledForInput.disabled = scheduleMode !== 'schedule';
-  scheduledForInput.required = scheduleMode === 'schedule';
-  refreshScheduleMin();
+  setScheduleMode(scheduleMode === 'schedule');
   scheduledForInput.value = prefillDate ? toLocalInputValue(prefillDate) : '';
+  repeatSelect.value = '';
+  repeatUntilInput.value = '';
+  repeatUntilField.hidden = true;
 
   updateCharCount();
   document.getElementById('post-dialog').showModal();
@@ -352,6 +390,7 @@ function openEditDialog(post) {
   renderAccountPicker();
   selectAccount(post.social_account_id);
   document.getElementById('account-picker').classList.add('locked');
+  document.getElementById('crosspost-hint').hidden = true;
 
   document.getElementById('post-content').value = post.content;
 
@@ -383,10 +422,11 @@ function openEditDialog(post) {
   document.querySelectorAll('.schedule-option').forEach((b) => {
     b.classList.toggle('active', b.dataset.mode === scheduleMode);
   });
-  scheduledForInput.disabled = scheduleMode !== 'schedule';
-  scheduledForInput.required = scheduleMode === 'schedule';
-  refreshScheduleMin();
+  setScheduleMode(scheduleMode === 'schedule');
   scheduledForInput.value = post.scheduled_for ? toLocalInputValue(new Date(post.scheduled_for)) : '';
+  repeatSelect.value = post.repeat_interval || '';
+  repeatUntilField.hidden = !post.repeat_interval;
+  repeatUntilInput.value = post.repeat_until ? toLocalInputValue(new Date(post.repeat_until)) : '';
 
   updateCharCount();
   document.getElementById('post-dialog').showModal();
@@ -431,13 +471,16 @@ postDialogForm.addEventListener(
     e.preventDefault();
     const form = e.target;
 
-    if (!form.social_account_id.value) {
-      showToast('Choose which account to post to.');
+    const accountIds = selectedAccountIds();
+    if (accountIds.length === 0) {
+      showToast('Choose at least one channel to post to.');
       return;
     }
 
     const scheduleMode = document.querySelector('.schedule-option.active')?.dataset.mode;
     const scheduledLocal = scheduleMode === 'schedule' ? scheduledForInput.value : '';
+    const repeatInterval = scheduleMode === 'schedule' ? repeatSelect.value : '';
+    const repeatUntilLocal = repeatInterval ? repeatUntilInput.value : '';
 
     if (scheduleMode === 'schedule') {
       if (!scheduledLocal) {
@@ -448,6 +491,10 @@ postDialogForm.addEventListener(
         showToast('Scheduled time must be in the future.');
         return;
       }
+      if (repeatUntilLocal && new Date(repeatUntilLocal).getTime() <= new Date(scheduledLocal).getTime()) {
+        showToast('The repeat end date must be after the first post.');
+        return;
+      }
     }
 
     if (editingPostId) {
@@ -455,6 +502,8 @@ postDialogForm.addEventListener(
         content: form.content.value,
         status: scheduleMode === 'schedule' ? 'scheduled' : 'draft',
         scheduled_for: scheduledLocal ? new Date(scheduledLocal).toISOString() : null,
+        repeat_interval: repeatInterval || null,
+        repeat_until: repeatUntilLocal ? new Date(repeatUntilLocal).toISOString() : null,
       };
       try {
         await apiJson(`/api/v1/posts/${editingPostId}`, {
@@ -473,10 +522,18 @@ postDialogForm.addEventListener(
     }
 
     const body = new FormData();
-    body.set('social_account_id', form.social_account_id.value);
+    if (accountIds.length > 1) {
+      accountIds.forEach((id) => body.append('social_account_ids', id));
+    } else {
+      body.set('social_account_id', accountIds[0]);
+    }
     body.set('content', form.content.value);
     if (scheduledLocal) {
       body.set('scheduled_for', new Date(scheduledLocal).toISOString());
+    }
+    if (repeatInterval) {
+      body.set('repeat_interval', repeatInterval);
+      if (repeatUntilLocal) body.set('repeat_until', new Date(repeatUntilLocal).toISOString());
     }
     if (selectedMedia.length > 0) {
       selectedMedia.forEach((item) => body.append('media', item.file));
@@ -564,7 +621,7 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
     const wrapper = document.createElement('div');
     wrapper.className = 'cal-event-content';
     wrapper.innerHTML = `
-      <span class="cal-platform-badge" style="background:${meta.color}" title="${escapeHtml(arg.event.extendedProps.platform || '')}">${meta.label}</span>
+      <span class="cal-platform-badge" style="background:${meta.color}" title="${escapeHtml(arg.event.extendedProps.platform || '')}">${platformBadgeInner(arg.event.extendedProps.platform)}</span>
       ${arg.timeText ? `<span class="fc-event-time">${escapeHtml(arg.timeText)}</span>` : ''}
       <span class="cal-event-title">${escapeHtml(arg.event.title)}</span>
     `;

@@ -5,60 +5,369 @@
 <script src="/theme-init.js"></script>
 <meta name="color-scheme" content="light dark">
 <title>Postfox — Schedule your social posts in one place</title>
-<meta name="description" content="Plan, schedule, and publish to Mastodon, Facebook, and Instagram from one calendar, with API access for AI agents.">
+<meta name="description" content="Postfox lines up your posts for Mastodon, Bluesky, Instagram, Facebook, Threads, Telegram, YouTube, TikTok, Pinterest and LinkedIn on one calendar, then publishes them on time. Open source, self-hostable, with an API and MCP server for AI agents.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<div class="landing">
-  <header class="landing-nav">
-    <div class="landing-brand">Postfox</div>
-    <nav class="landing-nav-links">
-      <a href="/login">Log in</a>
-      <a href="/signup" class="btn-link">Sign up free</a>
-    </nav>
-  </header>
+<div class="landing landing-home">
+  <%- include('partials/platform-icons') %>
+
+  <%- include('partials/site-header') %>
 
   <main>
-    <section class="landing-hero">
-      <h1>Schedule your social posts, in one place.</h1>
-      <p class="landing-subhead">
-        Plan, schedule, and publish to Mastodon, Facebook, and Instagram from a single calendar &mdash;
-        with API access so your AI agents can draft and post for you too.
-      </p>
-      <div class="landing-cta">
-        <a href="/signup" class="btn-link btn-lg">Get started free</a>
-        <a href="/login" class="btn-secondary btn-lg">Log in</a>
+    <section class="home-hero">
+      <svg class="home-squig home-squig-1" viewBox="0 0 224 60" aria-hidden="true">
+        <path d="M6 34C22 12 42 8 58 26 72 42 92 48 110 32 126 18 148 12 168 30 182 42 202 46 218 28" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+      </svg>
+      <svg class="home-squig home-squig-2" viewBox="0 0 116 84" aria-hidden="true">
+        <path d="M8 70C18 46 36 38 50 54 60 66 76 64 84 46 90 34 102 30 110 14" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+      </svg>
+      <svg class="home-squig home-squig-3" viewBox="0 0 262 52" aria-hidden="true">
+        <path d="M6 28C30 10 58 10 84 24 108 37 138 40 164 24 188 10 216 10 240 24 250 29 257 27 259 22" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+      </svg>
+
+      <div class="home-hero-inner">
+        <h1>
+          Post everywhere, by hand or
+          <span class="home-mark">by agent.<svg class="home-mark-line" viewBox="0 0 320 22" preserveAspectRatio="none" aria-hidden="true"><path d="M5 14C70 5 150 5 210 10s70 6 105 1" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/></svg></span>
+        </h1>
+        <p class="home-hero-lead">
+          Line up posts for Mastodon, Bluesky, Instagram, Facebook, Threads, Telegram, YouTube,
+          TikTok, Pinterest, and LinkedIn on one calendar &mdash; and let Postfox publish them
+          on time.
+        </p>
+        <div class="home-hero-actions">
+          <a href="/pricing" class="home-btn home-btn-primary">Start free trial</a>
+          <a href="#analytics-demo" class="home-textlink">See your analytics &rarr;</a>
+        </div>
+
+        <div class="home-tiles">
+          <% livePlatforms.forEach((p) => { %>
+          <span class="home-tile is-live" style="--tile: <%= p.color %>" title="<%= p.label %>">
+            <svg class="home-tile-glyph" viewBox="0 0 24 24" aria-hidden="true"><use href="#pi-<%= p.id %>"></use></svg>
+          </span>
+          <% }); %>
+        </div>
       </div>
     </section>
 
-    <section class="landing-features">
-      <div class="landing-feature">
-        <span class="landing-feature-icon">📅</span>
-        <h3>Visual calendar</h3>
-        <p>See every draft, scheduled, and published post at a glance, with drag-to-reschedule and status filters.</p>
+    <section class="home-showcase">
+      <%
+        /* Static replica of the dashboard's FullCalendar month view — June 2025, "today" = the 10th. */
+        const F = '#1877f2', I = '#e1306c', M = '#6364ff', T = '#26a5e4', Y = '#ff0000';
+        const cells = [
+          { d: 1, past: 1 }, { d: 2, past: 1 },
+          { d: 3, past: 1, ev: [{ k: 'posted', b: 'facebook', c: F, t: '10a', x: 'Customer story' }] },
+          { d: 4, past: 1 },
+          { d: 5, past: 1, ev: [{ k: 'posted', b: 'mastodon', c: M, t: '9a', x: 'v2.0 is live 🎉' }] },
+          { d: 6, past: 1, ev: [{ k: 'failed', b: 'instagram', c: I, t: '5p', x: 'Launch teaser' }] },
+          { d: 7, past: 1 },
+          { d: 8, past: 1 }, { d: 9, past: 1 }, { d: 10, today: 1 },
+          { d: 11, ev: [
+            { k: 'scheduled', b: 'mastodon', c: M, t: '9a', x: 'Ship note v2.1' },
+            { k: 'scheduled', b: 'telegram', c: T, t: '6p', x: 'Weekly roundup' },
+          ] },
+          { d: 12, ev: [{ k: 'scheduled', b: 'instagram', c: I, t: '12:30p', x: 'BTS carousel' }] },
+          { d: 13 }, { d: 14 }, { d: 15 },
+          { d: 16, ev: [{ k: 'scheduled', b: 'facebook', c: F, t: '10a', x: 'Feature spotlight' }] },
+          { d: 17, ev: [{ k: 'scheduled', b: 'youtube', c: Y, t: '8a', x: 'Tutorial drop' }] },
+          { d: 18, ev: [{ k: 'scheduled', b: 'telegram', c: T, t: '7p', x: 'AMA reminder' }] },
+          { d: 19 }, { d: 20 }, { d: 21 }, { d: 22 }, { d: 23 },
+          { d: 24, ev: [{ k: 'scheduled', b: 'mastodon', c: M, t: '3p', x: 'Roadmap thread' }] },
+          { d: 25, ev: [{ k: 'scheduled', b: 'instagram', c: I, t: '1p', x: 'Poll: what next?' }] },
+          { d: 26 }, { d: 27 }, { d: 28 }, { d: 29 }, { d: 30 },
+          { d: 1, other: 1 }, { d: 2, other: 1 }, { d: 3, other: 1 }, { d: 4, other: 1 }, { d: 5, other: 1 },
+        ];
+        const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      %>
+      <figure class="home-shot home-shot-compose">
+        <div class="home-window" aria-hidden="true">
+          <div class="home-window-bar">
+            <span></span><span></span><span></span>
+            <span class="home-window-title">Postfox &mdash; New post</span>
+          </div>
+          <div class="home-window-body mock-composer">
+            <div class="mock-field">
+              <span class="mock-label">Post to</span>
+              <div class="mock-accounts">
+                <span class="mock-chip is-selected"><svg class="mock-chip-icon" viewBox="0 0 24 24"><use href="#pi-mastodon"></use></svg>Mastodon</span>
+                <span class="mock-chip is-selected"><svg class="mock-chip-icon" viewBox="0 0 24 24"><use href="#pi-bluesky"></use></svg>Bluesky</span>
+                <span class="mock-chip"><svg class="mock-chip-icon" viewBox="0 0 24 24"><use href="#pi-telegram"></use></svg>Telegram</span>
+              </div>
+            </div>
+            <div class="mock-field">
+              <p class="mock-textarea">We just shipped recurring posts and outbound webhooks 🎉 Set a post once and Postfox keeps it going.</p>
+              <div class="mock-meta"><span>97 characters</span></div>
+            </div>
+            <div class="mock-field">
+              <div class="mock-media">
+                <span class="mock-media-thumb" aria-hidden="true"></span>
+                <span class="mock-upload">+ Add photo or video</span>
+              </div>
+            </div>
+            <div class="mock-field">
+              <span class="mock-label">When</span>
+              <div class="mock-toggle">
+                <span>Save as draft</span>
+                <span class="is-active">Schedule</span>
+              </div>
+              <div class="mock-datetime">
+                <span>Fri, Sep 19 &middot; 5:00 PM</span>
+                <span class="mock-repeat">&#8635; Repeats weekly</span>
+              </div>
+            </div>
+            <span class="mock-save">Schedule post</span>
+          </div>
+        </div>
+        <figcaption>One form for the text, the accounts to cross-post to, media, and the schedule &mdash; one-off or recurring.</figcaption>
+      </figure>
+
+      <figure class="home-shot">
+        <div class="home-window" aria-hidden="true">
+          <div class="home-window-bar">
+            <span></span><span></span><span></span>
+            <span class="home-window-title">Postfox &mdash; Calendar</span>
+          </div>
+          <div class="home-window-body">
+            <div class="fcm-filter">
+              <span>Show</span>
+              <span class="fcm-chip is-on">Scheduled</span>
+              <span class="fcm-chip is-on">Failed</span>
+              <span class="fcm-chip">Posted</span>
+              <span class="fcm-chip">Canceled</span>
+            </div>
+            <div class="fcm-toolbar">
+              <div class="fcm-btns">
+                <span class="fcm-nav"><button type="button">&lsaquo;</button><button type="button">&rsaquo;</button></span>
+                <button type="button">today</button>
+              </div>
+              <div class="fcm-title">June 2025</div>
+              <div class="fcm-views">
+                <button type="button" class="is-active">month</button><button type="button">week</button>
+              </div>
+            </div>
+            <div class="fcm-grid">
+              <div class="fcm-row fcm-head">
+                <% weekdays.forEach((w) => { %><div><%= w %></div><% }); %>
+              </div>
+              <% for (let wk = 0; wk < 5; wk++) { %>
+              <div class="fcm-row">
+                <% for (let i = 0; i < 7; i++) { const cell = cells[wk * 7 + i]; %>
+                <div class="fcm-day<%= cell.other ? ' is-other' : '' %><%= cell.past ? ' is-past' : '' %><%= cell.today ? ' is-today' : '' %>">
+                  <span class="fcm-daynum"><%= cell.d %></span>
+                  <% (cell.ev || []).forEach((e) => { %>
+                  <span class="fcm-event ev-<%= e.k %>">
+                    <span class="fcm-badge" style="--b: <%= e.c %>"><svg class="platform-glyph" viewBox="0 0 24 24" aria-hidden="true"><use href="#pi-<%= e.b %>"></use></svg></span>
+                    <span class="fcm-time"><%= e.t %></span>
+                    <span class="fcm-evtitle"><%= e.x %></span>
+                  </span>
+                  <% }); %>
+                </div>
+                <% } %>
+              </div>
+              <% } %>
+            </div>
+          </div>
+        </div>
+        <figcaption>Drag a scheduled post to move it &middot; filter by status &middot; scheduled, posted and failed on one grid.</figcaption>
+      </figure>
+    </section>
+
+    <section id="analytics-demo" class="home-section home-analytics-section">
+      <div class="home-analytics-inner">
+        <div class="home-analytics-copy">
+          <p class="home-overline">Post analytics</p>
+          <h2 class="home-h2">See what&rsquo;s working, automatically.</h2>
+          <p>
+            A few times a day, Postfox pulls fresh view, like, comment, and share counts straight
+            from each connected platform&rsquo;s API and lines them up on one chart &mdash; no
+            exporting, no switching apps, no spreadsheets.
+          </p>
+          <p>
+            It&rsquo;s the same data your agent can read too: ask it for the numbers and it&rsquo;ll
+            tell you what&rsquo;s landing.
+          </p>
+          <a href="/api-docs" class="home-textlink">Read the API &amp; MCP docs &rarr;</a>
+        </div>
+        <div class="home-window home-analytics-window" aria-hidden="true">
+          <div class="home-window-bar">
+            <span></span><span></span><span></span>
+            <span class="home-window-title">Postfox &mdash; Analytics</span>
+          </div>
+          <div class="home-window-body home-analytics-mock">
+            <div class="home-analytics-stats">
+              <div><strong>3,180</strong><span>Views</span></div>
+              <div><strong>266</strong><span>Likes</span></div>
+              <div><strong>41</strong><span>Comments</span></div>
+              <div><strong>9</strong><span>Shares</span></div>
+            </div>
+            <div class="home-analytics-chart">
+              <span style="--h: 30%"></span>
+              <span style="--h: 48%"></span>
+              <span style="--h: 40%"></span>
+              <span style="--h: 100%" class="is-peak"></span>
+              <span style="--h: 64%"></span>
+              <span style="--h: 56%"></span>
+              <span style="--h: 72%"></span>
+            </div>
+            <p class="home-analytics-insight">Top post this week: <strong>1.2k views</strong> on YouTube</p>
+          </div>
+        </div>
       </div>
-      <div class="landing-feature">
-        <span class="landing-feature-icon">🔗</span>
-        <h3>Multi-platform posting</h3>
-        <p>Connect Mastodon, Facebook Pages, and Instagram &mdash; one composer, with the right character limit for each.</p>
+    </section>
+
+    <section id="why" class="home-section home-section--why">
+      <div class="home-why-inner">
+        <div class="home-window home-why-window" aria-hidden="true">
+          <div class="home-window-bar">
+            <span></span><span></span><span></span>
+            <span class="home-window-title">your-server &mdash; postfox</span>
+          </div>
+          <div class="home-window-body home-why-mock">
+            <p><span class="home-why-prompt">$</span> git clone https://github.com/you/postfox.git</p>
+            <p><span class="home-why-prompt">$</span> npm install &amp;&amp; npm run migrate</p>
+            <p><span class="home-why-prompt">$</span> pm2 start ecosystem.config.cjs</p>
+            <p class="home-why-ok">Open source. Self-hosted. <strong>Your data never leaves your server.</strong></p>
+          </div>
+        </div>
+        <div class="home-why-copy">
+          <p class="home-overline">Why Postfox</p>
+          <h2 class="home-h2">Run it yourself, or let us.</h2>
+          <p>
+            Every connected account lives on one calendar &mdash; drag to reschedule, filter by
+            status, and see what failed without digging through five different apps.
+          </p>
+          <p>
+            It&rsquo;s open source, so you get a real choice: <a href="/pricing">start a hosted
+            trial</a> and we run it for you, no server required &mdash; or self-host it, like
+            shown here, and keep everything on your own infrastructure. Either way, your access
+            tokens live in your database, not a third party&rsquo;s, and the scheduler keeps
+            posting on time whether or not you&rsquo;re logged in.
+          </p>
+        </div>
       </div>
-      <div class="landing-feature">
-        <span class="landing-feature-icon">🖼️</span>
-        <h3>Media &amp; alt text</h3>
-        <p>Attach up to 10 photos or videos per post, each with its own alt text for accessibility.</p>
+    </section>
+
+    <section id="agents" class="home-section home-agent">
+      <div class="home-agent-inner">
+        <div class="home-agent-copy">
+          <p class="home-overline">Built for AI agents</p>
+          <h2 class="home-h2">Hand the calendar to your agent.</h2>
+          <p>
+            Postfox ships a documented REST API and an MCP server reachable two ways &mdash; a
+            local command for Claude Desktop and Cursor, or a remote URL for ChatGPT, Claude.ai,
+            OpenClaw, and anything else that speaks MCP. Point any of them at your account and
+            let it draft, schedule, and reshuffle posts with the same permissions you have.
+          </p>
+          <ol class="home-agent-steps">
+            <li><span class="home-agent-step-num">1</span> Generate an API token in <strong>Settings &rarr; API access for agents</strong>.</li>
+            <li><span class="home-agent-step-num">2</span> Give your agent that token &mdash; a local MCP config, a remote MCP URL, or just the REST API.</li>
+            <li><span class="home-agent-step-num">3</span> Ask it to post. It gets 6 tools &mdash; accounts, posts, and analytics.</li>
+          </ol>
+          <a href="/api-docs" class="home-textlink">Read the API &amp; MCP docs &rarr;</a>
+        </div>
+        <div class="home-terminal home-agent-chat">
+          <div class="home-terminal-head">
+            <span class="home-terminal-dots"><i></i><i></i><i></i></span>
+            <span class="home-terminal-label">Claude &middot; connected to Postfox</span>
+          </div>
+          <div class="home-agent-chat-body">
+            <p class="home-agent-msg">Schedule this launch note for Mastodon and Bluesky, then queue a recap for next Friday at 5pm.</p>
+            <div class="home-agent-tool">
+              <span class="home-agent-tool-name">create_post</span>
+              <span class="home-agent-tool-detail">mastodon</span>
+              <svg class="home-agent-tool-check" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="home-agent-tool">
+              <span class="home-agent-tool-name">create_post</span>
+              <span class="home-agent-tool-detail">bluesky</span>
+              <svg class="home-agent-tool-check" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="home-agent-tool">
+              <span class="home-agent-tool-name">create_post</span>
+              <span class="home-agent-tool-detail">scheduled &middot; Fri 5:00p</span>
+              <svg class="home-agent-tool-check" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <p class="home-agent-reply">Posted to Mastodon and Bluesky, and the recap is queued for Friday at 5:00pm.</p>
+          </div>
+        </div>
       </div>
-      <div class="landing-feature">
-        <span class="landing-feature-icon">🤖</span>
-        <h3>Built for AI agents</h3>
-        <p>A built-in MCP server and a <a href="/api-docs">public API</a> let your agents draft and schedule posts on your behalf.</p>
+    </section>
+
+    <section class="home-section home-pricing-teaser">
+      <h2 class="home-h2">Simple <span class="underline-mark">pricing.<svg class="underline-mark-line" viewBox="0 0 320 22" preserveAspectRatio="none" aria-hidden="true"><path d="M5 14C70 5 150 5 210 10s70 6 105 1" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/></svg></span></h2>
+      <p class="home-hero-lead">Every plan starts with a 7-day free trial. Cancel anytime.</p>
+
+      <div class="pricing-grid">
+        <% Object.entries(plans).forEach(function ([id, plan]) { %>
+        <div class="pricing-card<%= plan.popular ? ' pricing-card-featured' : '' %>">
+          <% if (plan.popular) { %><span class="pricing-badge">Most popular</span><% } %>
+          <h3><%= plan.name %></h3>
+          <p class="pricing-price">$<%= plan.priceUsd %><span>/mo</span></p>
+          <p class="pricing-tagline"><%= plan.tagline %></p>
+          <p class="pricing-channels"><strong><%= plan.limits.accounts %></strong> connected channels</p>
+          <ul class="pricing-features">
+            <% plan.features.forEach(function (f) { %><li><%= f %></li><% }); %>
+          </ul>
+          <div class="pricing-cta">
+            <a href="/signup?plan=<%= id %>" class="btn-link">Start 7-day trial</a>
+          </div>
+        </div>
+        <% }); %>
       </div>
+
+      <p class="pricing-footnote">
+        Prices in USD. Every plan includes cross-posting, recurring posts, the REST API and the
+        MCP server for AI agents. Change plan or cancel anytime from the billing portal.
+      </p>
+    </section>
+
+    <section class="home-section home-faq">
+      <div class="home-band">
+        <p class="home-overline">FAQ</p>
+        <h2 class="home-h2">Questions, answered.</h2>
+        <div class="home-faq-list">
+          <details>
+            <summary>Which platforms work today?</summary>
+            <p>Mastodon, Bluesky, Facebook, Instagram, Threads, Telegram, YouTube, TikTok, Pinterest, and LinkedIn. Twitter/X is left out on purpose &mdash; its API isn&rsquo;t free.</p>
+          </details>
+          <details>
+            <summary>Is my data safe?</summary>
+            <p>Postfox is open source and runs on your own server. Access tokens live in your database, not ours, and no third party sits in the middle.</p>
+          </details>
+          <details>
+            <summary>Is there a free trial?</summary>
+            <p>Yes &mdash; every plan starts with a 7-day free trial. You can also run Postfox yourself: it&rsquo;s open source.</p>
+          </details>
+          <details>
+            <summary>Can an AI agent run it?</summary>
+            <p>Yes &mdash; any of them. There&rsquo;s a documented REST API and an MCP server reachable both as a local command (Claude Desktop, Cursor) and a remote URL (ChatGPT, Claude.ai, or anything else that speaks MCP).</p>
+          </details>
+          <details>
+            <summary>Do you ever see my account passwords?</summary>
+            <p>No. Every connection goes through each platform&rsquo;s own login screen &mdash; OAuth for Mastodon, Facebook, Instagram, Threads, YouTube, and TikTok, a bot token for Telegram, an app password for Bluesky. Postfox never sees, and never stores, your real password.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="home-final">
+      <h2>Your next week of posts, done before lunch.</h2>
+      <a href="/pricing" class="home-btn home-btn-primary home-btn-lg">Start your free trial</a>
     </section>
   </main>
 
   <footer class="landing-footer">
     <span>&copy; <%= new Date().getFullYear() %> Postfox</span>
+    <a href="/pricing">Pricing</a>
+    <a href="/blog">Blog</a>
+    <a href="/api-docs">API docs</a>
+    <a href="/login">Log in</a>
+    <a href="/signup">Sign up</a>
   </footer>
 </div>
+<script src="/landing.js"></script>
+<%- include('partials/analytics') %>
 </body>
 </html>

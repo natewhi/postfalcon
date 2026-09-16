@@ -8,18 +8,27 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body class="dark-canvas">
+<%- include('partials/site-header') %>
 <main class="auth-card">
-  <h1>Postfox</h1>
+  <div class="auth-card-head">
+    <h1>Start your free trial</h1>
+    <p class="auth-sub">7 days free on every plan. You'll pick a plan and add a card next.</p>
+  </div>
+  <a href="/api/auth/google" id="google-signup-link" class="btn-google">Continue with Google</a>
+  <div class="auth-divider"><span>or</span></div>
   <form id="signup-form">
-    <label>Email <input type="email" name="email" required></label>
-    <label>Password <input type="password" name="password" required minlength="8"></label>
-    <button type="submit">Sign up</button>
+    <label>Email <input type="email" name="email" autocomplete="email" required></label>
+    <label>Password <input type="password" name="password" autocomplete="new-password" required minlength="8"></label>
+    <button type="submit">Continue to plan &amp; payment</button>
   </form>
   <p id="error" class="error"></p>
-  <p>Already have an account? <a href="/login">Log in</a></p>
+  <div class="auth-card-footer">
+    <span>Already have an account? <a href="/login">Log in</a></span>
+  </div>
 </main>
 <script src="/csrf.js"></script>
 <script src="/signup.js"></script>
+<%- include('partials/analytics') %>
 </body>
 </html>

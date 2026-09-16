@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/theme-init.js"></script>
+<meta name="color-scheme" content="light dark">
+<title><%= post.title %> - Postfox Blog</title>
+<meta name="description" content="<%= post.description %>">
+<link rel="canonical" href="<%= process.env.BASE_URL %>/blog/<%= post.slug %>">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Postfox">
+<meta property="og:title" content="<%= post.title %>">
+<meta property="og:description" content="<%= post.description %>">
+<meta property="og:url" content="<%= process.env.BASE_URL %>/blog/<%= post.slug %>">
+<meta property="article:published_time" content="<%= post.date.toISOString() %>">
+<% if (post.updated) { %><meta property="article:modified_time" content="<%= post.updated.toISOString() %>"><% } %>
+<% if (post.image) { %><meta property="og:image" content="<%= process.env.BASE_URL %><%= post.image %>"><% } %>
+<meta name="twitter:card" content="<%= post.image ? 'summary_large_image' : 'summary' %>">
+<meta name="twitter:title" content="<%= post.title %>">
+<meta name="twitter:description" content="<%= post.description %>">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+<script type="application/ld+json">
+<%- JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  headline: post.title,
+  description: post.description,
+  datePublished: post.date.toISOString(),
+  dateModified: (post.updated || post.date).toISOString(),
+  url: `${process.env.BASE_URL}/blog/${post.slug}`,
+  author: { "@type": "Person", name: post.author.name },
+  publisher: { "@type": "Organization", name: "Postfox" },
+  mainEntityOfPage: { "@type": "WebPage", "@id": `${process.env.BASE_URL}/blog/${post.slug}` },
+}).replace(/</g, '\\u003c') %>
+</script>
+</head>
+<body>
+<div class="landing dark-canvas">
+  <%- include('partials/site-header') %>
+
+  <header class="blog-post-hero">
+    <div class="blog-post-hero-inner">
+      <% if (post.tags.length) { %>
+      <div class="blog-tags">
+        <% post.tags.forEach((tag) => { %><span class="blog-tag"><%= tag %></span><% }); %>
+      </div>
+      <% } %>
+      <h1><%= post.title %></h1>
+      <div class="blog-byline">
+        <span class="blog-author-avatar" aria-hidden="true">
+          <% if (post.author.avatar) { %><img src="<%= post.author.avatar %>" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">
+          <% } else { %><%= post.author.initial %><% } %>
+        </span>
+        <div>
+          <p class="blog-author-name">By <strong><%= post.author.name %></strong></p>
+          <% if (post.author.title) { %><p class="blog-author-title"><%= post.author.title %></p><% } %>
+        </div>
+        <div class="blog-byline-meta">
+          <span><time datetime="<%= post.date.toISOString() %>"><%= post.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %></time></span>
+          <span><%= post.readingTime %> min read</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="blog-main">
+    <div class="blog-post-body<%= post.toc.length ? ' has-toc' : '' %>">
+      <% if (post.toc.length) { %>
+      <nav class="blog-toc" aria-label="Table of contents">
+        <p class="blog-toc-title">Contents</p>
+        <ul>
+          <% post.toc.forEach((item) => { %><li><a href="#<%= item.slug %>"><%= item.text %></a></li><% }); %>
+        </ul>
+      </nav>
+      <% } %>
+      <article class="blog-prose"><%- post.html %></article>
+    </div>
+
+    <div class="blog-cta">
+      <h3>Ready to try Postfox?</h3>
+      <p>Every plan starts with a 7-day free trial &mdash; no card required to look around.</p>
+      <a href="/pricing" class="btn-link">See pricing</a>
+    </div>
+  </main>
+
+  <footer class="landing-footer">
+    <span>&copy; <%= new Date().getFullYear() %> Postfox</span>
+    <a href="/blog">Blog</a>
+    <a href="/pricing">Pricing</a>
+    <a href="/api-docs">API docs</a>
+  </footer>
+</div>
+<%- include('partials/analytics') %>
+</body>
+</html>

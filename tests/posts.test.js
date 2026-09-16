@@ -285,3 +285,115 @@ describe('editing posts', () => {
     expect(stillOriginal.body.content).toBe('mine');
   });
 });
+
+describe('cross-posting', () => {
+  it('creates one grouped post per channel when social_account_ids is an array', async () => {
+    const client = await loginNewUser();
+    const a = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@a' });
+    const b = await client.post('/api/v1/social-accounts').send({ platform: 'mastodon', display_name: '@b' });
+
+    const res = await client.post('/api/v1/posts').send({
+      social_account_ids: [a.body.id, b.body.id],
+      content: 'shared everywhere',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.crosspost_group_id).toBeTruthy();
+    expect(res.body.posts).toHaveLength(2);
+    const groups = new Set(res.body.posts.map((p) => p.crosspost_group_id));
+    expect(groups).toEqual(new Set([res.body.crosspost_group_id]));
+    expect(res.body.posts.map((p) => p.social_account_id).sort()).toEqual([a.body.id, b.body.id].sort());
+  });
+
+  it('returns a bare post object (no group) for a single-channel array', async () => {
+    const client = await loginNewUser();
+    const a = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@a' });
+
+    const res = await client.post('/api/v1/posts').send({
+      social_account_ids: [a.body.id],
+      content: 'just one',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.crosspost_group_id).toBeNull();
+    expect(res.body.posts).toBeUndefined();
+  });
+
+  it('copies media to a separate file for each channel', async () => {
+    const client = await loginNewUser();
+    const a = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@a' });
+    const b = await client.post('/api/v1/social-accounts').send({ platform: 'mastodon', display_name: '@b' });
+
+    const res = await client
+      .post('/api/v1/posts')
+      .field('social_account_ids', String(a.body.id))
+      .field('social_account_ids', String(b.body.id))
+      .field('content', 'carousel everywhere')
+      .attach('media', Buffer.from('img-bytes'), 'shared.jpg');
+
+    expect(res.status).toBe(201);
+    const urls = res.body.posts.map((p) => p.media[0].url);
+    expect(urls[0]).not.toBe(urls[1]);
+    for (const url of urls) {
+      expect(fs.existsSync(path.join(uploadDir, path.basename(url)))).toBe(true);
+    }
+  });
+
+  it('rejects an unknown channel in the array', async () => {
+    const client = await loginNewUser();
+    const a = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@a' });
+    const other = await loginNewUser();
+    const foreign = await other.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@x' });
+
+    const res = await client.post('/api/v1/posts').send({
+      social_account_ids: [a.body.id, foreign.body.id],
+      content: 'partly sneaky',
+    });
+    // The foreign id is silently dropped; the owned one still goes through.
+    expect(res.status).toBe(201);
+    expect(res.body.social_account_id).toBe(a.body.id);
+  });
+});
+
+describe('repeated posts', () => {
+  it('stores repeat_interval and repeat_until on a scheduled post', async () => {
+    const client = await loginNewUser();
+    const account = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@me' });
+
+    const res = await client.post('/api/v1/posts').send({
+      social_account_id: account.body.id,
+      content: 'every day',
+      scheduled_for: new Date(Date.now() + 60_000).toISOString(),
+      repeat_interval: 'daily',
+      repeat_until: new Date(Date.now() + 30 * 86400000).toISOString(),
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.repeat_interval).toBe('daily');
+    expect(res.body.repeat_until).toBeTruthy();
+  });
+
+  it('rejects repeat_interval without a scheduled_for', async () => {
+    const client = await loginNewUser();
+    const account = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@me' });
+
+    const res = await client.post('/api/v1/posts').send({
+      social_account_id: account.body.id,
+      content: 'no schedule',
+      repeat_interval: 'weekly',
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('clears repeat_interval via PATCH with null', async () => {
+    const client = await loginNewUser();
+    const account = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@me' });
+    const post = await client.post('/api/v1/posts').send({
+      social_account_id: account.body.id,
+      content: 'stop repeating',
+      scheduled_for: new Date(Date.now() + 60_000).toISOString(),
+      repeat_interval: 'daily',
+    });
+
+    const res = await client.patch(`/api/v1/posts/${post.body.id}`).send({ repeat_interval: null });
+    expect(res.status).toBe(200);
+    expect(res.body.repeat_interval).toBeNull();
+  });
+});
