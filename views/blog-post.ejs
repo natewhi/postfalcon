@@ -40,6 +40,7 @@
   <%- include('partials/site-header') %>
 
   <header class="blog-post-hero">
+    <div class="blog-post-hero-media<%= (post.heroImage || post.heroGradient) ? '' : ` blog-card-thumb-${post.cardArt.palette}` %>"<% if (post.heroImage) { %> style="background-image: url('<%= post.heroImage %>')"<% } else if (post.heroGradient) { %> style="background: linear-gradient(135deg, <%= post.heroGradient[0] %>, <%= post.heroGradient[1] %>)"<% } %>></div>
     <div class="blog-post-hero-inner">
       <% if (post.tags.length) { %>
       <div class="blog-tags">

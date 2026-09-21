@@ -5,6 +5,9 @@ description: "Postfox now schedules Pins to Pinterest and posts to your personal
 date: 2026-09-16
 author: nathan
 tags: ["Features", "Platforms"]
+image: /images/blog/pinterest-and-linkedin-now-supported.svg
+heroImage: /images/blog/pinterest-and-linkedin-now-supported-hero-bg.svg
+heroGradient: ["#e11d48", "#2563eb"]
 ---
 
 Postfox now schedules posts to **Pinterest** and **LinkedIn**, bringing the total to 10 live

@@ -10,6 +10,10 @@ date: 2026-01-01
 #                                # picked up automatically by author id, no code change needed
 # tags: ["Guides", "Product"]   # shown as pills at the top of the post and on the index card
 # image: /images/blog/post.jpg  # used as the og:image / twitter:image if set; put the file under public/
+# heroImage: /images/blog/post-hero.svg  # background-only image for the post-page hero (no
+#                                # centerpiece — it'll crop at hero height); beats heroGradient below
+# heroGradient: ["#2563eb", "#1185FE"]  # two hex colors, shown as the post-page hero's background;
+#                                # falls back to the same deterministic gradient as a post with no `image`
 # redirects:                    # old slug(s) that should 301 here — fill in after renaming `slug`
 #   - old-slug-that-used-to-point-here
 draft: true

@@ -4,12 +4,13 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { logPageVisit } from '../lib/activityLog.js';
 import { connectablePlatforms, livePlatforms } from '../lib/platforms.js';
 import { PLANS } from '../lib/billing.js';
-import { listPosts } from '../lib/blog.js';
+import { listPosts, isBlogEnabled } from '../lib/blog.js';
 
 const router = Router();
 
 // The publicly crawlable pages, in the order they should be listed — used by /sitemap.xml.
-const STATIC_PAGES = ['/', '/pricing', '/api-docs', '/blog'];
+// '/blog' only when isBlogEnabled() — see that function for why a self-hoster might turn it off.
+const STATIC_PAGES = ['/', '/pricing', '/api-docs'];
 
 function xmlEscape(value) {
   return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
@@ -104,10 +105,12 @@ router.get('/admin/activity', requireAdmin, (req, res) => {
 router.get(
   '/sitemap.xml',
   asyncHandler(async (req, res) => {
-    const posts = await listPosts();
+    const blogEnabled = isBlogEnabled();
+    const posts = blogEnabled ? await listPosts() : [];
     const base = process.env.BASE_URL;
     const urls = [
       ...STATIC_PAGES.map((loc) => ({ loc, lastmod: null })),
+      ...(blogEnabled ? [{ loc: '/blog', lastmod: null }] : []),
       ...posts.map((p) => ({ loc: `/blog/${p.slug}`, lastmod: (p.updated || p.date).toISOString().slice(0, 10) })),
     ];
     const body =

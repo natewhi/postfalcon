@@ -5,6 +5,9 @@ description: "The case for running your own social media scheduler instead of tr
 date: 2026-09-14
 author: nathan
 tags: ["Product", "Open Source"]
+image: /images/blog/why-self-host-your-social-media-scheduler.svg
+heroImage: /images/blog/why-self-host-your-social-media-scheduler-hero-bg.svg
+heroGradient: ["#1e293b", "#475569"]
 ---
 
 Every social media scheduler asks for the same thing: access tokens for every account you

@@ -162,8 +162,19 @@ a {
 }
 
 .sidebar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
   font-size: 1.25rem;
   font-weight: 700;
+  color: var(--color-sidebar-text);
+  text-decoration: none;
+}
+
+.sidebar-brand-mark {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
 }
 
 .sidebar-nav {
@@ -373,6 +384,178 @@ a {
   font-size: 1.4rem;
   font-weight: 700;
   letter-spacing: -0.01em;
+}
+
+/* Dashboard only — wider than the generic .app-main max-width (1000px) so the calendar has
+   room to breathe next to the drafts rail; scoped to this one page rather than widened
+   site-wide, since Accounts/Analytics/Settings are plain single-column forms/lists that don't
+   need it. */
+.dashboard-main {
+  max-width: 1320px;
+}
+
+.dashboard-stats {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.dashboard-stat strong {
+  font-weight: 700;
+}
+
+#stat-scheduled {
+  color: var(--status-scheduled-text);
+}
+
+#stat-failed {
+  color: var(--status-failed-text);
+}
+
+.dashboard-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+}
+
+.calendar-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.drafts-col {
+  width: 300px;
+  flex-shrink: 0;
+}
+
+/* Drafts used to be a full-width section stacked above the calendar — with enough drafts, an
+   unbounded list pushed the calendar further down the page with every one added. As a sticky
+   side rail with its own scroll, the calendar's position no longer depends on draft count. */
+.drafts-section {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 160px);
+  position: sticky;
+  top: var(--space-5);
+}
+
+.drafts-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border-radius: 999px;
+  padding: 2px 9px;
+  margin-left: var(--space-2);
+  vertical-align: middle;
+}
+
+.drafts-filter {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.drafts-filter input[type="search"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.drafts-filter select {
+  flex-shrink: 0;
+  max-width: 40%;
+}
+
+.drafts-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding-right: 2px;
+  margin-right: -2px;
+}
+
+.draft-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  cursor: grab;
+}
+
+.draft-card:active {
+  cursor: grabbing;
+}
+
+.draft-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.draft-card-content {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.draft-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
+}
+
+.draft-card-when {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.draft-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.draft-card-actions button {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-input-border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  /* .draft-card sets cursor: grab for the drag-to-schedule affordance — these buttons act on
+     click, not drag, so they get their own pointer cursor back. */
+  cursor: pointer;
+}
+
+.draft-card-actions button:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+@media (max-width: 980px) {
+  .dashboard-columns {
+    flex-direction: column;
+  }
+
+  .drafts-col {
+    width: 100%;
+  }
+
+  .drafts-section {
+    position: static;
+    max-height: none;
+  }
+
+  .drafts-list {
+    max-height: 340px;
+  }
 }
 
 main {
@@ -2997,7 +3180,10 @@ body.dark-canvas .auth-card {
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--accent);
+  /* var(--accent) is tuned for light surfaces elsewhere on the site; against this card's
+     near-black background it measures under 4.5:1 for text this small — a lighter violet
+     keeps the brand hue but stays readable on a dark surface. */
+  color: #a78bfa;
 }
 
 .blog-card h2 {
@@ -3037,7 +3223,9 @@ body.dark-canvas .auth-card {
   flex-shrink: 0;
   border-radius: 50%;
   background: rgba(124, 92, 255, 0.2);
-  color: var(--accent);
+  /* same dark-surface contrast fix as .blog-card-category above — plain var(--accent) text on
+     an accent-tinted circle measured under 3:1 here */
+  color: #a78bfa;
   font-weight: 700;
   font-size: 0.7rem;
 }
@@ -3083,25 +3271,35 @@ body.dark-canvas .auth-card {
   text-align: center;
 }
 
-.blog-post-hero::before {
-  content: "";
-  position: absolute;
-  inset: -25% 0 auto 50%;
-  width: 900px;
-  height: 620px;
-  transform: translateX(-50%);
-  background: radial-gradient(closest-side, rgba(124, 92, 255, 0.24), rgba(124, 92, 255, 0) 70%);
-  pointer-events: none;
-}
-
 /* lifted above the fixed grid same as .dark-canvas > main — see that rule for why */
 .dark-canvas > .blog-post-hero {
   position: relative;
   z-index: 1;
 }
 
+/* Hero background: a post's own heroImage (a background-only SVG — same gradient/dots/blobs as
+   its card art, minus the centerpiece that crops badly at hero height) or heroGradient (flat
+   two-color fallback), or the deterministic .blog-card-thumb-1..6 gradient any imageless post
+   already gets on the /blog grid — see the picking order in views/blog-post.ejs. */
+.blog-post-hero-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.blog-post-hero-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(14, 15, 19, 0.38);
+}
+
 .blog-post-hero-inner {
   position: relative;
+  z-index: 1;
   max-width: 760px;
   margin: 0 auto;
   padding: calc(var(--space-5) * 1.8) var(--space-5) calc(var(--space-5) * 1.6);
@@ -3122,6 +3320,24 @@ body.dark-canvas .auth-card {
   font-weight: 600;
   padding: 0.3em 0.8em;
   border-radius: 999px;
+}
+
+/* The accent-purple pill/avatar above reads fine on the /blog index card (a fixed near-black
+   surface), but the post hero's background now varies per post (see .blog-post-hero-media) —
+   purple-on-purple is unreadable on the violet hero, and low-contrast on several others. A dark
+   ink tint (not a light one — a light pill only *lightens* what's already the brightest part of
+   a bright gradient, e.g. the amber recurring-posts hero, which measured under 3:1 contrast for
+   white text) stays legible regardless of the gradient underneath; the light border keeps the
+   pill visible as its own shape against the equally dark scrim. */
+.blog-post-hero-inner .blog-tag {
+  background: rgba(14, 15, 19, 0.45);
+  color: var(--home-on-ink);
+}
+
+.blog-post-hero-inner .blog-author-avatar {
+  background: rgba(14, 15, 19, 0.45);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--home-on-ink);
 }
 
 .blog-post-hero h1 {
@@ -3792,6 +4008,27 @@ body.dark-canvas .auth-card {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+.cal-retry-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.35);
+  color: inherit;
+  font-size: 10px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+
+.cal-retry-btn:hover {
+  background: rgba(255, 255, 255, 0.6);
 }
 
 dialog#post-dialog,

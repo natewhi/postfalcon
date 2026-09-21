@@ -361,7 +361,7 @@
   <footer class="landing-footer">
     <span>&copy; <%= new Date().getFullYear() %> Postfox</span>
     <a href="/pricing">Pricing</a>
-    <a href="/blog">Blog</a>
+    <% if (blogEnabled) { %><a href="/blog">Blog</a><% } %>
     <a href="/api-docs">API docs</a>
     <a href="/login">Log in</a>
     <a href="/signup">Sign up</a>

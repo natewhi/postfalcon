@@ -5,6 +5,9 @@ description: "How the Postfox composer works: writing a post, attaching media, s
 date: 2026-08-27
 author: nathan
 tags: ["Getting Started", "Guides"]
+image: /images/blog/how-to-schedule-a-post.svg
+heroImage: /images/blog/how-to-schedule-a-post-hero-bg.svg
+heroGradient: ["#6d5ef7", "#5b8def"]
 ---
 
 Once you've [connected an account](/blog/connect-your-first-social-account), scheduling a

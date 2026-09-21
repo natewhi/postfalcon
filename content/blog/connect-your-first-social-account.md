@@ -5,6 +5,9 @@ description: "A step-by-step walkthrough of connecting Mastodon, Bluesky, Facebo
 date: 2026-08-20
 author: nathan
 tags: ["Getting Started", "Guides"]
+image: /images/blog/connect-your-first-social-account.svg
+heroImage: /images/blog/connect-your-first-social-account-hero-bg.svg
+heroGradient: ["#0ea5e9", "#38bdf8"]
 ---
 
 Before Postfox can publish anything on your behalf, it needs somewhere to publish it. That

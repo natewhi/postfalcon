@@ -1,0 +1,39 @@
+<svg viewBox="0 0 1200 675" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A plug connecting into a hub linked to several social platform badges">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0ea5e9"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <pattern id="dots" width="36" height="36" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="2" fill="#ffffff" fill-opacity="0.14"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect width="1200" height="675" fill="url(#dots)"/>
+  <circle cx="990" cy="120" r="230" fill="#ffffff" fill-opacity="0.07"/>
+  <circle cx="130" cy="560" r="190" fill="#ffffff" fill-opacity="0.06"/>
+
+  <rect x="436" y="178" width="360" height="340" rx="36" fill="#000000" fill-opacity="0.16"/>
+  <rect x="420" y="160" width="360" height="340" rx="36" fill="#ffffff"/>
+
+  <line x1="600" y1="330" x2="500" y2="330" stroke="#075985" stroke-width="10" stroke-linecap="round"/>
+  <rect x="470" y="312" width="34" height="36" rx="8" fill="#075985"/>
+  <rect x="452" y="318" width="18" height="10" rx="4" fill="#075985"/>
+  <rect x="452" y="332" width="18" height="10" rx="4" fill="#075985"/>
+
+  <circle cx="600" cy="330" r="46" fill="#075985"/>
+  <circle cx="600" cy="330" r="16" fill="#ffffff"/>
+
+  <g stroke="#075985" stroke-width="3" stroke-dasharray="6 7" stroke-opacity="0.6">
+    <line x1="628" y1="305" x2="686" y2="252"/>
+    <line x1="636" y1="330" x2="704" y2="330"/>
+    <line x1="628" y1="356" x2="686" y2="410"/>
+  </g>
+
+  <circle cx="700" cy="240" r="26" fill="#ffffff" stroke="#075985" stroke-width="4"/>
+  <circle cx="700" cy="240" r="9" fill="#1877F2"/>
+  <circle cx="718" cy="330" r="26" fill="#ffffff" stroke="#075985" stroke-width="4"/>
+  <circle cx="718" cy="330" r="9" fill="#26A5E4"/>
+  <circle cx="700" cy="420" r="26" fill="#ffffff" stroke="#075985" stroke-width="4"/>
+  <circle cx="700" cy="420" r="9" fill="#6364FF"/>
+</svg>

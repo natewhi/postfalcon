@@ -12,7 +12,7 @@
 <div class="app-shell">
   <%- include('partials/sidebar', { active: 'calendar', email }) %>
 
-  <main class="app-main">
+  <main class="app-main dashboard-main">
     <%- include('partials/verify-banner', { emailVerified }) %>
 
     <div id="failed-posts-banner" class="attention-banner" hidden>
@@ -24,24 +24,43 @@
       <button id="new-post-btn" type="button">+ New post</button>
     </div>
 
-    <section>
-      <h2>Drafts</h2>
-      <ul id="drafts-list"></ul>
-    </section>
+    <div class="dashboard-stats" id="dashboard-stats">
+      <span class="dashboard-stat"><strong id="stat-scheduled">0</strong> scheduled</span>
+      <span class="dashboard-stat"><strong id="stat-drafts">0</strong> drafts</span>
+      <span class="dashboard-stat"><strong id="stat-failed">0</strong> failed</span>
+    </div>
 
-    <section>
-      <h2>Calendar</h2>
-      <p class="hint">Click a day or time slot to schedule a post there. Drag a scheduled post to move it. Click a scheduled post to edit or delete it.</p>
-      <div class="status-filter" id="calendar-status-filter">
-        <span class="status-filter-label">Show:</span>
-        <button type="button" class="status-filter-chip" data-status="scheduled" aria-pressed="false">Scheduled</button>
-        <button type="button" class="status-filter-chip" data-status="failed" aria-pressed="false">Failed</button>
-        <button type="button" class="status-filter-chip" data-status="posted" aria-pressed="false">Posted</button>
-        <button type="button" class="status-filter-chip" data-status="canceled" aria-pressed="false">Canceled</button>
+    <div class="dashboard-columns">
+      <div class="calendar-col">
+        <section class="calendar-section">
+          <h2>Calendar</h2>
+          <p class="hint">Click a day or time slot to schedule a post there. Drag a scheduled post to move it, or drag a draft from the rail onto a date to schedule it. Click a scheduled post to edit or delete it.</p>
+          <div class="status-filter" id="calendar-status-filter">
+            <span class="status-filter-label">Show:</span>
+            <button type="button" class="status-filter-chip" data-status="scheduled" aria-pressed="false">Scheduled</button>
+            <button type="button" class="status-filter-chip" data-status="failed" aria-pressed="false">Failed</button>
+            <button type="button" class="status-filter-chip" data-status="posted" aria-pressed="false">Posted</button>
+            <button type="button" class="status-filter-chip" data-status="canceled" aria-pressed="false">Canceled</button>
+          </div>
+          <div id="calendar-loading" class="loading" style="display: none;"><span class="spinner"></span> Loading calendar…</div>
+          <div id="calendar"></div>
+        </section>
       </div>
-      <div id="calendar-loading" class="loading" style="display: none;"><span class="spinner"></span> Loading calendar…</div>
-      <div id="calendar"></div>
-    </section>
+
+      <div class="drafts-col">
+        <section class="drafts-section">
+          <h2>Drafts <span class="drafts-count" id="drafts-count" hidden>0</span></h2>
+          <p class="hint">Drag a draft onto the calendar to schedule it.</p>
+          <div class="drafts-filter">
+            <input type="search" id="drafts-search" placeholder="Search drafts…" aria-label="Search drafts">
+            <select id="drafts-platform-filter" aria-label="Filter drafts by platform">
+              <option value="">All platforms</option>
+            </select>
+          </div>
+          <ul id="drafts-list" class="drafts-list"></ul>
+        </section>
+      </div>
+    </div>
   </main>
 </div>
 

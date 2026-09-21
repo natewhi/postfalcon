@@ -5,6 +5,9 @@ description: "Postfox's MCP server now has a 6th tool, get_analytics_summary, so
 date: 2026-09-15
 author: nathan
 tags: ["Features", "AI Agents"]
+image: /images/blog/ai-agents-and-your-post-analytics.svg
+heroImage: /images/blog/ai-agents-and-your-post-analytics-hero-bg.svg
+heroGradient: ["#7c3aed", "#a78bfa"]
 ---
 
 Postfox has shipped with a bundled [MCP server](/api-docs) for a while now, so an agent like

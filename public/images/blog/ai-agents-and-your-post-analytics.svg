@@ -1,0 +1,34 @@
+<svg viewBox="0 0 1200 675" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A friendly robot head next to a small bar chart badge">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#a78bfa"/>
+    </linearGradient>
+    <pattern id="dots" width="36" height="36" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="2" fill="#ffffff" fill-opacity="0.14"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect width="1200" height="675" fill="url(#dots)"/>
+  <circle cx="990" cy="120" r="230" fill="#ffffff" fill-opacity="0.07"/>
+  <circle cx="130" cy="560" r="190" fill="#ffffff" fill-opacity="0.06"/>
+
+  <rect x="436" y="178" width="360" height="340" rx="36" fill="#000000" fill-opacity="0.16"/>
+  <rect x="420" y="160" width="360" height="340" rx="36" fill="#ffffff"/>
+
+  <line x1="600" y1="210" x2="600" y2="182" stroke="#5b21b6" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="600" cy="176" r="10" fill="#5b21b6"/>
+
+  <rect x="520" y="210" width="160" height="140" rx="28" fill="#5b21b6"/>
+  <circle cx="562" cy="272" r="13" fill="#ffffff"/>
+  <circle cx="638" cy="272" r="13" fill="#ffffff"/>
+  <rect x="562" y="308" width="76" height="10" rx="5" fill="#ffffff" fill-opacity="0.7"/>
+  <polygon points="580,350 610,350 592,374" fill="#5b21b6"/>
+
+  <circle cx="704" cy="410" r="46" fill="#ffffff" stroke="#5b21b6" stroke-width="4"/>
+  <g fill="#5b21b6">
+    <rect x="686" y="410" width="10" height="24" rx="3"/>
+    <rect x="700" y="396" width="10" height="38" rx="3"/>
+    <rect x="714" y="404" width="10" height="30" rx="3"/>
+  </g>
+</svg>

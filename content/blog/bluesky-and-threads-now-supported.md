@@ -5,6 +5,9 @@ description: "Postfox now schedules posts to Bluesky and Threads, bringing the t
 date: 2026-09-15
 author: nathan
 tags: ["Features", "Platforms"]
+image: /images/blog/bluesky-and-threads-now-supported.svg
+heroImage: /images/blog/bluesky-and-threads-now-supported-hero-bg.svg
+heroGradient: ["#2563eb", "#1185FE"]
 ---
 
 Postfox now schedules and cross-posts to **Bluesky** and **Threads**, bringing the total to

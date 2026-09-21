@@ -93,15 +93,24 @@ routes/billingWebhook Stripe webhook — mounted in app.js with express.raw() BE
 routes/webhooks.js   /api/v1/webhooks CRUD for user-registered outbound webhook endpoints (Team/Pro only,
                      gated by requireCapability('webhooks'))
 content/blog/*.md    The blog — one Markdown file per post (frontmatter: title, slug, description, date,
-                     optional updated/draft/image/redirects/tags/author — see _template.md), read fresh
-                     from disk on every request (no DB table, no admin UI, no caching) so editing a file —
-                     including its `slug`, i.e. its URL — takes effect immediately. lib/blog.js parses them
-                     (gray-matter + marked), assigns heading ids and builds each post's table of contents,
-                     and resolves `author` against the AUTHORS map (placeholder initial-letter avatar until
-                     a real photo is set). routes/blog.js serves /blog (paginated index) and /blog/:slug. A
-                     post's old slug(s) can be listed under `redirects:` to 301 old URLs to the new one
-                     after a rename. routes/pages.js's /sitemap.xml and /robots.txt are generated from the
-                     same list.
+                     optional updated/draft/image/heroImage/heroGradient/redirects/tags/author — see
+                     _template.md), read fresh from disk on every request (no DB table, no admin UI, no
+                     caching) so editing a file — including its `slug`, i.e. its URL — takes effect
+                     immediately. lib/blog.js parses them (gray-matter + marked), assigns heading ids and
+                     builds each post's table of contents, and resolves `author` against the AUTHORS map
+                     (placeholder initial-letter avatar until a real photo is set). `image` is card art /
+                     og:image; the post page's own hero banner instead picks, richest first, `heroImage`
+                     (a background-only image — no centerpiece, since one crops badly at hero height) ->
+                     `heroGradient` (two hex colors) -> the same deterministic cardArt() gradient an
+                     imageless post already gets on the /blog grid — see views/blog-post.ejs. routes/blog.js
+                     serves /blog (paginated index) and /blog/:slug. A post's old slug(s) can be listed
+                     under `redirects:` to 301 old URLs to the new one after a rename. routes/pages.js's
+                     /sitemap.xml and /robots.txt are generated from the same list. This is this project's
+                     own marketing content (including posts pitching self-hosting itself), not something a
+                     self-hoster's instance should carry by default — `isBlogEnabled()` in lib/blog.js
+                     (env var `ENABLE_BLOG`, on unless explicitly `"false"`) gates the route mount in
+                     app.js, the sitemap entries, and the nav/footer `Blog` link (via `app.locals.blogEnabled`,
+                     so every view has it without each route passing it explicitly) all from one place.
 routes/analytics.js  Reverse-proxies /stats/* to a self-hosted Umami instance (see docs/analytics-setup.md)
                      so the tracking script/data stay same-origin — mounted with express.raw() BEFORE
                      express.json(), same reasoning as the Stripe webhook. 404s if UMAMI_HOST is unset.
@@ -282,7 +291,8 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
 - **New blog post?** Copy `content/blog/_template.md` (a draft — safe to leave in place, it's never listed),
   fill in `title`/`slug`/`description`/`date`, remove `draft: true` when ready. Optional frontmatter: `tags`
   (pills on the post + index card), `author` (id into the `AUTHORS` map in `lib/blog.js` — add a person there
-  before referencing them), `image`, `redirects` (old slugs that 301 here after a rename). `##`/`###`
+  before referencing them), `image`, `heroImage`/`heroGradient` (the post page's own hero banner —
+  see content/blog/*.md above), `redirects` (old slugs that 301 here after a rename). `##`/`###`
   headings automatically get anchor ids and populate the "Contents" sidebar — no manual markup needed. No
   route/view/DB change needed for a new post either way.
 - **New author avatar?** Just drop an image at `public/images/authors/<author-id>.jpg` (or `.png`/`.webp`) —

@@ -5,6 +5,9 @@ description: "Postfox now pulls real view, like, comment, and share counts from 
 date: 2026-09-15
 author: nathan
 tags: ["Features", "Analytics"]
+image: /images/blog/post-analytics-see-whats-working.svg
+heroImage: /images/blog/post-analytics-see-whats-working-hero-bg.svg
+heroGradient: ["#0d9488", "#34d399"]
 ---
 
 Scheduling a post and watching it go out on time is only half the story. The other half is

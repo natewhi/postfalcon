@@ -1,0 +1,44 @@
+<svg viewBox="0 0 1200 675" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A calendar with a scheduled post launching like a paper airplane">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6d5ef7"/>
+      <stop offset="1" stop-color="#5b8def"/>
+    </linearGradient>
+    <pattern id="dots" width="36" height="36" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="2" fill="#ffffff" fill-opacity="0.14"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect width="1200" height="675" fill="url(#dots)"/>
+  <circle cx="990" cy="110" r="230" fill="#ffffff" fill-opacity="0.07"/>
+  <circle cx="120" cy="580" r="190" fill="#ffffff" fill-opacity="0.06"/>
+
+  <rect x="436" y="178" width="360" height="340" rx="36" fill="#000000" fill-opacity="0.16"/>
+  <rect x="420" y="160" width="360" height="340" rx="36" fill="#ffffff"/>
+
+  <rect x="480" y="222" width="240" height="200" rx="20" fill="#eef0ff"/>
+  <rect x="480" y="222" width="240" height="54" rx="20" fill="#4338ca"/>
+  <rect x="480" y="256" width="240" height="20" fill="#4338ca"/>
+  <rect x="536" y="200" width="16" height="44" rx="8" fill="#4338ca"/>
+  <rect x="648" y="200" width="16" height="44" rx="8" fill="#4338ca"/>
+
+  <g fill="#4338ca" fill-opacity="0.22">
+    <circle cx="522" cy="320" r="8"/>
+    <circle cx="562" cy="320" r="8"/>
+    <circle cx="522" cy="360" r="8"/>
+    <circle cx="678" cy="360" r="8"/>
+    <circle cx="638" cy="320" r="8"/>
+  </g>
+
+  <rect x="596" y="346" width="52" height="52" rx="12" fill="#4338ca"/>
+  <circle cx="622" cy="372" r="14" fill="none" stroke="#ffffff" stroke-width="3"/>
+  <path d="M622 364v9l7 5" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g transform="translate(742 196) rotate(28)">
+    <polygon points="0,0 44,10 8,22 0,44 -6,22" fill="#4338ca"/>
+  </g>
+  <g stroke="#4338ca" stroke-width="4" stroke-linecap="round" stroke-opacity="0.55">
+    <line x1="736" y1="222" x2="716" y2="238"/>
+    <line x1="752" y1="238" x2="736" y2="250"/>
+  </g>
+</svg>

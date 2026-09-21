@@ -30,6 +30,7 @@ import pinterestRouter from './routes/pinterest.js';
 import linkedinRouter from './routes/linkedin.js';
 import pagesRouter from './routes/pages.js';
 import blogRouter from './routes/blog.js';
+import { isBlogEnabled } from './lib/blog.js';
 import analyticsRouter from './routes/analytics.js';
 import adminRouter from './routes/admin.js';
 import billingRouter from './routes/billing.js';
@@ -52,6 +53,10 @@ app.set('views', path.join(__dirname, 'views'));
 if (isProduction) {
   app.set('trust proxy', 1);
 }
+
+// Available to every view without each route needing to pass it — see isBlogEnabled() in
+// lib/blog.js for why a self-hoster would turn this off.
+app.locals.blogEnabled = isBlogEnabled();
 
 app.use(
   helmet({
@@ -185,7 +190,9 @@ app.use('/api/v1/analytics', requireAuth, apiLimiter, postAnalyticsRouter);
 app.use('/api/v1/webhooks', requireAuth, apiLimiter, requireCapability('webhooks'), webhooksRouter);
 app.use('/api/admin', requireAdmin, adminRouter);
 
-app.use('/blog', blogRouter);
+if (isBlogEnabled()) {
+  app.use('/blog', blogRouter);
+}
 app.use('/', pagesRouter);
 
 app.use((req, res) => {

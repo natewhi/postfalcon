@@ -3,10 +3,46 @@ function toLocalInputValue(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+const PLATFORM_DISPLAY_OVERRIDES = { tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn' };
+function platformDisplayName(platform) {
+  if (!platform) return 'Unknown';
+  return PLATFORM_DISPLAY_OVERRIDES[platform] || platform.charAt(0).toUpperCase() + platform.slice(1);
+}
+
+// Header stat strip (scheduled/drafts/failed counts) — a nice-to-have glance at account
+// health, independent of loadDrafts()/loadFailedBanner() below (which fetch the same statuses
+// but for rendering their own lists, not just counting), so it fails quietly on its own.
+async function loadDashboardStats() {
+  try {
+    const posts = await apiJson(`/api/v1/posts${buildPostsQuery({ status: 'draft,scheduled,failed' })}`);
+    const counts = { draft: 0, scheduled: 0, failed: 0 };
+    posts.forEach((p) => {
+      if (counts[p.status] !== undefined) counts[p.status]++;
+    });
+    document.getElementById('stat-scheduled').textContent = counts.scheduled;
+    document.getElementById('stat-drafts').textContent = counts.draft;
+    document.getElementById('stat-failed').textContent = counts.failed;
+  } catch {
+    // stats are a nice-to-have — the rest of the dashboard works fine without them
+  }
+}
+
 let activeAccountId = new URLSearchParams(window.location.search).get('account');
 
 const CALENDAR_STATUS_STORAGE_KEY = 'postfox-calendar-statuses';
 const ALL_CALENDAR_STATUSES = ['scheduled', 'failed', 'posted', 'canceled'];
+const CALENDAR_VIEW_STORAGE_KEY = 'postfox-calendar-view';
+const ALL_CALENDAR_VIEWS = ['dayGridMonth', 'timeGridWeek'];
+
+function loadSavedCalendarView() {
+  try {
+    const saved = localStorage.getItem(CALENDAR_VIEW_STORAGE_KEY);
+    if (ALL_CALENDAR_VIEWS.includes(saved)) return saved;
+  } catch {
+    // ignore malformed storage value, fall back to default
+  }
+  return 'dayGridMonth';
+}
 
 function loadSavedCalendarStatuses() {
   try {
@@ -52,6 +88,7 @@ window.filterByAccount = (accountId) => {
   history.replaceState(null, '', url);
   loadDrafts();
   loadFailedBanner();
+  loadDashboardStats();
   calendar.refetchEvents();
 };
 
@@ -278,16 +315,16 @@ repeatSelect.addEventListener('change', () => {
   if (repeatSelect.value === '') repeatUntilInput.value = '';
 });
 
-async function loadDrafts() {
+let draftsCache = [];
+
+function renderDraftsList(posts, { noMatchMessage } = {}) {
   const list = document.getElementById('drafts-list');
-  list.innerHTML = '<li class="loading"><span class="spinner"></span> Loading drafts…</li>';
-  try {
-    const posts = await apiJson(`/api/v1/posts${buildPostsQuery({ status: 'draft' })}`);
-    list.innerHTML =
-      posts
-        .map(
-          (p) => `
-      <li>
+  list.innerHTML =
+    posts
+      .map(
+        (p) => `
+    <li class="draft-card" data-id="${p.id}" data-content="${escapeHtml(p.content)}">
+      <div class="draft-card-top">
         <span class="cal-platform-badge" style="background:${(PLATFORM_META[p.platform] || { color: '#666666' }).color}" title="${escapeHtml(p.platform || '')}">${platformBadgeInner(p.platform)}</span>
         <span class="status status-${p.status}">${p.status}</span>
         ${
@@ -302,39 +339,82 @@ async function loadDrafts() {
                 .join('')}${p.media.length > 3 ? `<span class="thumb-more">+${p.media.length - 3}</span>` : ''}</span>`
             : ''
         }
-        <span class="content">${escapeHtml(p.content)}</span>
-        <span class="when">Created ${new Date(p.created_at).toLocaleDateString()}</span>
-        <button data-id="${p.id}" class="edit-btn">Edit</button>
-        <button data-id="${p.id}" class="delete-btn">Delete</button>
-      </li>
-    `
-        )
-        .join('') || '<li class="empty">No drafts &mdash; click + New post above to start one.</li>';
+      </div>
+      <p class="draft-card-content">${escapeHtml(p.content)}</p>
+      <div class="draft-card-footer">
+        <span class="draft-card-when">Created ${new Date(p.created_at).toLocaleDateString()}</span>
+        <div class="draft-card-actions">
+          <button data-id="${p.id}" class="edit-btn">Edit</button>
+          <button data-id="${p.id}" class="delete-btn">Delete</button>
+        </div>
+      </div>
+    </li>
+  `
+      )
+      .join('') ||
+    `<li class="empty">${noMatchMessage || 'No drafts &mdash; click + New post above to start one.'}</li>`;
 
-    list.querySelectorAll('.edit-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const post = posts.find((p) => String(p.id) === btn.dataset.id);
-        if (post) openEditDialog(post);
-      });
+  list.querySelectorAll('.edit-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const post = draftsCache.find((p) => String(p.id) === btn.dataset.id);
+      if (post) openEditDialog(post);
     });
+  });
 
-    list.querySelectorAll('.delete-btn').forEach((btn) => {
-      btn.addEventListener(
-        'click',
-        withLoading(btn, 'Deleting…', async () => {
-          const ok = await confirmDialog('Delete this post?', { confirmText: 'Delete' });
-          if (!ok) return;
-          try {
-            await apiJson(`/api/v1/posts/${btn.dataset.id}`, { method: 'DELETE' });
-            loadDrafts();
-            calendar.refetchEvents();
-          } catch (err) {
-            showToast(err.message);
-          }
-        })
-      );
-    });
+  list.querySelectorAll('.delete-btn').forEach((btn) => {
+    btn.addEventListener(
+      'click',
+      withLoading(btn, 'Deleting…', async () => {
+        const ok = await confirmDialog('Delete this draft post?', { confirmText: 'Delete' });
+        if (!ok) return;
+        try {
+          await apiJson(`/api/v1/posts/${btn.dataset.id}`, { method: 'DELETE' });
+          loadDrafts();
+          loadDashboardStats();
+          calendar.refetchEvents();
+        } catch (err) {
+          showToast(err.message);
+        }
+      })
+    );
+  });
+}
+
+function populateDraftsPlatformFilter(posts) {
+  const select = document.getElementById('drafts-platform-filter');
+  const current = select.value;
+  const platforms = [...new Set(posts.map((p) => p.platform))].sort();
+  select.innerHTML =
+    '<option value="">All platforms</option>' +
+    platforms.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(platformDisplayName(p))}</option>`).join('');
+  select.value = platforms.includes(current) ? current : '';
+}
+
+function applyDraftsFilter() {
+  const search = document.getElementById('drafts-search').value.trim().toLowerCase();
+  const platform = document.getElementById('drafts-platform-filter').value;
+  const filtered = draftsCache.filter(
+    (p) => (!search || p.content.toLowerCase().includes(search)) && (!platform || p.platform === platform)
+  );
+  renderDraftsList(filtered, { noMatchMessage: draftsCache.length > 0 ? 'No drafts match your search.' : undefined });
+}
+
+document.getElementById('drafts-search').addEventListener('input', applyDraftsFilter);
+document.getElementById('drafts-platform-filter').addEventListener('change', applyDraftsFilter);
+
+async function loadDrafts() {
+  const list = document.getElementById('drafts-list');
+  const count = document.getElementById('drafts-count');
+  list.innerHTML = '<li class="loading"><span class="spinner"></span> Loading drafts…</li>';
+  try {
+    const posts = await apiJson(`/api/v1/posts${buildPostsQuery({ status: 'draft' })}`);
+    draftsCache = posts;
+    count.hidden = posts.length === 0;
+    count.textContent = posts.length;
+    populateDraftsPlatformFilter(posts);
+    applyDraftsFilter();
   } catch (err) {
+    count.hidden = true;
     list.innerHTML = '<li class="empty">Failed to load drafts.</li>';
     showToast(err.message);
   }
@@ -445,6 +525,7 @@ document.getElementById('post-dialog-delete').addEventListener(
       document.getElementById('post-dialog').close();
       loadDrafts();
       loadFailedBanner();
+      loadDashboardStats();
       calendar.refetchEvents();
     } catch (err) {
       showToast(err.message);
@@ -514,6 +595,7 @@ postDialogForm.addEventListener(
         document.getElementById('post-dialog').close();
         loadDrafts();
         loadFailedBanner();
+        loadDashboardStats();
         calendar.refetchEvents();
       } catch (err) {
         showToast(err.message);
@@ -545,6 +627,7 @@ postDialogForm.addEventListener(
       document.getElementById('post-dialog').close();
       resetMediaPreview();
       loadDrafts();
+      loadDashboardStats();
       calendar.refetchEvents();
     } catch (err) {
       showToast(err.message);
@@ -552,8 +635,28 @@ postDialogForm.addEventListener(
   })
 );
 
+// A failed post's scheduled_for is already in the past by definition, and the scheduler's
+// due-posts query (scheduler.js) is just `status = 'scheduled' AND scheduled_for <= now()` — so
+// flipping status back to 'scheduled' with no other change makes it due again on the very next
+// per-minute run, with no need to touch scheduled_for at all.
+async function retryPost(id) {
+  try {
+    await apiJson(`/api/v1/posts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'scheduled' }),
+    });
+    showToast('Post queued for retry.', 'success');
+    calendar.refetchEvents();
+    loadFailedBanner();
+    loadDashboardStats();
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
 const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-  initialView: 'dayGridMonth',
+  initialView: loadSavedCalendarView(),
   headerToolbar: {
     left: 'prev,next today',
     center: 'title',
@@ -564,6 +667,18 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
   eventDurationEditable: false,
   eventAllow: (dropInfo, draggedEvent) => draggedEvent.extendedProps.status === 'scheduled',
   dayCellClassNames: (arg) => (arg.isPast ? ['fc-day-past'] : []),
+
+  // Lets a draft be dragged from the #drafts-list rail straight onto a date — see the
+  // Draggable/eventReceive setup below the calendar definition.
+  droppable: true,
+
+  datesSet: (info) => {
+    try {
+      localStorage.setItem(CALENDAR_VIEW_STORAGE_KEY, info.view.type);
+    } catch {
+      // storage unavailable (private browsing, blocked site data) — view just won't persist
+    }
+  },
 
   loading: (isLoading) => {
     document.getElementById('calendar-loading').style.display = isLoading ? 'flex' : 'none';
@@ -618,13 +733,25 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
 
   eventContent: (arg) => {
     const meta = PLATFORM_META[arg.event.extendedProps.platform] || { label: '?', color: '#666666' };
+    const isFailed = arg.event.extendedProps.status === 'failed';
     const wrapper = document.createElement('div');
     wrapper.className = 'cal-event-content';
     wrapper.innerHTML = `
       <span class="cal-platform-badge" style="background:${meta.color}" title="${escapeHtml(arg.event.extendedProps.platform || '')}">${platformBadgeInner(arg.event.extendedProps.platform)}</span>
       ${arg.timeText ? `<span class="fc-event-time">${escapeHtml(arg.timeText)}</span>` : ''}
       <span class="cal-event-title">${escapeHtml(arg.event.title)}</span>
+      ${isFailed ? '<button type="button" class="cal-retry-btn" title="Retry this post">↻</button>' : ''}
     `;
+    if (isFailed) {
+      wrapper.querySelector('.cal-retry-btn').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const ok = await confirmDialog('Retry this failed post? It will be sent again on the next scheduling run.', {
+          confirmText: 'Retry',
+        });
+        if (!ok) return;
+        retryPost(arg.event.id);
+      });
+    }
     return { domNodes: [wrapper] };
   },
 
@@ -638,6 +765,48 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
     } catch (err) {
       info.revert();
       showToast(err.message);
+    }
+  },
+
+  // A draft dropped from #drafts-list lands here — same past-date guards as dateClick, then
+  // PATCHes the draft into a scheduled post. The dropped-in placeholder event is always
+  // removed afterward: on success, refetchEvents() brings in the real, correctly-styled
+  // scheduled event; on failure there's nothing valid to leave behind.
+  eventReceive: async (info) => {
+    const draftId = info.draggedEl.dataset.id;
+    const now = new Date();
+    let start = info.event.start;
+
+    if (info.event.allDay) {
+      const clickedDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (clickedDateOnly < todayOnly) {
+        showToast("Can't schedule a post on a day that's already passed.");
+        info.event.remove();
+        return;
+      }
+      start = new Date(start);
+      start.setHours(9, 0, 0, 0);
+    } else if (start.getTime() < now.getTime()) {
+      showToast("Can't schedule a post in the past.");
+      info.event.remove();
+      return;
+    }
+
+    try {
+      await apiJson(`/api/v1/posts/${draftId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduled_for: start.toISOString(), status: 'scheduled' }),
+      });
+      showToast('Draft scheduled.', 'success');
+      loadDrafts();
+      loadDashboardStats();
+    } catch (err) {
+      showToast(err.message);
+    } finally {
+      info.event.remove();
+      calendar.refetchEvents();
     }
   },
 
@@ -661,9 +830,21 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
       await apiJson(`/api/v1/posts/${info.event.id}`, { method: 'DELETE' });
       info.event.remove();
       loadFailedBanner();
+      loadDashboardStats();
     } catch (err) {
       showToast(err.message);
     }
+  },
+});
+
+// Makes every .draft-card in the rail draggable onto the calendar (see droppable/eventReceive
+// above). itemSelector is delegated, so this one instance also covers cards re-rendered later
+// by loadDrafts()/applyDraftsFilter() — no need to reinitialize it after each render.
+new FullCalendar.Draggable(document.getElementById('drafts-list'), {
+  itemSelector: '.draft-card',
+  eventData: (el) => {
+    const content = el.dataset.content || '';
+    return { title: content.length > 40 ? `${content.slice(0, 40)}…` : content, duration: '00:30' };
   },
 });
 
@@ -671,3 +852,4 @@ calendar.render();
 loadAccountOptions();
 loadDrafts();
 loadFailedBanner();
+loadDashboardStats();

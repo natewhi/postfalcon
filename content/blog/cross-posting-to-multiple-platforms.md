@@ -5,6 +5,9 @@ description: "How to write a post once in Postfox and publish it to multiple con
 date: 2026-09-08
 author: nathan
 tags: ["Features", "Guides"]
+image: /images/blog/cross-posting-to-multiple-platforms.svg
+heroImage: /images/blog/cross-posting-to-multiple-platforms-hero-bg.svg
+heroGradient: ["#16a34a", "#4ade80"]
 ---
 
 Writing the same announcement six different times for six different platforms is the exact

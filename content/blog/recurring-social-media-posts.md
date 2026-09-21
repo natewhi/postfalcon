@@ -5,6 +5,9 @@ description: "How to set up daily, weekly, or monthly recurring posts in Postfox
 date: 2026-09-11
 author: nathan
 tags: ["Features", "Guides"]
+image: /images/blog/recurring-social-media-posts.svg
+heroImage: /images/blog/recurring-social-media-posts-hero-bg.svg
+heroGradient: ["#f59e0b", "#fbbf24"]
 ---
 
 Some posts don't happen once — a weekly roundup, a daily reminder, a monthly "we're hiring"

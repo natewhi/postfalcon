@@ -5,6 +5,9 @@ description: "Postfox's MCP server now works two ways: a local command for Claud
 date: 2026-09-15
 author: nathan
 tags: ["Features", "AI Agents"]
+image: /images/blog/connect-any-ai-agent.svg
+heroImage: /images/blog/connect-any-ai-agent-hero-bg.svg
+heroGradient: ["#6d28d9", "#818cf8"]
 ---
 
 Postfox has had an [MCP server](/api-docs) for a while, but it only worked one way: your

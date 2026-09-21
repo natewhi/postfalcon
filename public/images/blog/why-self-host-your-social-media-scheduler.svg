@@ -1,0 +1,35 @@
+<svg viewBox="0 0 1200 675" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A stack of server racks with a shield and checkmark for self-hosted security">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e293b"/>
+      <stop offset="1" stop-color="#475569"/>
+    </linearGradient>
+    <pattern id="dots" width="36" height="36" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="2" fill="#ffffff" fill-opacity="0.12"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect width="1200" height="675" fill="url(#dots)"/>
+  <circle cx="990" cy="120" r="230" fill="#38bdf8" fill-opacity="0.06"/>
+  <circle cx="130" cy="560" r="190" fill="#38bdf8" fill-opacity="0.05"/>
+
+  <rect x="436" y="178" width="360" height="340" rx="36" fill="#000000" fill-opacity="0.2"/>
+  <rect x="420" y="160" width="360" height="340" rx="36" fill="#ffffff"/>
+
+  <g>
+    <rect x="486" y="240" width="228" height="52" rx="10" fill="#0f172a"/>
+    <rect x="486" y="304" width="228" height="52" rx="10" fill="#0f172a"/>
+    <rect x="486" y="368" width="228" height="52" rx="10" fill="#0f172a"/>
+    <circle cx="512" cy="266" r="6" fill="#38bdf8"/>
+    <circle cx="532" cy="266" r="6" fill="#ffffff" fill-opacity="0.35"/>
+    <circle cx="512" cy="330" r="6" fill="#38bdf8"/>
+    <circle cx="532" cy="330" r="6" fill="#ffffff" fill-opacity="0.35"/>
+    <circle cx="512" cy="394" r="6" fill="#38bdf8"/>
+    <circle cx="532" cy="394" r="6" fill="#ffffff" fill-opacity="0.35"/>
+  </g>
+
+  <g transform="translate(660 350)">
+    <path d="M40 0 L78 14 V44 C78 78 58 96 40 108 C22 96 2 78 2 44 V14 Z" fill="#0ea5e9"/>
+    <path d="M22 54 L36 68 L60 38" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

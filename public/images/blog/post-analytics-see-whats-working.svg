@@ -1,0 +1,32 @@
+<svg viewBox="0 0 1200 675" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A bar chart with an upward trend line and arrow">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d9488"/>
+      <stop offset="1" stop-color="#34d399"/>
+    </linearGradient>
+    <pattern id="dots" width="36" height="36" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="2" fill="#ffffff" fill-opacity="0.14"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect width="1200" height="675" fill="url(#dots)"/>
+  <circle cx="990" cy="120" r="230" fill="#ffffff" fill-opacity="0.07"/>
+  <circle cx="130" cy="560" r="190" fill="#ffffff" fill-opacity="0.06"/>
+
+  <rect x="436" y="178" width="360" height="340" rx="36" fill="#000000" fill-opacity="0.16"/>
+  <rect x="420" y="160" width="360" height="340" rx="36" fill="#ffffff"/>
+
+  <line x1="486" y1="430" x2="714" y2="430" stroke="#0f766e" stroke-width="4" stroke-linecap="round" stroke-opacity="0.35"/>
+
+  <g fill="#0f766e">
+    <rect x="500" y="380" width="42" height="50" rx="8" fill-opacity="0.35"/>
+    <rect x="562" y="350" width="42" height="80" rx="8" fill-opacity="0.55"/>
+    <rect x="624" y="310" width="42" height="120" rx="8" fill-opacity="0.8"/>
+    <rect x="686" y="270" width="42" height="160" rx="8"/>
+  </g>
+
+  <polyline points="500,392 562,352 624,300 707,246" fill="none" stroke="#0f766e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="707,226 736,240 706,258" fill="#0f766e"/>
+  <circle cx="500" cy="392" r="8" fill="#ffffff" stroke="#0f766e" stroke-width="5"/>
+  <circle cx="624" cy="300" r="8" fill="#ffffff" stroke="#0f766e" stroke-width="5"/>
+</svg>

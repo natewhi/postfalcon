@@ -194,7 +194,7 @@ X-Postfox-Signature: sha256=&lt;hex&gt;</code></pre>
 
   <footer class="landing-footer">
     <span>&copy; <%= new Date().getFullYear() %> Postfox</span>
-    <a href="/blog">Blog</a>
+    <% if (blogEnabled) { %><a href="/blog">Blog</a><% } %>
   </footer>
 </div>
 <%- include('partials/analytics') %>
