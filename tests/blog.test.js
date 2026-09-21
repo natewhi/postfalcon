@@ -223,9 +223,21 @@ describe('blog', () => {
   });
 
   it('generates deterministic card art for posts with no explicit image', async () => {
+    // Every real post currently sets `image:`, so this needs its own fixture rather than
+    // relying on incidentally finding one among real content that happens to lack it.
+    // Dated far in the future so it sorts first and lands on /blog's first page regardless of
+    // how many real posts exist (listPosts() sorts newest-first, paginate()'s page size is 10).
+    await writeFixture(
+      'no-image',
+      ['---', 'title: "Fixture: No Image"', 'slug: __test-fixture-no-image', 'date: 2099-01-01', '---', '', 'Body.'].join(
+        '\n'
+      )
+    );
+
     const posts = await listPosts();
-    const post = posts.find((p) => !p.image);
+    const post = posts.find((p) => p.slug === '__test-fixture-no-image');
     expect(post).toBeTruthy();
+    expect(post.image).toBeNull();
     expect(post.cardArt.palette).toBeGreaterThanOrEqual(1);
     expect(post.cardArt.palette).toBeLessThanOrEqual(6);
     expect(post.cardArt.icon).toBeGreaterThanOrEqual(0);
