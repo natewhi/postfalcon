@@ -1,7 +1,7 @@
 ---
 title: "Buffer Alternatives Worth Considering"
 slug: buffer-alternatives
-description: "What to actually look for when comparing social media schedulers, a few well-known Buffer alternatives, and where Postfox fits if self-hosting or an open API matters to you."
+description: "What to actually look for when comparing social media schedulers, a few well-known Buffer alternatives, and where Postfalcon fits if self-hosting or an open API matters to you."
 date: 2026-09-18
 tags: ["Product", "Comparisons"]
 draft: true
@@ -42,9 +42,9 @@ this point. The differences that actually matter tend to be:
 (Worth double-checking current pricing and feature sets directly before publishing this —
 they change often enough that anything written here will be stale within a few months.)
 
-## Where Postfox is different
+## Where Postfalcon is different
 
-A few things that are true of Postfox specifically, for whoever this decision matters to:
+A few things that are true of Postfalcon specifically, for whoever this decision matters to:
 
 - **[Self-hostable](/blog/why-self-host-your-social-media-scheduler)** — it's open source, so
   you can run your own instance instead of trusting a vendor with your account access tokens.

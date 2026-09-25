@@ -1,10 +1,10 @@
-# Postfox
+# Postfalcon
 
 Social media post scheduler. Node.js/Express backend, Postgres, EJS server-rendered views, vanilla JS on the
 frontend (no framework, no bundler). Users connect social accounts (live: Mastodon, Bluesky, Facebook, Instagram,
 Threads, Telegram, YouTube, TikTok, Pinterest, LinkedIn; hidden stubs, no adapter yet: Reddit, Google Business
 Profile — see `lib/platforms.js`). Deliberately out of scope: messaging apps (WhatsApp, WeChat, Messenger) —
-Postfox schedules social *posts*, not chat messages, and none of them have a public feed to publish to. Twitter/X
+Postfalcon schedules social *posts*, not chat messages, and none of them have a public feed to publish to. Twitter/X
 is excluded too, but for a different reason: its posting API is paid. Users compose posts as drafts or schedule
 them, and a per-minute cron job publishes due posts.
 A post can target several channels at once (cross-posting) and can recur (daily/weekly/monthly). There is no
@@ -28,7 +28,7 @@ server.
 - `.env` values (DB creds, session secret, OAuth app IDs/secrets) are entered by the user directly. Don't invent
   or insert real secrets — use placeholders in `.env.example` and let the user fill in `.env`/`.env.test`.
 - Traffic/SEO analytics (referrers, top pages, trends) runs as a separate self-hosted Umami instance, not part
-  of this app's own DB — Postfox only proxies its script/data same-origin via `/stats/*` (`routes/analytics.js`)
+  of this app's own DB — Postfalcon only proxies its script/data same-origin via `/stats/*` (`routes/analytics.js`)
   when `UMAMI_HOST`/`UMAMI_WEBSITE_ID` are set. Setup/deploy steps for Umami itself: `docs/analytics-setup.md`.
 
 ## Architecture
@@ -57,7 +57,7 @@ lib/platforms.js     The platform registry — the ONE place a social platform i
                      also export `fetchMetrics(post) -> {views, likes, comments, shares}` (any field
                      null if that platform doesn't report it) — optional, only mastodon/bluesky/
                      facebook/instagram/threads/youtube have one; telegram/tiktok/pinterest/linkedin
-                     don't (no metrics API available via the scopes Postfox already requests).
+                     don't (no metrics API available via the scopes Postfalcon already requests).
                      Pinterest and LinkedIn both use access levels open to any registered app (not
                      the partner-approval-gated tiers each platform also has): Pinterest posts a Pin
                      to whichever board was picked automatically at connect time (stored in
@@ -114,7 +114,7 @@ content/blog/*.md    The blog — one Markdown file per post (frontmatter: title
 routes/analytics.js  Reverse-proxies /stats/* to a self-hosted Umami instance (see docs/analytics-setup.md)
                      so the tracking script/data stay same-origin — mounted with express.raw() BEFORE
                      express.json(), same reasoning as the Stripe webhook. 404s if UMAMI_HOST is unset.
-                     Unrelated to routes/postAnalytics.js below — this one is Postfox's own traffic/SEO
+                     Unrelated to routes/postAnalytics.js below — this one is Postfalcon's own traffic/SEO
                      analytics for the site owner, not user-facing post performance.
 routes/postAnalytics.js  /api/v1/analytics/summary — aggregates the metric_* columns scheduler.js keeps
                      refreshed into a 7-day chart, totals, and a top post. Backs views/analytics.ejs
@@ -132,10 +132,10 @@ public/common.js     Shared helpers, loaded before the page script on pages that
 public/style.css     Single stylesheet, CSS custom properties for theming, BEM-ish flat class names
 lib/mcpServer.js     createMcpServer({baseUrl, token}) — the one place all 6 MCP tools
                      (list_accounts/list_posts/create_post/update_post/delete_post/
-                     get_analytics_summary) are defined, each a thin call against Postfox's own
+                     get_analytics_summary) are defined, each a thin call against Postfalcon's own
                      REST API. Shared by both ways to reach them:
 mcp/server.js        ...over stdio, for clients that spawn a local process (Claude Desktop,
-                     Cursor's `command` config) — reads POSTFOX_BASE_URL/POSTFOX_API_TOKEN from
+                     Cursor's `command` config) — reads POSTFALCON_BASE_URL/POSTFALCON_API_TOKEN from
                      the environment.
 routes/mcp.js        ...over Streamable HTTP at POST /mcp, for clients that connect via a URL
                      instead (ChatGPT, Claude.ai, Cursor's `url` config, or any other Streamable
@@ -195,8 +195,8 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   After a recurring post publishes, `scheduler.js` `scheduleNextOccurrence()` clones the next occurrence (with
   copied media, 1-year hard cap). Gated by the `repeatedPosts` capability.
 - Outbound webhooks: `lib/webhooks.js` `deliverWebhooks(userId, event, data)` — fired (not awaited) from
-  `scheduler.js` on `post.published` / `post.failed`. Each POST carries `X-Postfox-Event` and
-  `X-Postfox-Signature: sha256=<hmac-sha256 of the raw body with the endpoint secret>`, 8s timeout, no retry.
+  `scheduler.js` on `post.published` / `post.failed`. Each POST carries `X-Postfalcon-Event` and
+  `X-Postfalcon-Signature: sha256=<hmac-sha256 of the raw body with the endpoint secret>`, 8s timeout, no retry.
   The signing secret is returned only once, at creation.
 - Every mutating `/api/*` route is behind CSRF protection (`app.js`, via `csrf-csrf`'s double-submit cookie
   pattern) — GET/HEAD are exempt automatically, and requests carrying an `Authorization: Bearer` header are
@@ -223,7 +223,7 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   from another view rather than improvising a different structure.
 - The public + auth pages (landing, pricing, api-docs, login, signup, forgot/reset-password, 404) share one
   header via `<%- include('partials/site-header') %>` — an always-dark bar (its own `--site-header-*` tokens,
-  same call as the always-dark sidebar) with the "P" mark, "Postfox", and Pricing / API / Log in / Start free
+  same call as the always-dark sidebar) with the "P" mark, "Postfalcon", and Pricing / API / Log in / Start free
   trial links. It reads an optional `loggedIn` local (guarded with `typeof`) to swap the auth links for "Open
   app". The in-app pages use `partials/sidebar.ejs` instead — don't put the site-header there. `favicon.svg` is
   the same "P" mark.
@@ -250,7 +250,7 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   another mutating fetch call anywhere, on any page, it needs that header or the request will 403.
 - Theming: colors live as CSS custom properties on `:root` (light values) with dark overrides under
   `[data-theme="dark"]` in `public/style.css` — **not** `@media (prefers-color-scheme: dark)`. The actual light/
-  dark decision is made once by `public/theme-init.js` (reads `localStorage['postfox-theme']`, falls back to
+  dark decision is made once by `public/theme-init.js` (reads `localStorage['postfalcon-theme']`, falls back to
   `prefers-color-scheme`, stamps `data-theme` on `<html>` before paint) and toggled via the sidebar button wired
   in `common.js`. If you add new themed colors, add both the light default and the `[data-theme="dark"]`
   override — don't hardcode a hex value that only looks right in one theme.
@@ -261,7 +261,7 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   the sidebar background — this already caused one bug with the logout button).
 
 **Testing**
-- Tests hit a real Postgres test database (`postfox_test` via `.env.test`) — no DB mocking. External HTTP (OAuth,
+- Tests hit a real Postgres test database (`postfalcon_test` via `.env.test`) — no DB mocking. External HTTP (OAuth,
   posting APIs) is mocked with `vi.stubGlobal('fetch', ...)`; the mailer is mocked globally in `tests/setup.js`.
 - The `posts` table has a `BEFORE UPDATE` trigger that forces `updated_at = now()`. You cannot backdate
   `updated_at`/`posted_at` via `UPDATE` in a test fixture — insert the row directly with the backdated timestamp
@@ -272,7 +272,7 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
 
 - **New API route?** New/extended zod schema, `validate()` + `asyncHandler()`, scoped to `req.user.id`, mounted
   in `app.js` behind `requireAuth`, and a test in the matching `tests/*.test.js` file. If it's meant for external
-  scripts/agents (not just the Postfox frontend), mount it under `/api/v1`, add `apiLimiter`, and document it in
+  scripts/agents (not just the Postfalcon frontend), mount it under `/api/v1`, add `apiLimiter`, and document it in
   `views/api-docs.ejs`.
 - **New page?** New `views/<name>.ejs` with the standard head boilerplate, matching `public/<name>.js`, add the
   route in `routes/pages.js` behind `requirePageAuth`, add a sidebar nav link if it belongs in the main app shell.

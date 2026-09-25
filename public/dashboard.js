@@ -29,9 +29,9 @@ async function loadDashboardStats() {
 
 let activeAccountId = new URLSearchParams(window.location.search).get('account');
 
-const CALENDAR_STATUS_STORAGE_KEY = 'postfox-calendar-statuses';
+const CALENDAR_STATUS_STORAGE_KEY = 'postfalcon-calendar-statuses';
 const ALL_CALENDAR_STATUSES = ['scheduled', 'failed', 'posted', 'canceled'];
-const CALENDAR_VIEW_STORAGE_KEY = 'postfox-calendar-view';
+const CALENDAR_VIEW_STORAGE_KEY = 'postfalcon-calendar-view';
 const ALL_CALENDAR_VIEWS = ['dayGridMonth', 'timeGridWeek'];
 
 function loadSavedCalendarView() {

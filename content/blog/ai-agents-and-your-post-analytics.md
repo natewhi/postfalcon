@@ -1,7 +1,7 @@
 ---
 title: "Give Your AI Agent Access to Your Post Analytics"
 slug: ai-agents-and-your-post-analytics
-description: "Postfox's MCP server now has a 6th tool, get_analytics_summary, so Claude or any MCP-compatible agent can read your real engagement numbers, not just create and schedule posts."
+description: "Postfalcon's MCP server now has a 6th tool, get_analytics_summary, so Claude or any MCP-compatible agent can read your real engagement numbers, not just create and schedule posts."
 date: 2026-09-15
 author: nathan
 tags: ["Features", "AI Agents"]
@@ -10,7 +10,7 @@ heroImage: /images/blog/ai-agents-and-your-post-analytics-hero-bg.svg
 heroGradient: ["#7c3aed", "#a78bfa"]
 ---
 
-Postfox has shipped with a bundled [MCP server](/api-docs) for a while now, so an agent like
+Postfalcon has shipped with a bundled [MCP server](/api-docs) for a while now, so an agent like
 Claude could already draft, schedule, and manage your posts. With
 [Analytics](/blog/post-analytics-see-whats-working) now live, it can read your results too.
 
@@ -27,7 +27,7 @@ The MCP server now exposes six tools:
   Analytics page shows
 
 No setup beyond what you already have: if your agent is already connected via
-`POSTFOX_BASE_URL`/`POSTFOX_API_TOKEN`, the new tool just shows up the next time it lists
+`POSTFALCON_BASE_URL`/`POSTFALCON_API_TOKEN`, the new tool just shows up the next time it lists
 available tools.
 
 ## What this actually enables

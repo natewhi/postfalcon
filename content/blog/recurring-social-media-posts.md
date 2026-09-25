@@ -1,7 +1,7 @@
 ---
-title: "Set It and Forget It: Recurring Posts in Postfox"
+title: "Set It and Forget It: Recurring Posts in Postfalcon"
 slug: recurring-social-media-posts
-description: "How to set up daily, weekly, or monthly recurring posts in Postfox, how the end date works, and what happens to attached media each time a post repeats."
+description: "How to set up daily, weekly, or monthly recurring posts in Postfalcon, how the end date works, and what happens to attached media each time a post repeats."
 date: 2026-09-11
 author: nathan
 tags: ["Features", "Guides"]
@@ -11,7 +11,7 @@ heroGradient: ["#f59e0b", "#fbbf24"]
 ---
 
 Some posts don't happen once — a weekly roundup, a daily reminder, a monthly "we're hiring"
-nudge. Instead of re-creating the same post on a recurring basis, Postfox can do it for you.
+nudge. Instead of re-creating the same post on a recurring basis, Postfalcon can do it for you.
 
 ## Setting up a repeating post
 
@@ -24,12 +24,12 @@ Open the composer and switch **When** to **Schedule**. Once you've picked a date
 - **Every month**
 
 Pick one, and an optional **Until** date shows up. Leave it blank and the series keeps going
-(Postfox caps any recurring series at one year out as a safety net); set it and the series
+(Postfalcon caps any recurring series at one year out as a safety net); set it and the series
 stops cleanly after that date.
 
 ## What happens when a repeating post publishes
 
-The moment a repeating post goes out, Postfox immediately schedules its next occurrence —
+The moment a repeating post goes out, Postfalcon immediately schedules its next occurrence —
 same content, same channel, same repeat settings — at the next interval. You'll see the new
 occurrence appear on your calendar right away rather than waiting for some background job to
 catch up later.

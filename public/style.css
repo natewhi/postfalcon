@@ -2234,7 +2234,7 @@ body.dark-canvas .auth-card {
   text-align: center;
 }
 
-/* ---- why postfox: visual left, copy right — deliberately the reverse of the analytics/agent
+/* ---- why postfalcon: visual left, copy right — deliberately the reverse of the analytics/agent
    bands above and below it, so the page doesn't read as the same 2-col block repeated 3 times ---- */
 .home-why-inner {
   max-width: 1000px;
@@ -3855,7 +3855,7 @@ body.dark-canvas .auth-card {
 
 /* FullCalendar ships its own default look (a different border color, button chrome, and
    "today" highlight than the rest of the app) — override its documented theming variables so
-   it reads as part of Postfox instead of a stock widget dropped onto a dark page. Purely
+   it reads as part of Postfalcon instead of a stock widget dropped onto a dark page. Purely
    visual: no FullCalendar markup/JS is touched. */
 #calendar {
   margin-top: var(--space-2);

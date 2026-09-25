@@ -196,7 +196,7 @@ router.post(
     if (result.rows.length > 0) {
       const token = await createToken(result.rows[0].id, 'password_reset', ONE_HOUR_MS);
       const resetUrl = `${process.env.BASE_URL}/reset-password?token=${token}`;
-      await sendMail({ to: email, subject: 'Reset your Postfox password', text: `Reset your password: ${resetUrl}` });
+      await sendMail({ to: email, subject: 'Reset your Postfalcon password', text: `Reset your password: ${resetUrl}` });
     }
     // Logged server-side regardless of whether the email exists (matches result.rows.length),
     // but the response stays 204 either way so this endpoint can't be used to enumerate accounts.
@@ -260,7 +260,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const token = await createToken(req.user.id, 'email_verification', ONE_DAY_MS);
     const verifyUrl = `${process.env.BASE_URL}/api/auth/verify-email?token=${token}`;
-    await sendMail({ to: req.user.email, subject: 'Verify your Postfox email', text: `Verify your email: ${verifyUrl}` });
+    await sendMail({ to: req.user.email, subject: 'Verify your Postfalcon email', text: `Verify your email: ${verifyUrl}` });
     res.status(204).end();
   })
 );
@@ -297,7 +297,7 @@ router.post(
 
     await sendMail({
       to: req.user.email,
-      subject: 'Your Postfox password was changed',
+      subject: 'Your Postfalcon password was changed',
       text: "Your account password was just changed. If this wasn't you, reset your password immediately.",
     });
 
@@ -343,7 +343,7 @@ router.post(
 
     await sendMail({
       to: email,
-      subject: 'Your Postfox account was deleted',
+      subject: 'Your Postfalcon account was deleted',
       text: "Your account and all its data were just deleted. If this wasn't you, contact support immediately.",
     });
 

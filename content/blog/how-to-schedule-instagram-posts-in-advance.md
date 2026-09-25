@@ -1,13 +1,13 @@
 ---
 title: "How to Schedule Instagram Posts in Advance"
 slug: how-to-schedule-instagram-posts-in-advance
-description: "What you need before Instagram scheduling works at all (a Business or Creator account linked to a Facebook Page), what Postfox can auto-publish, and what still needs to happen manually."
+description: "What you need before Instagram scheduling works at all (a Business or Creator account linked to a Facebook Page), what Postfalcon can auto-publish, and what still needs to happen manually."
 date: 2026-09-18
 tags: ["Guides", "Platforms"]
 draft: true
 ---
 
-Instagram doesn't let just anyone auto-publish to it. Before any scheduler — Postfox included —
+Instagram doesn't let just anyone auto-publish to it. Before any scheduler — Postfalcon included —
 can post on your behalf, there's a required setup step on Instagram's side first.
 
 ## What has to be true before scheduling works
@@ -20,7 +20,7 @@ can post on your behalf, there's a required setup step on Instagram's side first
 If either of those isn't set up yet, do that first in Instagram's own account settings before
 connecting anything to a scheduler.
 
-## Connecting it in Postfox
+## Connecting it in Postfalcon
 
 Instagram doesn't get its own connect button — connecting a Facebook Page (see
 [connecting your first account](/blog/connect-your-first-social-account)) picks up any Instagram
@@ -30,7 +30,7 @@ flow under the hood.
 ## What can actually be scheduled
 
 Feed posts — a single image, a single video, or a carousel of multiple images/videos — can be
-composed, scheduled, and auto-published the same way as any other platform in Postfox. Stories
+composed, scheduled, and auto-published the same way as any other platform in Postfalcon. Stories
 are a different, more ephemeral content type that Instagram's API doesn't expose the same way for
 third-party auto-publishing, so they're not something a scheduled composer post covers.
 

@@ -30,7 +30,7 @@ async function getOrRegisterApp(instance) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_name: 'Postfox',
+      client_name: 'Postfalcon',
       redirect_uris: redirectUri(),
       scopes: 'read write',
       website: process.env.BASE_URL,

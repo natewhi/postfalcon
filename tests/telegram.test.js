@@ -23,7 +23,7 @@ async function loginNewUser() {
 const VALID_TOKEN = '123456789:AAHy-Telegram-Bot-Token-abcdefghijklmnop';
 
 // Stubs the two Telegram calls the connect route makes, keyed by method name in the URL.
-function mockTelegram({ getMe = { ok: true, result: { username: 'postfoxbot' } }, getChat } = {}) {
+function mockTelegram({ getMe = { ok: true, result: { username: 'postfalconbot' } }, getChat } = {}) {
   const chat = getChat ?? { ok: true, result: { id: -1001234567890, title: 'My Channel', type: 'channel' } };
   return vi.fn(async (url) => {
     const u = String(url);

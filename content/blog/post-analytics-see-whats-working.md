@@ -1,7 +1,7 @@
 ---
 title: "Post Analytics: See What's Actually Working"
 slug: post-analytics-see-whats-working
-description: "Postfox now pulls real view, like, comment, and share counts from each connected platform. Here's what the new Analytics page shows, where the numbers come from, and which platforms report what."
+description: "Postfalcon now pulls real view, like, comment, and share counts from each connected platform. Here's what the new Analytics page shows, where the numbers come from, and which platforms report what."
 date: 2026-09-15
 author: nathan
 tags: ["Features", "Analytics"]
@@ -11,7 +11,7 @@ heroGradient: ["#0d9488", "#34d399"]
 ---
 
 Scheduling a post and watching it go out on time is only half the story. The other half is
-knowing whether it actually landed — and until now, Postfox couldn't tell you that. It could
+knowing whether it actually landed — and until now, Postfalcon couldn't tell you that. It could
 tell you a post was **posted**, but not whether anyone saw it.
 
 That's what the new **Analytics** page is for.
@@ -35,7 +35,7 @@ few hours) before its first real numbers show up.
 
 ## Coverage varies by platform, on purpose
 
-Not every platform's API exposes the same data through the permissions Postfox already
+Not every platform's API exposes the same data through the permissions Postfalcon already
 requests, and we'd rather be upfront about that than fake a number:
 
 - **YouTube** and **Threads** report the most — views, likes, and comments.
@@ -51,7 +51,7 @@ post shows a view count and another doesn't.
 
 The same numbers are available to your MCP-connected agent as a tool call — see
 [giving your AI agent access to your analytics](/blog/ai-agents-and-your-post-analytics) — and
-over the REST API at `GET /api/v1/analytics/summary` for anyone scripting against Postfox
+over the REST API at `GET /api/v1/analytics/summary` for anyone scripting against Postfalcon
 directly (see the [API docs](/api-docs)).
 
 Every plan includes Analytics — it isn't gated behind a higher tier.

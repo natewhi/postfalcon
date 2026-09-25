@@ -1,7 +1,7 @@
 ---
-title: "How to Schedule Your First Post in Postfox"
+title: "How to Schedule Your First Post in Postfalcon"
 slug: how-to-schedule-a-post
-description: "How the Postfox composer works: writing a post, attaching media, saving drafts, and scheduling for later on the calendar."
+description: "How the Postfalcon composer works: writing a post, attaching media, saving drafts, and scheduling for later on the calendar."
 date: 2026-08-27
 author: nathan
 tags: ["Getting Started", "Guides"]
@@ -22,7 +22,7 @@ the same screen.
 ## Choosing where it goes
 
 At the top of the composer is the account picker. Click a channel to select it — click
-another one too, and Postfox will post the same content to both at once (more on that in our
+another one too, and Postfalcon will post the same content to both at once (more on that in our
 [cross-posting guide](/blog/cross-posting-to-multiple-platforms)). The character counter
 below the text box updates to match whichever platform you've selected, so you know before
 you post whether you're over a limit.
@@ -30,7 +30,7 @@ you post whether you're over a limit.
 ## Writing the post
 
 Type your content into the main text box. If you're posting to a video-only platform like
-YouTube or TikTok, attach a video before scheduling — Postfox will tell you if one's missing
+YouTube or TikTok, attach a video before scheduling — Postfalcon will tell you if one's missing
 when you try to save.
 
 To attach media, click **Add photo or video**. You can attach up to ten files per post; drag
@@ -43,7 +43,7 @@ Under **When**, choose:
 
 - **Save as draft** — the post is saved but never published automatically. Come back and
   edit or schedule it whenever you're ready.
-- **Schedule** — pick a date and time, and Postfox's scheduler will publish it automatically
+- **Schedule** — pick a date and time, and Postfalcon's scheduler will publish it automatically
   once that time arrives, even if you're not logged in or your computer is off.
 
 Scheduled posts also support **repeating** — daily, weekly, or monthly — with an optional end
@@ -62,6 +62,6 @@ for cross-referencing.
 ## What happens if publishing fails
 
 If a platform rejects a post — an expired token, a content policy violation, a network hiccup
-— Postfox marks it **Failed** rather than silently dropping it, and a banner appears on your
+— Postfalcon marks it **Failed** rather than silently dropping it, and a banner appears on your
 dashboard telling you how many posts need attention. Filter the calendar to **Failed** to see
 exactly which ones and why, fix the underlying issue, and reschedule.

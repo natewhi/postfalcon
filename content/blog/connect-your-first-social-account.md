@@ -1,7 +1,7 @@
 ---
 title: "Getting Started: Connect Your First Social Account"
 slug: connect-your-first-social-account
-description: "A step-by-step walkthrough of connecting Mastodon, Bluesky, Facebook, Instagram, Threads, Telegram, YouTube, TikTok, Pinterest, and LinkedIn to Postfox, plus what to do if a connection fails."
+description: "A step-by-step walkthrough of connecting Mastodon, Bluesky, Facebook, Instagram, Threads, Telegram, YouTube, TikTok, Pinterest, and LinkedIn to Postfalcon, plus what to do if a connection fails."
 date: 2026-08-20
 author: nathan
 tags: ["Getting Started", "Guides"]
@@ -10,22 +10,22 @@ heroImage: /images/blog/connect-your-first-social-account-hero-bg.svg
 heroGradient: ["#0ea5e9", "#38bdf8"]
 ---
 
-Before Postfox can publish anything on your behalf, it needs somewhere to publish it. That
+Before Postfalcon can publish anything on your behalf, it needs somewhere to publish it. That
 means connecting at least one account from the **Accounts** page — and because every
 platform authenticates differently, this guide walks through each one so you know exactly
 what to expect.
 
 ## Where to connect accounts
 
-Log in and open **Accounts** from the sidebar. Every platform Postfox supports live has its
+Log in and open **Accounts** from the sidebar. Every platform Postfalcon supports live has its
 own card with a "Connect" button or a small form. You can connect as many accounts as your
 plan allows, across as many platforms as you like — there's no limit on mixing and matching.
 
 ## OAuth platforms: Mastodon, Facebook, Instagram, Threads, YouTube, TikTok, Pinterest, LinkedIn
 
 Most platforms use OAuth: you click "Connect," get redirected to the platform's own login
-screen, approve the permissions Postfox is asking for, and land back on your Accounts page
-with the new account listed. Postfox never sees your password — only the access token the
+screen, approve the permissions Postfalcon is asking for, and land back on your Accounts page
+with the new account listed. Postfalcon never sees your password — only the access token the
 platform hands back after you approve.
 
 A couple of platform-specific notes:
@@ -35,7 +35,7 @@ A couple of platform-specific notes:
 - **Instagram** rides on the Facebook connect flow — connect your Facebook Page first, and
   any Instagram business account linked to it comes along automatically.
 - **YouTube** and **TikTok** are video-only platforms. You can connect them the same way as
-  any other OAuth account, but Postfox will ask for a video file when you come to post.
+  any other OAuth account, but Postfalcon will ask for a video file when you come to post.
 - **Pinterest** picks your account's first board automatically — there's no board picker yet,
   so every scheduled Pin lands there for now. Pins always need an image attached.
 - **LinkedIn** connects your personal profile (not a Company Page) and is text-only for now —
@@ -52,7 +52,7 @@ bot instead:
 4. Paste the token and your channel handle (or numeric chat ID) into the Telegram card on
    the Accounts page.
 
-Postfox verifies the token and confirms it can see your channel before saving anything.
+Postfalcon verifies the token and confirms it can see your channel before saving anything.
 
 ## Bluesky: an app password, not your real one
 
@@ -63,14 +63,14 @@ of using your account password directly:
 2. Copy the generated password (it looks like `xxxx-xxxx-xxxx-xxxx`).
 3. Enter your handle and that app password into the Bluesky card on the Accounts page.
 
-Using an app password means you can revoke Postfox's access at any time from Bluesky's
+Using an app password means you can revoke Postfalcon's access at any time from Bluesky's
 settings without changing your main login.
 
 ## If a connection fails
 
 A failed connection almost always comes down to one of three things:
 
-- **Missing permissions** — you declined a scope Postfox needs during the OAuth prompt. Try
+- **Missing permissions** — you declined a scope Postfalcon needs during the OAuth prompt. Try
   connecting again and accept all requested permissions.
 - **Channel/bot admin access** — for Telegram, double-check the bot is actually an admin of
   the channel, not just a member.

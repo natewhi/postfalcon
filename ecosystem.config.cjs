@@ -4,7 +4,7 @@
 module.exports = {
   apps: [
     {
-      name: 'postfox',
+      name: 'postfalcon',
       script: './index.js',
       instances: 1,
       exec_mode: 'fork',

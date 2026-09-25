@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <script src="/theme-init.js"></script>
 <meta name="color-scheme" content="light dark">
-<title><%= post.title %> - Postfox Blog</title>
+<title><%= post.title %> - Postfalcon Blog</title>
 <meta name="description" content="<%= post.description %>">
 <link rel="canonical" href="<%= process.env.BASE_URL %>/blog/<%= post.slug %>">
 <meta property="og:type" content="article">
-<meta property="og:site_name" content="Postfox">
+<meta property="og:site_name" content="Postfalcon">
 <meta property="og:title" content="<%= post.title %>">
 <meta property="og:description" content="<%= post.description %>">
 <meta property="og:url" content="<%= process.env.BASE_URL %>/blog/<%= post.slug %>">
@@ -30,7 +30,7 @@
   dateModified: (post.updated || post.date).toISOString(),
   url: `${process.env.BASE_URL}/blog/${post.slug}`,
   author: { "@type": "Person", name: post.author.name },
-  publisher: { "@type": "Organization", name: "Postfox" },
+  publisher: { "@type": "Organization", name: "Postfalcon" },
   mainEntityOfPage: { "@type": "WebPage", "@id": `${process.env.BASE_URL}/blog/${post.slug}` },
 }).replace(/</g, '\\u003c') %>
 </script>
@@ -79,14 +79,14 @@
     </div>
 
     <div class="blog-cta">
-      <h3>Ready to try Postfox?</h3>
+      <h3>Ready to try Postfalcon?</h3>
       <p>Every plan starts with a 7-day free trial &mdash; no card required to look around.</p>
       <a href="/pricing" class="btn-link">See pricing</a>
     </div>
   </main>
 
   <footer class="landing-footer">
-    <span>&copy; <%= new Date().getFullYear() %> Postfox</span>
+    <span>&copy; <%= new Date().getFullYear() %> Postfalcon</span>
     <a href="/blog">Blog</a>
     <a href="/pricing">Pricing</a>
     <a href="/api-docs">API docs</a>

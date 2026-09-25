@@ -10,7 +10,7 @@ import app from '../app.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MCP_SERVER_PATH = path.join(__dirname, '../mcp/server.js');
 
-// mcp/server.js talks to POSTFOX_BASE_URL over real HTTP, so it needs a real listening
+// mcp/server.js talks to POSTFALCON_BASE_URL over real HTTP, so it needs a real listening
 // server — supertest's in-memory request(app) isn't reachable from the spawned subprocess.
 let httpServer;
 let baseUrl;
@@ -40,7 +40,7 @@ async function connectMcpClient(token) {
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [MCP_SERVER_PATH],
-    env: { POSTFOX_BASE_URL: baseUrl, POSTFOX_API_TOKEN: token },
+    env: { POSTFALCON_BASE_URL: baseUrl, POSTFALCON_API_TOKEN: token },
   });
   const client = new Client({ name: 'test-client', version: '1.0.0' });
   await client.connect(transport);
@@ -146,7 +146,7 @@ describe('mcp server', () => {
         arguments: { social_account_id: 999999999, content: 'should fail' },
       });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toMatch(/Postfox API error \(400\)/);
+      expect(result.content[0].text).toMatch(/Postfalcon API error \(400\)/);
     } finally {
       await client.close();
     }

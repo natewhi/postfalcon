@@ -1,7 +1,7 @@
 ---
-title: "Connect Any AI Agent to Postfox"
+title: "Connect Any AI Agent to Postfalcon"
 slug: connect-any-ai-agent
-description: "Postfox's MCP server now works two ways: a local command for Claude Desktop and Cursor, or a remote URL for ChatGPT, Claude.ai, and anything else that speaks MCP. Same tools, same token, either way."
+description: "Postfalcon's MCP server now works two ways: a local command for Claude Desktop and Cursor, or a remote URL for ChatGPT, Claude.ai, and anything else that speaks MCP. Same tools, same token, either way."
 date: 2026-09-15
 author: nathan
 tags: ["Features", "AI Agents"]
@@ -10,10 +10,10 @@ heroImage: /images/blog/connect-any-ai-agent-hero-bg.svg
 heroGradient: ["#6d28d9", "#818cf8"]
 ---
 
-Postfox has had an [MCP server](/api-docs) for a while, but it only worked one way: your
+Postfalcon has had an [MCP server](/api-docs) for a while, but it only worked one way: your
 agent's client had to be able to spawn a local process and pass it environment variables. That
 covers Claude Desktop and Cursor's `command`-style config, but not agents that connect over a
-URL instead — ChatGPT, Claude.ai, and a growing list of others. Postfox's MCP server now works
+URL instead — ChatGPT, Claude.ai, and a growing list of others. Postfalcon's MCP server now works
 both ways.
 
 ## Two ways in, same tools
@@ -29,14 +29,14 @@ Cursor's `command`-style MCP config:
 node mcp/server.js
 ```
 
-with `POSTFOX_BASE_URL` and `POSTFOX_API_TOKEN` set in its environment.
+with `POSTFALCON_BASE_URL` and `POSTFALCON_API_TOKEN` set in its environment.
 
 **A remote URL** — for a client that connects to a hosted endpoint instead, like ChatGPT,
 Claude.ai, Cursor's `url`-style config, OpenClaw, or anything else that speaks
 [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports):
 
 ```
-https://your-postfox-host/mcp
+https://your-postfalcon-host/mcp
 ```
 
 with your token sent the normal way, as `Authorization: Bearer pf_<your token>`. No process to
@@ -53,4 +53,4 @@ the agents that need it.
 
 The [REST API](/api-docs) underneath both of them is the actual source of truth — a Custom GPT
 Action, a shell script, or any other tool that can make an HTTPS request with a bearer token
-can talk to Postfox directly without going through MCP at either endpoint.
+can talk to Postfalcon directly without going through MCP at either endpoint.

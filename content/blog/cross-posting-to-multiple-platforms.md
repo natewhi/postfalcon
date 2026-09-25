@@ -1,7 +1,7 @@
 ---
 title: "Cross-Posting: Publish to Every Platform From One Composer"
 slug: cross-posting-to-multiple-platforms
-description: "How to write a post once in Postfox and publish it to multiple connected accounts at the same time, including how media attachments are handled."
+description: "How to write a post once in Postfalcon and publish it to multiple connected accounts at the same time, including how media attachments are handled."
 date: 2026-09-08
 author: nathan
 tags: ["Features", "Guides"]
@@ -11,7 +11,7 @@ heroGradient: ["#16a34a", "#4ade80"]
 ---
 
 Writing the same announcement six different times for six different platforms is the exact
-busywork Postfox exists to remove. Cross-posting lets you compose once and publish to every
+busywork Postfalcon exists to remove. Cross-posting lets you compose once and publish to every
 channel you pick, in a single action.
 
 ## How to cross-post
@@ -21,7 +21,7 @@ click as many connected channels as you want to post to. Selecting more than one
 all it takes; there's no separate "cross-post" toggle to find.
 
 Write your content once, attach media if you want it, and schedule or save as a draft as
-usual. When the post goes out, Postfox publishes an independent copy to every channel you
+usual. When the post goes out, Postfalcon publishes an independent copy to every channel you
 selected, on the same schedule.
 
 ## What happens behind the scenes
@@ -32,7 +32,7 @@ normally, and the failure shows up filtered to just that one channel. All of the
 one cross-post are linked by a shared group ID so you can tell at a glance that they came
 from the same composer session.
 
-If you attach media, Postfox copies the files separately for each channel rather than
+If you attach media, Postfalcon copies the files separately for each channel rather than
 pointing every post at the same file. That matters because of how media cleanup works: old
 files get removed once every post referencing them is in a terminal state (posted, failed, or
 canceled), and separate copies mean deleting or editing one cross-posted entry can never
@@ -59,6 +59,6 @@ integrations don't need to change.
 
 ## A note on plan limits
 
-Cross-posting is included on every Postfox plan — it isn't gated behind a higher tier. What
+Cross-posting is included on every Postfalcon plan — it isn't gated behind a higher tier. What
 does vary by plan is how many channels you can have connected at once; see the
 [pricing page](/pricing) for the current limits on each plan.

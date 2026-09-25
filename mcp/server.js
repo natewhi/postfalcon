@@ -1,11 +1,11 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createMcpServer } from '../lib/mcpServer.js';
 
-const baseUrl = process.env.POSTFOX_BASE_URL;
-const token = process.env.POSTFOX_API_TOKEN;
+const baseUrl = process.env.POSTFALCON_BASE_URL;
+const token = process.env.POSTFALCON_API_TOKEN;
 
 if (!baseUrl || !token) {
-  console.error('POSTFOX_BASE_URL and POSTFOX_API_TOKEN environment variables are required.');
+  console.error('POSTFALCON_BASE_URL and POSTFALCON_API_TOKEN environment variables are required.');
   process.exit(1);
 }
 

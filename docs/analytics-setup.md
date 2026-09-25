@@ -1,13 +1,13 @@
 # Setting up analytics (self-hosted Umami)
 
-Postfox's own `page_visits`/`product_events` tables are in-app usage analytics (who did what
+Postfalcon's own `page_visits`/`product_events` tables are in-app usage analytics (who did what
 inside the product). They deliberately don't capture referrers, anonymous-visitor sessions, or
 give you a reporting dashboard — that's not what they're for. For traffic/SEO reporting
 (where visitors come from, which pages/blog posts drive signups, trends over time), run
-[Umami](https://umami.is) alongside Postfox and let it handle that instead of trying to extend
+[Umami](https://umami.is) alongside Postfalcon and let it handle that instead of trying to extend
 the internal tables into something they're not.
 
-The Postfox side is already built and does nothing until you configure it:
+The Postfalcon side is already built and does nothing until you configure it:
 `routes/analytics.js` reverse-proxies `/stats/*` to your Umami instance (so the tracking
 script and its data both stay same-origin — no CSP changes, and ad blockers that target known
 analytics domains don't recognise it), and `views/partials/analytics.ejs` only emits the
@@ -18,13 +18,13 @@ setup step, done outside this repo — none of it runs on devbox03 (the dev VM).
 
 ## 1. Give Umami its own database
 
-Umami needs its own Postgres database — don't point it at the `postfox` database.
+Umami needs its own Postgres database — don't point it at the `postfalcon` database.
 
 ```bash
 sudo -u postgres createdb umami
 ```
 
-(Reuse the same Postgres server/role Postfox already uses; it's just a separate database.)
+(Reuse the same Postgres server/role Postfalcon already uses; it's just a separate database.)
 
 ## 2. Install and build Umami
 
@@ -47,14 +47,14 @@ Then run Umami's own build (this also applies its database migrations):
 npm run build
 ```
 
-## 3. Run it under pm2, on a port Postfox never uses
+## 3. Run it under pm2, on a port Postfalcon never uses
 
 ```bash
 pm2 start npm --name umami --cwd /path/to/umami -- start -- -p 3002
 pm2 save
 ```
 
-Port `3002` is arbitrary — just make sure it doesn't collide with Postfox's own `PORT`
+Port `3002` is arbitrary — just make sure it doesn't collide with Postfalcon's own `PORT`
 (`.env.example` default `3000`) or the test server's `PORT` (`.env.test`, `3001`).
 
 Umami does **not** need a public Caddy site or a DNS record — no public-facing hostname is
@@ -62,21 +62,21 @@ involved anywhere in this setup. It listens on all interfaces by default, which 
 locks down *which* interfaces can actually reach it with a firewall rule, rather than a domain
 or reverse proxy.
 
-## 4. Point Postfox at it
+## 4. Point Postfalcon at it
 
-In Postfox's `.env` on the VPS:
+In Postfalcon's `.env` on the VPS:
 
 ```
 UMAMI_HOST=http://localhost:3002
 ```
 
-`pm2 reload postfox` to pick it up. At this point `/stats/script.js` should return Umami's
-tracking script through Postfox's own domain — but no page emits it yet, because
+`pm2 reload postfalcon` to pick it up. At this point `/stats/script.js` should return Umami's
+tracking script through Postfalcon's own domain — but no page emits it yet, because
 `UMAMI_WEBSITE_ID` isn't set.
 
 ## 5. Restrict Umami's dashboard to the OpenVPN interface
 
-The goal: Postfox (on the same box) keeps reaching Umami over `localhost` regardless of any
+The goal: Postfalcon (on the same box) keeps reaching Umami over `localhost` regardless of any
 firewall change; your browser, over the VPN, reaches it at the VPS's tunnel IP; the public
 internet gets nothing on that port at all. That means Umami itself can stay listening on all
 interfaces (step 3) — a firewall rule is what actually restricts who can connect.
@@ -92,7 +92,7 @@ Then, with `ufw` (adjust the interface name if yours isn't `tun0`):
 
 ```bash
 sudo ufw deny 3002                          # block it by default, including the public interface
-sudo ufw allow from 127.0.0.1 to any port 3002   # Postfox's own /stats proxy (same machine)
+sudo ufw allow from 127.0.0.1 to any port 3002   # Postfalcon's own /stats proxy (same machine)
 sudo ufw allow in on tun0 to any port 3002        # your browser, over the VPN
 sudo ufw reload
 ```
@@ -103,17 +103,17 @@ machine connected to the VPN, should both return Umami's login page.
 
 Once that's confirmed, connect to the OpenVPN and open `http://<vps-tunnel-ip>:3002` in your
 browser. Log in (Umami's setup wizard creates the first admin account on first visit), add a
-website with Postfox's real public domain, and copy the **Website ID** it generates (a UUID).
+website with Postfalcon's real public domain, and copy the **Website ID** it generates (a UUID).
 
 ## 6. Turn tracking on
 
-Back in Postfox's `.env`:
+Back in Postfalcon's `.env`:
 
 ```
 UMAMI_WEBSITE_ID=<the uuid from step 5>
 ```
 
-`pm2 reload postfox`. Visit the live site, then check Umami's dashboard — the pageview should
+`pm2 reload postfalcon`. Visit the live site, then check Umami's dashboard — the pageview should
 show up within a few seconds.
 
 ## What's tracked

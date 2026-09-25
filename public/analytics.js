@@ -63,7 +63,7 @@
     renderTopPost(data.topPost);
 
     if (data.postsPosted === 0) {
-      emptyEl.textContent = 'Nothing posted yet — once Postfox publishes a post, its numbers will show up here.';
+      emptyEl.textContent = 'Nothing posted yet — once Postfalcon publishes a post, its numbers will show up here.';
       emptyEl.hidden = false;
     } else if (data.postsWithMetrics === 0) {
       emptyEl.textContent = 'Metrics refresh a few times a day after a post goes out — check back soon.';

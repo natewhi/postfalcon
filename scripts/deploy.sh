@@ -6,7 +6,7 @@ git pull origin main
 npm install --omit=dev
 npm run migrate
 
-if pm2 describe postfox > /dev/null 2>&1; then
+if pm2 describe postfalcon > /dev/null 2>&1; then
   pm2 reload ecosystem.config.cjs --env production
 else
   pm2 start ecosystem.config.cjs --env production

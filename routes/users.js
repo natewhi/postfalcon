@@ -47,7 +47,7 @@ router.post(
 
     const token = await createToken(user.id, 'email_verification', ONE_DAY_MS);
     const verifyUrl = `${process.env.BASE_URL}/api/auth/verify-email?token=${token}`;
-    await sendMail({ to: email, subject: 'Verify your Postfox email', text: `Verify your email: ${verifyUrl}` });
+    await sendMail({ to: email, subject: 'Verify your Postfalcon email', text: `Verify your email: ${verifyUrl}` });
 
     await logAuthEvent(req, 'signup', { userId: user.id, email: user.email }).catch((logErr) =>
       req.log.error({ err: logErr }, 'failed to record auth event')

@@ -1,7 +1,7 @@
 ---
 title: "Bluesky and Threads Are Now Live"
 slug: bluesky-and-threads-now-supported
-description: "Postfox now schedules posts to Bluesky and Threads, bringing the total to 8 supported platforms. Here's how each connects and what's supported at launch."
+description: "Postfalcon now schedules posts to Bluesky and Threads, bringing the total to 8 supported platforms. Here's how each connects and what's supported at launch."
 date: 2026-09-15
 author: nathan
 tags: ["Features", "Platforms"]
@@ -10,7 +10,7 @@ heroImage: /images/blog/bluesky-and-threads-now-supported-hero-bg.svg
 heroGradient: ["#2563eb", "#1185FE"]
 ---
 
-Postfox now schedules and cross-posts to **Bluesky** and **Threads**, bringing the total to
+Postfalcon now schedules and cross-posts to **Bluesky** and **Threads**, bringing the total to
 8 live platforms: Mastodon, Bluesky, Facebook, Instagram, Threads, Telegram, YouTube, and
 TikTok.
 
@@ -20,13 +20,13 @@ publishing APIs, no paid-API tier required, no chat-app workarounds.
 ## Connecting Bluesky
 
 Bluesky doesn't have third-party OAuth yet, so connecting it works like Telegram: you give
-Postfox a credential directly instead of going through a login redirect. In Bluesky's own
+Postfalcon a credential directly instead of going through a login redirect. In Bluesky's own
 Settings, generate an **app password** (not your real account password — Bluesky explicitly
 supports issuing separate, revocable app passwords for exactly this purpose), then paste your
 handle and that app password into the connect form on the **Accounts** page.
 
 At launch, Bluesky posts support text plus up to 4 images. Video isn't supported yet — attach
-one and Postfox will tell you clearly instead of silently dropping it.
+one and Postfalcon will tell you clearly instead of silently dropping it.
 
 ## Connecting Threads
 
@@ -37,7 +37,7 @@ images, video, and carousels — full parity with what Instagram supports today,
 publishing API is deliberately shaped like Instagram's.
 
 Threads access tokens are long-lived (about 60 days) rather than short-lived-with-a-refresh-
-token like YouTube or TikTok. Postfox refreshes it automatically in the background a week
+token like YouTube or TikTok. Postfalcon refreshes it automatically in the background a week
 before it would expire, so a connected Threads account shouldn't ever need reconnecting on
 its own.
 

@@ -112,7 +112,7 @@ app.use(cookieParser());
 // the httpOnly secret cookie to forge the matching header, regardless of session binding.
 const { doubleCsrfProtection, generateToken } = doubleCsrf({
   getSecret: () => process.env.SESSION_SECRET,
-  cookieName: isProduction ? '__Host-postfox.csrf-token' : 'postfox.csrf-token',
+  cookieName: isProduction ? '__Host-postfalcon.csrf-token' : 'postfalcon.csrf-token',
   cookieOptions: {
     httpOnly: true,
     sameSite: 'lax',

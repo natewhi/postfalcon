@@ -1,7 +1,7 @@
 ---
 title: "Pinterest and LinkedIn Are Now Live"
 slug: pinterest-and-linkedin-now-supported
-description: "Postfox now schedules Pins to Pinterest and posts to your personal LinkedIn profile, bringing the total to 10 supported platforms. Here's how each connects and what's supported at launch."
+description: "Postfalcon now schedules Pins to Pinterest and posts to your personal LinkedIn profile, bringing the total to 10 supported platforms. Here's how each connects and what's supported at launch."
 date: 2026-09-16
 author: nathan
 tags: ["Features", "Platforms"]
@@ -10,7 +10,7 @@ heroImage: /images/blog/pinterest-and-linkedin-now-supported-hero-bg.svg
 heroGradient: ["#e11d48", "#2563eb"]
 ---
 
-Postfox now schedules posts to **Pinterest** and **LinkedIn**, bringing the total to 10 live
+Postfalcon now schedules posts to **Pinterest** and **LinkedIn**, bringing the total to 10 live
 platforms: Mastodon, Bluesky, Facebook, Instagram, Threads, Telegram, YouTube, TikTok,
 Pinterest, and LinkedIn.
 
@@ -21,11 +21,11 @@ registered app, not the partner-approval-gated tiers some of these platforms als
 ## Connecting Pinterest
 
 A Pinterest Pin is always an image (there's no text-only Pin type), so every post to Pinterest
-needs a photo attached. At connect time, Postfox picks your account's first board automatically
+needs a photo attached. At connect time, Postfalcon picks your account's first board automatically
 &mdash; there's no board-picker yet, so if you use multiple boards, all of your scheduled Pins
 will land on that first one for now.
 
-Postfox posts the image straight from its own upload URL, so there's no separate upload step;
+Postfalcon posts the image straight from its own upload URL, so there's no separate upload step;
 the post's text becomes the Pin's description.
 
 ## Connecting LinkedIn
@@ -41,7 +41,7 @@ fails clearly rather than silently dropping the image.
 
 One more LinkedIn-specific note: its access tokens don't come with a refresh token for
 standard apps, so a connected account will need reconnecting roughly every couple of months
-when the token expires. Postfox will surface that as a clear failed-post error rather than a
+when the token expires. Postfalcon will surface that as a clear failed-post error rather than a
 silent skip.
 
 ## Both work everywhere else, too

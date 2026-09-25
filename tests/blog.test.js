@@ -31,7 +31,7 @@ describe('blog', () => {
     const res = await request(app).get('/blog');
     expect(res.status).toBe(200);
     expect(res.type).toBe('text/html');
-    expect(res.text).toContain('Postfox');
+    expect(res.text).toContain('Postfalcon');
   });
 
   it('GET /blog?page=999 clamps to the last page instead of erroring', async () => {

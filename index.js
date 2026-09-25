@@ -5,7 +5,7 @@ import { logger } from './lib/logger.js';
 const port = process.env.PORT || 3000;
 
 app.listen(port, () => {
-  logger.info(`postfox listening on port ${port}`);
+  logger.info(`postfalcon listening on port ${port}`);
 });
 
 startScheduler();

@@ -884,8 +884,8 @@ describe('scheduler', () => {
       await processDuePosts();
       await waitFor(() => calls.length === 1);
 
-      expect(calls[0].headers['X-Postfox-Event']).toBe('post.published');
-      expect(calls[0].headers['X-Postfox-Signature']).toMatch(/^sha256=[0-9a-f]{64}$/);
+      expect(calls[0].headers['X-Postfalcon-Event']).toBe('post.published');
+      expect(calls[0].headers['X-Postfalcon-Signature']).toMatch(/^sha256=[0-9a-f]{64}$/);
       const body = JSON.parse(calls[0].body);
       expect(body.event).toBe('post.published');
       expect(body.data).toMatchObject({ post_id: postId, platform: 'mastodon', platform_post_id: 'remote-1' });

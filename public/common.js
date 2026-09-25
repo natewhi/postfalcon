@@ -137,7 +137,7 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   window.location.href = '/login';
 });
 
-const THEME_STORAGE_KEY = 'postfox-theme';
+const THEME_STORAGE_KEY = 'postfalcon-theme';
 const themeToggleBtn = document.getElementById('theme-toggle-btn');
 
 function updateThemeToggleLabel() {

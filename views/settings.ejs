@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script src="/theme-init.js"></script>
 <meta name="color-scheme" content="light dark">
-<title>Settings - Postfox</title>
+<title>Settings - Postfalcon</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -70,7 +70,7 @@
 
     <section class="settings-section" id="webhooks-section" hidden>
       <h2>Outbound webhooks</h2>
-      <p class="hint">Postfox will POST a JSON payload to your endpoint when a post is published or fails. Each delivery is signed with <code>X-Postfox-Signature: sha256=&lt;hex&gt;</code> (HMAC-SHA256 of the raw body using the signing secret). See the <a href="/api-docs">API docs</a> for the payload shape.</p>
+      <p class="hint">Postfalcon will POST a JSON payload to your endpoint when a post is published or fails. Each delivery is signed with <code>X-Postfalcon-Signature: sha256=&lt;hex&gt;</code> (HMAC-SHA256 of the raw body using the signing secret). See the <a href="/api-docs">API docs</a> for the payload shape.</p>
       <ul id="webhooks-list" class="webhooks-list"></ul>
       <div id="webhook-secret-reveal" class="composer-field" hidden>
         <label for="webhook-secret-value">Signing secret <span class="label-optional">(copy it now &mdash; you won't see it again)</span></label>
@@ -80,7 +80,7 @@
         </div>
       </div>
       <form id="webhook-add-form" class="settings-form">
-        <label>Endpoint URL <input type="url" name="url" placeholder="https://example.com/hooks/postfox" required></label>
+        <label>Endpoint URL <input type="url" name="url" placeholder="https://example.com/hooks/postfalcon" required></label>
         <button type="submit">Add webhook</button>
       </form>
     </section>

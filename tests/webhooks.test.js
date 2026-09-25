@@ -31,10 +31,10 @@ describe('webhooks API', () => {
 
     const created = await client
       .post('/api/v1/webhooks')
-      .send({ url: 'https://example.com/hooks/postfox' });
+      .send({ url: 'https://example.com/hooks/postfalcon' });
     expect(created.status).toBe(201);
     expect(created.body.secret).toMatch(/^whsec_/);
-    expect(created.body.url).toBe('https://example.com/hooks/postfox');
+    expect(created.body.url).toBe('https://example.com/hooks/postfalcon');
     expect(created.body.events).toEqual(['post.published', 'post.failed']);
 
     const list = await client.get('/api/v1/webhooks');

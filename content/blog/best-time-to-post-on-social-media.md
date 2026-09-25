@@ -34,7 +34,7 @@ None of the above accounts for your specific audience's timezone distribution, i
 habits. The fastest way to find your actual best time is to post at a few different windows for
 a couple of weeks and compare what happened — not what you assume happened.
 
-If you're scheduling through Postfox, [Analytics](/blog/post-analytics-see-whats-working) pulls
+If you're scheduling through Postfalcon, [Analytics](/blog/post-analytics-see-whats-working) pulls
 real view, like, comment, and share counts back from each connected platform, so you can compare
 a Tuesday-morning post against a Thursday-evening one on the same account instead of guessing.
 
