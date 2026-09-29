@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/theme-init.js"></script>
+<meta name="color-scheme" content="light dark">
+<title>Terms of Service - Postfalcon</title>
+<meta name="description" content="The terms that govern use of Postfalcon.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="landing dark-canvas">
+  <%- include('partials/site-header') %>
+
+  <main class="api-docs">
+    <section class="api-docs-hero">
+      <h1>Terms of Service</h1>
+      <p class="landing-subhead">Last updated September 29, 2026</p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Agreement</h2>
+      <p>
+        These terms govern your use of Postfalcon (postfalcon.co). By creating an account, you agree
+        to them. If you don't agree, don't use the service.
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>The service</h2>
+      <p>
+        Postfalcon lets you compose, schedule, and cross-post content to social media accounts you
+        connect (Mastodon, Bluesky, Facebook, Instagram, Threads, Telegram, YouTube, TikTok,
+        Pinterest, LinkedIn), via each platform's own API. We are not affiliated with, and do not
+        speak for, any of those platforms.
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Accounts</h2>
+      <p>
+        You must be at least 16 years old to use Postfalcon. You're responsible for keeping your
+        login credentials and any generated API tokens confidential, and for all activity under your
+        account. Tell us right away if you suspect unauthorized access.
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Subscription &amp; billing</h2>
+      <p>
+        Every account starts with a 7-day free trial. Paid plans bill monthly in advance through
+        Stripe; you can change or cancel your plan at any time from the billing portal in Settings.
+        Cancellation takes effect at the end of the current billing period — we don't provide partial
+        refunds for unused time, except where required by law.
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Acceptable use</h2>
+      <p>You agree not to use Postfalcon to:</p>
+      <ul>
+        <li>Post content you don't have the rights to post, or to an account you're not authorized to manage.</li>
+        <li>Send spam, or violate the terms of service of any platform you connect through Postfalcon.</li>
+        <li>Post unlawful, harassing, or fraudulent content.</li>
+        <li>Attempt to disrupt, reverse-engineer, or abuse the service or its API beyond documented rate limits.</li>
+      </ul>
+      <p>
+        You're responsible for complying with the rules of every platform you connect (Meta, Google,
+        TikTok, Pinterest, LinkedIn, Mastodon instances, etc.) — connecting through Postfalcon doesn't
+        exempt you from them, and action taken against your account by a third-party platform is
+        between you and that platform.
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Your content</h2>
+      <p>
+        You own whatever you create and post through Postfalcon. By connecting an account and
+        scheduling a post, you grant us only the limited permission needed to store, transmit, and
+        publish that content to the destinations you choose, on your behalf.
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Third-party platforms</h2>
+      <p>
+        Postfalcon depends on the APIs of the platforms you connect. We aren't responsible for their
+        outages, rate limits, policy changes, or account actions — including a connected platform
+        revoking access, changing its API, or suspending your account there.
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Termination</h2>
+      <p>
+        You can delete your account at any time from Settings, which removes your account data. We
+        may suspend or terminate accounts that violate these terms, including the acceptable-use
+        section above.
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Disclaimer &amp; limitation of liability</h2>
+      <p>
+        Postfalcon is provided "as is," without warranties of any kind. To the extent permitted by
+        law, we aren't liable for indirect, incidental, or consequential damages arising from your
+        use of the service, including lost posts, missed schedules, or account actions taken by a
+        third-party platform.
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Changes to these terms</h2>
+      <p>If these terms change, we'll update the date at the top of this page.</p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Governing law</h2>
+      <p>These terms are governed by the laws of Australia.</p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Contact</h2>
+      <p>Questions about these terms? Email <a href="mailto:admin@postfalcon.co">admin@postfalcon.co</a>.</p>
+    </section>
+  </main>
+
+  <footer class="landing-footer">
+    <span>&copy; <%= new Date().getFullYear() %> Postfalcon</span>
+    <% if (blogEnabled) { %><a href="/blog">Blog</a><% } %>
+    <a href="/api-docs">API docs</a>
+    <a href="/privacy">Privacy</a>
+  </footer>
+</div>
+<%- include('partials/analytics') %>
+</body>
+</html>

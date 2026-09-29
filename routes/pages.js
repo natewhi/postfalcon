@@ -10,7 +10,7 @@ const router = Router();
 
 // The publicly crawlable pages, in the order they should be listed — used by /sitemap.xml.
 // '/blog' only when isBlogEnabled() — see that function for why a self-hoster might turn it off.
-const STATIC_PAGES = ['/', '/pricing', '/api-docs', '/privacy'];
+const STATIC_PAGES = ['/', '/pricing', '/api-docs', '/privacy', '/terms'];
 
 function xmlEscape(value) {
   return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
@@ -56,6 +56,10 @@ router.get('/api-docs', (req, res) => {
 
 router.get('/privacy', (req, res) => {
   res.render('privacy', { loggedIn: req.isAuthenticated() });
+});
+
+router.get('/terms', (req, res) => {
+  res.render('terms', { loggedIn: req.isAuthenticated() });
 });
 
 router.get('/pricing', (req, res) => {
