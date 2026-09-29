@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/theme-init.js"></script>
+<meta name="color-scheme" content="light dark">
+<title>Privacy Policy - Postfalcon</title>
+<meta name="description" content="How Postfalcon collects, uses, and protects your data.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="landing dark-canvas">
+  <%- include('partials/site-header') %>
+
+  <main class="api-docs">
+    <section class="api-docs-hero">
+      <h1>Privacy Policy</h1>
+      <p class="landing-subhead">Last updated September 29, 2026</p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>What this covers</h2>
+      <p>
+        This policy explains what data Postfalcon collects when you use the service at
+        postfalcon.co, why we collect it, who we share it with, and how you can control it.
+        It applies to visitors, trial users, and paying customers alike.
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Data we collect</h2>
+      <p><strong>Account information:</strong> your email address, a bcrypt hash of your password
+      (never the password itself), and — if you sign in with Google — your Google account id and
+      email, which we use to match or create your account instead of storing a password at all.</p>
+      <p><strong>Connected social accounts:</strong> when you connect a platform (Mastodon, Bluesky,
+      Facebook, Instagram, Threads, Telegram, YouTube, TikTok, Pinterest, or LinkedIn), we store the
+      OAuth access token (and refresh token, where the platform issues one) needed to publish on
+      your behalf, along with the account's display name and platform-assigned id. We request only
+      the minimum permissions each platform requires for posting and, where available, reading back
+      engagement metrics — never permissions to read your DMs, contacts, or unrelated account data.</p>
+      <p><strong>Content you create:</strong> post text, uploaded media (images/video), schedules,
+      and recurrence settings for the posts you compose.</p>
+      <p><strong>Billing:</strong> subscription plan and status. Card details are handled entirely
+      by Stripe — we never see or store your card number.</p>
+      <p><strong>Usage &amp; security logs:</strong> IP address, user agent, and timestamps for
+      page visits and authentication events (login, password reset, etc.), plus coarse product
+      usage events (e.g. "created a post") used to understand which features get used.</p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>How we use it</h2>
+      <ul>
+        <li>To publish your scheduled posts to the platforms you've connected, at the times you set.</li>
+        <li>To process payments and manage your subscription.</li>
+        <li>To send transactional email: verification, password resets, and security notices.</li>
+        <li>To keep your account secure (detecting suspicious login activity, enforcing sessions).</li>
+        <li>To understand aggregate usage trends and improve the product.</li>
+      </ul>
+      <p>We do not sell your data, and we do not use it for advertising — Postfalcon has no ad
+      integrations of any kind.</p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Who we share it with</h2>
+      <p>
+        We share data only where it's needed to run the service:
+      </p>
+      <ul>
+        <li><strong>The platforms you connect</strong> — only the post content, media, and schedule
+        you explicitly create get sent to Mastodon, Bluesky, Meta (Facebook/Instagram/Threads),
+        Telegram, Google (YouTube), TikTok, Pinterest, or LinkedIn, whichever you've linked.</li>
+        <li><strong>Stripe</strong>, for billing and payment processing.</li>
+        <li><strong>Our email provider</strong>, to deliver transactional email on our behalf.</li>
+      </ul>
+      <p>
+        Site traffic analytics run on <strong>Umami</strong>, which we self-host — it is not a
+        third-party analytics vendor, collects no cookies, and reports only aggregate, anonymized
+        traffic data (pages viewed, referrers) back to us.
+      </p>
+      <p>We never sell or rent your data to anyone.</p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>How long we keep it</h2>
+      <ul>
+        <li>Uploaded media for posted, failed, or canceled posts is deleted after 30 days; the
+        post's text and history are kept regardless.</li>
+        <li>Page-visit and login/security logs are kept for 90 days.</li>
+        <li>Aggregate product usage events are kept for up to a year.</li>
+      </ul>
+      <p>Deleting your account (below) removes your account data outright rather than waiting out these windows.</p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Your controls</h2>
+      <ul>
+        <li>Disconnect any social account at any time from <a href="/accounts">Accounts</a> — this immediately revokes our stored token for it.</li>
+        <li>Export or inspect your own data at any time via the <a href="/api-docs">REST API</a>.</li>
+        <li>Change your password or delete your account entirely from <a href="/settings">Settings</a>.</li>
+      </ul>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Security</h2>
+      <p>
+        Passwords are hashed with bcrypt and never stored in plain text. All traffic is served over
+        HTTPS. Platform access tokens are stored server-side and are never exposed to your browser.
+        Every state-changing request is protected against cross-site request forgery.
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Children</h2>
+      <p>Postfalcon is not directed at, and is not knowingly used by, anyone under 16.</p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Changes to this policy</h2>
+      <p>If this policy changes, we'll update the date at the top of this page.</p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>Contact</h2>
+      <p>Questions about this policy or your data? Email <a href="mailto:admin@postfalcon.co">admin@postfalcon.co</a>.</p>
+    </section>
+  </main>
+
+  <footer class="landing-footer">
+    <span>&copy; <%= new Date().getFullYear() %> Postfalcon</span>
+    <% if (blogEnabled) { %><a href="/blog">Blog</a><% } %>
+    <a href="/api-docs">API docs</a>
+  </footer>
+</div>
+<%- include('partials/analytics') %>
+</body>
+</html>
