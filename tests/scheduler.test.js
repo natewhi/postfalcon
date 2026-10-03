@@ -679,6 +679,12 @@ describe('scheduler', () => {
       'fetch',
       vi.fn(async (url) => {
         const u = String(url);
+        if (u === 'https://open.tiktokapis.com/v2/post/publish/creator_info/query/') {
+          return jsonResponse({
+            error: { code: 'ok' },
+            data: { privacy_level_options: ['SELF_ONLY'], comment_disabled: false, duet_disabled: false, stitch_disabled: false },
+          });
+        }
         if (u === 'https://open.tiktokapis.com/v2/post/publish/video/init/') {
           return jsonResponse({ error: { code: 'ok' }, data: { publish_id: 'pub-1', upload_url: 'https://up.tiktok/xyz' } });
         }
