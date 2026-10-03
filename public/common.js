@@ -24,17 +24,21 @@ function showToast(message, type = 'error', link = null) {
   setTimeout(() => toast.remove(), 8000);
 }
 
+function extractErrorMessageFromData(data) {
+  if (!data) return 'Something went wrong.';
+  if (data.error === 'validation_failed' && data.details?.fieldErrors) {
+    const [field, messages] = Object.entries(data.details.fieldErrors)[0] ?? [];
+    if (field) return `${field}: ${messages[0]}`;
+  }
+  if (data.error === 'too_many_requests') {
+    return 'Too many attempts. Please wait a few minutes and try again.';
+  }
+  return data.error || 'Something went wrong.';
+}
+
 async function extractErrorMessage(res) {
   try {
-    const data = await res.json();
-    if (data.error === 'validation_failed' && data.details?.fieldErrors) {
-      const [field, messages] = Object.entries(data.details.fieldErrors)[0] ?? [];
-      if (field) return `${field}: ${messages[0]}`;
-    }
-    if (data.error === 'too_many_requests') {
-      return 'Too many attempts. Please wait a few minutes and try again.';
-    }
-    return data.error || 'Something went wrong.';
+    return extractErrorMessageFromData(await res.json());
   } catch {
     return 'Something went wrong.';
   }
@@ -63,6 +67,44 @@ async function apiJson(path, options) {
     return null;
   }
   return res.json();
+}
+
+// fetch() has no upload-progress event at all, so a multipart POST with large media
+// attached just sits there with zero feedback until it finishes. XMLHttpRequest is the
+// only web platform API that exposes xhr.upload.onprogress, so this is a deliberate
+// exception to the "use apiJson, not raw fetch" rule, kept to the one call site that
+// actually uploads files (the dashboard composer's new-post submit).
+function apiUpload(path, formData, onProgress) {
+  return new Promise((resolve, reject) => {
+    getCsrfToken().then((token) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', path);
+      xhr.setRequestHeader('x-csrf-token', token);
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      });
+      xhr.addEventListener('load', () => {
+        if (xhr.status === 401) {
+          window.location.href = '/login';
+          reject(new Error('not authenticated'));
+          return;
+        }
+        let data = null;
+        try {
+          data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+        } catch {
+          // non-JSON body, data stays null
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(extractErrorMessageFromData(data)));
+        }
+      });
+      xhr.addEventListener('error', () => reject(new Error('Something went wrong.')));
+      xhr.send(formData);
+    });
+  });
 }
 
 function withLoading(button, loadingText, fn) {

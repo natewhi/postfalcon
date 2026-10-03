@@ -546,9 +546,10 @@ document.getElementById('post-dialog').addEventListener('click', (e) => {
 });
 
 const postDialogForm = document.getElementById('post-dialog-form');
+const postDialogSubmitBtn = postDialogForm.querySelector('button[type="submit"]');
 postDialogForm.addEventListener(
   'submit',
-  withLoading(postDialogForm.querySelector('button[type="submit"]'), 'Saving…', async (e) => {
+  withLoading(postDialogSubmitBtn, 'Saving…', async (e) => {
     e.preventDefault();
     const form = e.target;
 
@@ -623,7 +624,13 @@ postDialogForm.addEventListener(
     }
 
     try {
-      await apiJson('/api/v1/posts', { method: 'POST', body });
+      if (selectedMedia.length > 0) {
+        await apiUpload('/api/v1/posts', body, (pct) => {
+          postDialogSubmitBtn.textContent = `Uploading… ${pct}%`;
+        });
+      } else {
+        await apiJson('/api/v1/posts', { method: 'POST', body });
+      }
       document.getElementById('post-dialog').close();
       resetMediaPreview();
       loadDrafts();

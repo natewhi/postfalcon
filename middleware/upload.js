@@ -26,8 +26,12 @@ function fileFilter(req, file, cb) {
   cb(err);
 }
 
+// 200MB covers a full 10-minute TikTok video (TikTok's own Content Posting API caps a
+// single video at 4GB, but that's buffered whole into memory per publish by the adapters
+// here — 200MB is a saner ceiling for a self-hosted single-process app than matching
+// TikTok's own limit verbatim).
 export const uploadMedia = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 200 * 1024 * 1024 },
 });
