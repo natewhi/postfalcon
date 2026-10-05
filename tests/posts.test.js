@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import app from '../app.js';
 import { uploadDir } from '../middleware/upload.js';
+import { pool } from '../db/pool.js';
 
 async function loginNewUser() {
   const client = request.agent(app);
@@ -395,5 +396,92 @@ describe('repeated posts', () => {
     const res = await client.patch(`/api/v1/posts/${post.body.id}`).send({ repeat_interval: null });
     expect(res.status).toBe(200);
     expect(res.body.repeat_interval).toBeNull();
+  });
+});
+
+describe('tiktok options', () => {
+  async function loginWithTikTok() {
+    const client = request.agent(app);
+    const email = `tko${Date.now()}${Math.random()}@example.com`;
+    await client.post('/api/users').send({ email, password: 'password123' });
+    await client.post('/api/auth/login').send({ email, password: 'password123' });
+    const { rows } = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       SELECT id, 'tiktok', '@tk', 'open-tk', 'tok' FROM users WHERE email = $1 RETURNING id`,
+      [email]
+    );
+    return { client, tiktokId: rows[0].id };
+  }
+
+  const options = {
+    privacy_level: 'FOLLOWER_OF_CREATOR',
+    allow_comment: true,
+    allow_duet: false,
+    allow_stitch: true,
+    brand_organic: true,
+    brand_content: false,
+  };
+
+  it('stores tiktok_options on the TikTok post only, not on other cross-posted channels', async () => {
+    const { client, tiktokId } = await loginWithTikTok();
+    const other = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@a' });
+
+    const res = await client
+      .post('/api/v1/posts')
+      .field('social_account_ids', String(tiktokId))
+      .field('social_account_ids', String(other.body.id))
+      .field('content', 'video time')
+      .field('tiktok_options', JSON.stringify(options));
+    expect(res.status).toBe(201);
+
+    const tk = res.body.posts.find((p) => p.social_account_id === tiktokId);
+    const tw = res.body.posts.find((p) => p.social_account_id === other.body.id);
+    expect(tk.platform_options).toEqual({ tiktok: options });
+    expect(tw.platform_options).toEqual({});
+  });
+
+  it('defaults the interaction and disclosure flags to off', async () => {
+    const { client, tiktokId } = await loginWithTikTok();
+    const res = await client.post('/api/v1/posts').send({
+      social_account_id: tiktokId,
+      content: 'minimal',
+      tiktok_options: { privacy_level: 'SELF_ONLY' },
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.platform_options.tiktok).toEqual({
+      privacy_level: 'SELF_ONLY',
+      allow_comment: false,
+      allow_duet: false,
+      allow_stitch: false,
+      brand_organic: false,
+      brand_content: false,
+    });
+  });
+
+  it('rejects branded content with a private audience, and an unknown privacy level', async () => {
+    const { client, tiktokId } = await loginWithTikTok();
+    const branded = await client.post('/api/v1/posts').send({
+      social_account_id: tiktokId,
+      content: 'sponsored',
+      tiktok_options: { privacy_level: 'SELF_ONLY', brand_content: true },
+    });
+    expect(branded.status).toBe(400);
+
+    const bogus = await client.post('/api/v1/posts').send({
+      social_account_id: tiktokId,
+      content: 'bogus',
+      tiktok_options: { privacy_level: 'EVERYONE_EVERYWHERE' },
+    });
+    expect(bogus.status).toBe(400);
+  });
+
+  it('updates tiktok_options via PATCH', async () => {
+    const { client, tiktokId } = await loginWithTikTok();
+    const post = await client.post('/api/v1/posts').send({ social_account_id: tiktokId, content: 'draft' });
+    expect(post.body.platform_options).toEqual({});
+
+    const res = await client.patch(`/api/v1/posts/${post.body.id}`).send({ tiktok_options: options });
+    expect(res.status).toBe(200);
+    expect(res.body.platform_options).toEqual({ tiktok: options });
   });
 });

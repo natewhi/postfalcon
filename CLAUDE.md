@@ -50,7 +50,14 @@ lib/platforms.js     The platform registry — the ONE place a social platform i
                      refresh via lib/platforms/oauthRefresh.js (needs refresh_token + token_expires_at,
                      which scheduler.js's due-posts query selects). Threads uses a long-lived
                      (~60-day) access token with no separate refresh_token — it self-refreshes via a
-                     bespoke helper inside lib/platforms/threads.js rather than oauthRefresh.js. Bluesky
+                     bespoke helper inside lib/platforms/threads.js rather than oauthRefresh.js. TikTok's
+                     Content Sharing Guidelines (checked in app review) require per-post user choices —
+                     privacy level with no default, comment/duet/stitch opt-ins, commercial disclosure,
+                     consent line — so the composer shows a TikTok panel fed by GET /api/tiktok/accounts/
+                     :id/creator-info, and the choices travel as tiktok_options into
+                     posts.platform_options.tiktok (not `metadata`: scheduler.js's join already has
+                     social_accounts.metadata). With none set, the adapter posts SELF_ONLY, interactions
+                     off. Bluesky
                      has no third-party OAuth at all: the user supplies a handle + an "app password"
                      (connect:'token', like Telegram's bot token), stored as access_token, and the
                      adapter just logs in fresh (short-lived session) on every publish. An adapter can

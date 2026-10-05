@@ -29,7 +29,9 @@ async function loadDashboardStats() {
 
 let activeAccountId = new URLSearchParams(window.location.search).get('account');
 
-const CALENDAR_STATUS_STORAGE_KEY = 'postfalcon-calendar-statuses';
+// v2: the default gained 'posted' — bumping the key resets older saved selections, which
+// would otherwise keep hiding a post the moment it publishes.
+const CALENDAR_STATUS_STORAGE_KEY = 'postfalcon-calendar-statuses-v2';
 const ALL_CALENDAR_STATUSES = ['scheduled', 'failed', 'posted', 'canceled'];
 const CALENDAR_VIEW_STORAGE_KEY = 'postfalcon-calendar-view';
 const ALL_CALENDAR_VIEWS = ['dayGridMonth', 'timeGridWeek'];
@@ -53,7 +55,7 @@ function loadSavedCalendarStatuses() {
   } catch {
     // ignore malformed storage value, fall back to default
   }
-  return ['scheduled', 'failed'];
+  return ['scheduled', 'failed', 'posted'];
 }
 
 const activeCalendarStatuses = new Set(loadSavedCalendarStatuses());
@@ -176,6 +178,252 @@ function syncAccountSelection() {
   const ids = selectedAccountIds();
   document.getElementById('account-select').value = ids[0] || '';
   updateCharCount();
+  refreshTikTokPanel();
+}
+
+// --- TikTok panel -------------------------------------------------------------------------
+// TikTok's Content Sharing Guidelines require that, before posting, the user sees which
+// account they're posting as, picks a privacy level themselves (no default), opts in to
+// comments/duets/stitches (all off by default, greyed out when the creator disabled them),
+// can disclose commercial content, and sees the music-usage / branded-content consent line.
+// The choices travel with the post as tiktok_options (posts.platform_options.tiktok).
+
+const TIKTOK_PRIVACY_LABELS = {
+  PUBLIC_TO_EVERYONE: 'Everyone',
+  MUTUAL_FOLLOW_FRIENDS: 'Friends',
+  FOLLOWER_OF_CREATOR: 'Followers',
+  SELF_ONLY: 'Only me',
+};
+const TIKTOK_MUSIC_URL = 'https://www.tiktok.com/legal/page/global/music-usage-confirmation/en';
+const TIKTOK_BRANDED_URL = 'https://www.tiktok.com/legal/page/global/bc-policy/en';
+
+const tiktokEls = {
+  panel: document.getElementById('tiktok-panel'),
+  creator: document.getElementById('tiktok-creator'),
+  status: document.getElementById('tiktok-status'),
+  controls: document.getElementById('tiktok-controls'),
+  privacy: document.getElementById('tiktok-privacy'),
+  comment: document.getElementById('tiktok-allow-comment'),
+  duet: document.getElementById('tiktok-allow-duet'),
+  stitch: document.getElementById('tiktok-allow-stitch'),
+  interactionsNote: document.getElementById('tiktok-interactions-note'),
+  disclose: document.getElementById('tiktok-disclose'),
+  discloseOptions: document.getElementById('tiktok-disclose-options'),
+  brandOrganic: document.getElementById('tiktok-brand-organic'),
+  brandContent: document.getElementById('tiktok-brand-content'),
+  discloseLabel: document.getElementById('tiktok-disclose-label'),
+  durationWarning: document.getElementById('tiktok-duration-warning'),
+  consent: document.getElementById('tiktok-consent'),
+};
+
+let tiktokAccountId = null;
+let tiktokCreator = null;
+let tiktokPrefill = null;
+let tiktokLoadSeq = 0;
+
+function selectedTikTokAccounts() {
+  const ids = selectedAccountIds();
+  return accountsCache.filter((a) => a.platform === 'tiktok' && ids.includes(String(a.id)));
+}
+
+// Called once per dialog open, before the account is selected, so the panel reloads fresh
+// creator_info and (for an edit) re-applies the post's saved choices.
+function prepareTikTokPanel(prefill) {
+  tiktokAccountId = null;
+  tiktokCreator = null;
+  tiktokPrefill = prefill || null;
+  tiktokEls.panel.hidden = true;
+}
+
+function setTikTokStatus(message) {
+  tiktokEls.status.hidden = !message;
+  tiktokEls.status.textContent = message || '';
+  tiktokEls.controls.hidden = Boolean(message);
+}
+
+async function refreshTikTokPanel() {
+  const accounts = selectedTikTokAccounts();
+  if (accounts.length === 0) {
+    tiktokEls.panel.hidden = true;
+    tiktokAccountId = null;
+    tiktokCreator = null;
+    updateTikTokState();
+    return;
+  }
+  tiktokEls.panel.hidden = false;
+  if (accounts.length > 1) {
+    tiktokAccountId = null;
+    tiktokCreator = null;
+    tiktokEls.creator.textContent = '';
+    setTikTokStatus('Pick one TikTok account per post — each account has its own privacy and interaction settings.');
+    updateTikTokState();
+    return;
+  }
+
+  const id = String(accounts[0].id);
+  if (id === tiktokAccountId) return;
+  tiktokAccountId = id;
+  tiktokCreator = null;
+  tiktokEls.creator.textContent = '';
+  setTikTokStatus('Loading your TikTok settings…');
+  updateTikTokState();
+
+  const seq = ++tiktokLoadSeq;
+  let info;
+  try {
+    info = await apiJson(`/api/tiktok/accounts/${id}/creator-info`);
+  } catch (err) {
+    if (seq !== tiktokLoadSeq) return;
+    setTikTokStatus(`TikTok says this account can't post right now: ${err.message}`);
+    updateTikTokState();
+    return;
+  }
+  if (seq !== tiktokLoadSeq) return;
+  tiktokCreator = info;
+  renderTikTokCreator(info);
+  setTikTokStatus(info.privacy_level_options.length ? null : "TikTok says this account can't post right now.");
+  updateTikTokState();
+}
+
+function renderTikTokCreator(info) {
+  const name = info.nickname || accountsCache.find((a) => String(a.id) === tiktokAccountId)?.display_name || '';
+  tiktokEls.creator.innerHTML = `
+    ${info.avatar_url ? `<img src="${escapeHtml(info.avatar_url)}" alt="" class="tiktok-creator-avatar">` : ''}
+    <span>Posting as <strong>${escapeHtml(name)}</strong>${info.username ? ` (@${escapeHtml(info.username)})` : ''}</span>
+  `;
+
+  tiktokEls.privacy.innerHTML =
+    '<option value="">Select privacy level</option>' +
+    info.privacy_level_options
+      .map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(TIKTOK_PRIVACY_LABELS[p] || p)}</option>`)
+      .join('');
+
+  const toggles = [
+    [tiktokEls.comment, info.comment_disabled],
+    [tiktokEls.duet, info.duet_disabled],
+    [tiktokEls.stitch, info.stitch_disabled],
+  ];
+  for (const [box, disabled] of toggles) {
+    box.disabled = disabled;
+    box.checked = false;
+  }
+  tiktokEls.interactionsNote.hidden = !toggles.some(([, disabled]) => disabled);
+
+  const p = tiktokPrefill || {};
+  tiktokEls.privacy.value = info.privacy_level_options.includes(p.privacy_level) ? p.privacy_level : '';
+  tiktokEls.comment.checked = !info.comment_disabled && !!p.allow_comment;
+  tiktokEls.duet.checked = !info.duet_disabled && !!p.allow_duet;
+  tiktokEls.stitch.checked = !info.stitch_disabled && !!p.allow_stitch;
+  tiktokEls.brandOrganic.checked = !!p.brand_organic;
+  tiktokEls.brandContent.checked = !!p.brand_content;
+  tiktokEls.disclose.checked = !!(p.brand_organic || p.brand_content);
+  tiktokPrefill = null;
+}
+
+// Re-derives everything that depends on the current choices: the disclosure label, the
+// consent line, "Only me" being unavailable for branded content, and the duration check.
+function updateTikTokState() {
+  const branded = tiktokEls.disclose.checked && tiktokEls.brandContent.checked;
+  const organic = tiktokEls.disclose.checked && tiktokEls.brandOrganic.checked;
+
+  tiktokEls.discloseOptions.hidden = !tiktokEls.disclose.checked;
+  if (tiktokEls.disclose.checked && !branded && !organic) {
+    tiktokEls.discloseLabel.textContent =
+      'You need to indicate if your content promotes yourself, a third party, or both.';
+    tiktokEls.discloseLabel.classList.add('is-warning');
+  } else {
+    tiktokEls.discloseLabel.textContent = branded
+      ? "Your video will be labeled as 'Paid partnership'."
+      : organic
+        ? "Your video will be labeled as 'Promotional content'."
+        : '';
+    tiktokEls.discloseLabel.classList.remove('is-warning');
+  }
+
+  const selfOnly = tiktokEls.privacy.querySelector('option[value="SELF_ONLY"]');
+  if (selfOnly) {
+    selfOnly.disabled = branded;
+    selfOnly.textContent = branded ? 'Only me (not available for branded content)' : TIKTOK_PRIVACY_LABELS.SELF_ONLY;
+    if (branded && tiktokEls.privacy.value === 'SELF_ONLY') tiktokEls.privacy.value = '';
+  }
+
+  tiktokEls.consent.innerHTML = branded
+    ? `By posting, you agree to TikTok's <a href="${TIKTOK_BRANDED_URL}" target="_blank" rel="noopener">Branded Content Policy</a> and <a href="${TIKTOK_MUSIC_URL}" target="_blank" rel="noopener">Music Usage Confirmation</a>.`
+    : `By posting, you agree to TikTok's <a href="${TIKTOK_MUSIC_URL}" target="_blank" rel="noopener">Music Usage Confirmation</a>.`;
+
+  const maxSec = tiktokCreator?.max_video_post_duration_sec;
+  const tooLong = maxSec ? selectedMedia.find((m) => m.duration && m.duration > maxSec) : null;
+  tiktokEls.durationWarning.hidden = !tooLong;
+  tiktokEls.durationWarning.textContent = tooLong
+    ? `This video is ${Math.round(tooLong.duration)}s long — this TikTok account can post videos up to ${maxSec}s.`
+    : '';
+  tiktokEls.durationWarning.classList.toggle('is-warning', Boolean(tooLong));
+
+  postDialogSubmitBtn?.classList.toggle('is-blocked', Boolean(tiktokPublishProblem()));
+}
+
+// Why a post can't be *scheduled* for TikTok yet (null if it can). Drafts aren't publishes,
+// so they're saved with whatever's been chosen so far.
+function tiktokPublishProblem() {
+  if (tiktokEls.panel.hidden) return null;
+  const scheduling = document.querySelector('.schedule-option.active')?.dataset.mode === 'schedule';
+  if (!scheduling) return null;
+  if (selectedTikTokAccounts().length > 1) return 'Pick one TikTok account per post.';
+  if (!tiktokCreator || !tiktokCreator.privacy_level_options.length) {
+    return "Your TikTok settings haven't loaded — TikTok may not allow this account to post right now.";
+  }
+  if (!tiktokEls.privacy.value) return 'Choose who can view this video on TikTok.';
+  if (tiktokEls.disclose.checked && !tiktokEls.brandOrganic.checked && !tiktokEls.brandContent.checked) {
+    return 'You need to indicate if your content promotes yourself, a third party, or both.';
+  }
+  if (!tiktokEls.durationWarning.hidden) return tiktokEls.durationWarning.textContent;
+  if (!editingPostId && !selectedMedia.some((m) => m.file.type.startsWith('video/'))) {
+    return 'TikTok posts need a video attached.';
+  }
+  return null;
+}
+
+function tiktokOptionsPayload() {
+  if (tiktokEls.panel.hidden || !tiktokCreator) return null;
+  const disclose = tiktokEls.disclose.checked;
+  return {
+    ...(tiktokEls.privacy.value ? { privacy_level: tiktokEls.privacy.value } : {}),
+    allow_comment: tiktokEls.comment.checked,
+    allow_duet: tiktokEls.duet.checked,
+    allow_stitch: tiktokEls.stitch.checked,
+    brand_organic: disclose && tiktokEls.brandOrganic.checked,
+    brand_content: disclose && tiktokEls.brandContent.checked,
+  };
+}
+
+[
+  tiktokEls.privacy,
+  tiktokEls.comment,
+  tiktokEls.duet,
+  tiktokEls.stitch,
+  tiktokEls.disclose,
+  tiktokEls.brandOrganic,
+  tiktokEls.brandContent,
+].forEach((el) => el.addEventListener('change', updateTikTokState));
+
+function showTikTokProcessingNote() {
+  showToast(
+    'Scheduled. Once it publishes, TikTok can take a few minutes to process the video before it shows on your profile.',
+    'success'
+  );
+}
+
+function readVideoDuration(file) {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(video.src);
+      resolve(Number.isFinite(video.duration) ? video.duration : null);
+    };
+    video.onerror = () => resolve(null);
+    video.src = URL.createObjectURL(file);
+  });
 }
 
 // New-post picker is multi-select (cross-posting); the edit dialog locks it to one channel.
@@ -256,6 +504,7 @@ function renderMediaPreview() {
   });
 
   mediaUploadLabel.style.display = selectedMedia.length >= MAX_MEDIA_PER_POST ? 'none' : '';
+  updateTikTokState();
 }
 
 function resetMediaPreview() {
@@ -271,7 +520,15 @@ mediaInput.addEventListener('change', () => {
     showToast(`You can attach up to ${MAX_MEDIA_PER_POST} files per post.`, 'warning');
   }
   for (const file of files) {
-    selectedMedia.push({ file, altText: '', previewUrl: URL.createObjectURL(file) });
+    const item = { file, altText: '', previewUrl: URL.createObjectURL(file), duration: null };
+    selectedMedia.push(item);
+    // Feeds the TikTok panel's max_video_post_duration_sec check once the metadata loads.
+    if (file.type.startsWith('video/')) {
+      readVideoDuration(file).then((duration) => {
+        item.duration = duration;
+        updateTikTokState();
+      });
+    }
   }
   mediaInput.value = '';
   renderMediaPreview();
@@ -307,6 +564,7 @@ document.querySelectorAll('.schedule-option').forEach((btn) => {
     document.querySelectorAll('.schedule-option').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     setScheduleMode(btn.dataset.mode === 'schedule');
+    updateTikTokState();
   });
 });
 
@@ -437,6 +695,7 @@ function openPostDialog(prefillDate) {
 
   const form = document.getElementById('post-dialog-form');
   form.reset();
+  prepareTikTokPanel(null);
 
   const defaultAccountId = activeAccountId || accountsCache[0]?.id;
   if (defaultAccountId) {
@@ -456,6 +715,7 @@ function openPostDialog(prefillDate) {
   repeatUntilField.hidden = true;
 
   updateCharCount();
+  updateTikTokState();
   document.getElementById('post-dialog').showModal();
 }
 
@@ -466,6 +726,7 @@ function openEditDialog(post) {
 
   const form = document.getElementById('post-dialog-form');
   form.reset();
+  prepareTikTokPanel(post.platform_options?.tiktok);
 
   renderAccountPicker();
   selectAccount(post.social_account_id);
@@ -509,6 +770,7 @@ function openEditDialog(post) {
   repeatUntilInput.value = post.repeat_until ? toLocalInputValue(new Date(post.repeat_until)) : '';
 
   updateCharCount();
+  updateTikTokState();
   document.getElementById('post-dialog').showModal();
 }
 
@@ -579,6 +841,14 @@ postDialogForm.addEventListener(
       }
     }
 
+    const tiktokProblem = tiktokPublishProblem();
+    if (tiktokProblem) {
+      showToast(tiktokProblem);
+      return;
+    }
+    const tiktokOptions = tiktokOptionsPayload();
+    const tiktokScheduled = Boolean(tiktokOptions) && scheduleMode === 'schedule';
+
     if (editingPostId) {
       const payload = {
         content: form.content.value,
@@ -586,6 +856,7 @@ postDialogForm.addEventListener(
         scheduled_for: scheduledLocal ? new Date(scheduledLocal).toISOString() : null,
         repeat_interval: repeatInterval || null,
         repeat_until: repeatUntilLocal ? new Date(repeatUntilLocal).toISOString() : null,
+        ...(tiktokOptions ? { tiktok_options: tiktokOptions } : {}),
       };
       try {
         await apiJson(`/api/v1/posts/${editingPostId}`, {
@@ -593,6 +864,7 @@ postDialogForm.addEventListener(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
+        if (tiktokScheduled) showTikTokProcessingNote();
         document.getElementById('post-dialog').close();
         loadDrafts();
         loadFailedBanner();
@@ -622,6 +894,9 @@ postDialogForm.addEventListener(
       selectedMedia.forEach((item) => body.append('media', item.file));
       body.set('alt_texts', JSON.stringify(selectedMedia.map((item) => item.altText)));
     }
+    if (tiktokOptions) {
+      body.set('tiktok_options', JSON.stringify(tiktokOptions));
+    }
 
     try {
       if (selectedMedia.length > 0) {
@@ -631,6 +906,7 @@ postDialogForm.addEventListener(
       } else {
         await apiJson('/api/v1/posts', { method: 'POST', body });
       }
+      if (tiktokScheduled) showTikTokProcessingNote();
       document.getElementById('post-dialog').close();
       resetMediaPreview();
       loadDrafts();
@@ -729,7 +1005,16 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
           title: p.content.length > 40 ? `${p.content.slice(0, 40)}…` : p.content,
           start: p.scheduled_for,
           classNames: [`cal-status-${p.status}`],
-          extendedProps: { status: p.status, content: p.content, platform: p.platform },
+          // Only a still-scheduled post can be dragged to a new time; once it's posted (or
+          // failed/canceled) its calendar slot is history, not a plan.
+          editable: p.status === 'scheduled',
+          extendedProps: {
+            status: p.status,
+            content: p.content,
+            platform: p.platform,
+            postedAt: p.posted_at,
+            accountName: p.account_display_name,
+          },
         }));
       successCallback(events);
     } catch (err) {
@@ -741,12 +1026,14 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
   eventContent: (arg) => {
     const meta = PLATFORM_META[arg.event.extendedProps.platform] || { label: '?', color: '#666666' };
     const isFailed = arg.event.extendedProps.status === 'failed';
+    const isPosted = arg.event.extendedProps.status === 'posted';
     const wrapper = document.createElement('div');
     wrapper.className = 'cal-event-content';
     wrapper.innerHTML = `
       <span class="cal-platform-badge" style="background:${meta.color}" title="${escapeHtml(arg.event.extendedProps.platform || '')}">${platformBadgeInner(arg.event.extendedProps.platform)}</span>
       ${arg.timeText ? `<span class="fc-event-time">${escapeHtml(arg.timeText)}</span>` : ''}
       <span class="cal-event-title">${escapeHtml(arg.event.title)}</span>
+      ${isPosted ? '<span class="cal-posted-mark" title="Posted" aria-label="Posted">✓</span>' : ''}
       ${isFailed ? '<button type="button" class="cal-retry-btn" title="Retry this post">↻</button>' : ''}
     `;
     if (isFailed) {
@@ -824,6 +1111,25 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
       try {
         const post = await apiJson(`/api/v1/posts/${info.event.id}`);
         openEditDialog(post);
+      } catch (err) {
+        showToast(err.message);
+      }
+      return;
+    }
+
+    if (status === 'posted') {
+      const { postedAt, accountName } = info.event.extendedProps;
+      const when = new Date(postedAt || info.event.start).toLocaleString();
+      const ok = await confirmDialog(
+        `Posted to ${accountName || 'this channel'} on ${when}.\n\n${content}\n\nPublished posts can't be edited. ` +
+          'Removing it here only clears it from Postfalcon — it stays live on the platform.',
+        { confirmText: 'Remove from Postfalcon', cancelText: 'Close' }
+      );
+      if (!ok) return;
+      try {
+        await apiJson(`/api/v1/posts/${info.event.id}`, { method: 'DELETE' });
+        info.event.remove();
+        loadDashboardStats();
       } catch (err) {
         showToast(err.message);
       }

@@ -51,8 +51,9 @@ async function scheduleNextOccurrence(post) {
 
   const { rows } = await pool.query(
     `INSERT INTO posts
-       (user_id, social_account_id, content, status, scheduled_for, repeat_interval, repeat_until, repeat_parent_id, crosspost_group_id)
-     VALUES ($1, $2, $3, 'scheduled', $4, $5, $6, $7, $8)
+       (user_id, social_account_id, content, status, scheduled_for, repeat_interval, repeat_until, repeat_parent_id,
+        crosspost_group_id, platform_options)
+     VALUES ($1, $2, $3, 'scheduled', $4, $5, $6, $7, $8, $9)
      RETURNING id`,
     [
       post.user_id,
@@ -63,6 +64,7 @@ async function scheduleNextOccurrence(post) {
       post.repeat_until,
       post.repeat_parent_id || post.id,
       post.crosspost_group_id,
+      post.platform_options ?? {},
     ]
   );
   await cloneMedia(post.id, rows[0].id);

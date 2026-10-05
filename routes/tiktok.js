@@ -6,6 +6,7 @@ import { sanitizeUrl } from '../lib/url.js';
 import { logProductEvent } from '../lib/activityLog.js';
 import { logger } from '../lib/logger.js';
 import { atAccountLimit } from '../middleware/planLimit.js';
+import { getCreatorInfo } from '../lib/platforms/tiktok.js';
 
 const router = Router();
 const API = 'https://open.tiktokapis.com';
@@ -110,6 +111,41 @@ router.get(
     }
 
     res.redirect('/accounts');
+  })
+);
+
+// Backs the composer's TikTok panel: who the user is posting as, which privacy levels
+// they may pick, and which interactions their account has disabled. Queried fresh each
+// time the panel opens, since TikTok's guidelines require reflecting current settings.
+router.get(
+  '/accounts/:id/creator-info',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid id' });
+    const { rows } = await pool.query(
+      `SELECT id, access_token, refresh_token, token_expires_at FROM social_accounts
+       WHERE id = $1 AND user_id = $2 AND platform = 'tiktok'`,
+      [id, req.user.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'not found' });
+
+    let info;
+    try {
+      info = await getCreatorInfo(rows[0]);
+    } catch (err) {
+      req.log.warn({ err, socialAccountId: id }, 'tiktok creator_info query failed');
+      return res.status(502).json({ error: err.message });
+    }
+    res.json({
+      nickname: info.creator_nickname ?? null,
+      username: info.creator_username ?? null,
+      avatar_url: sanitizeUrl(info.creator_avatar_url),
+      privacy_level_options: info.privacy_level_options ?? [],
+      comment_disabled: !!info.comment_disabled,
+      duet_disabled: !!info.duet_disabled,
+      stitch_disabled: !!info.stitch_disabled,
+      max_video_post_duration_sec: info.max_video_post_duration_sec ?? null,
+    });
   })
 );
 

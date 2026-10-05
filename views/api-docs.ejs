@@ -60,8 +60,8 @@
             <tr><td><code>DELETE /api/v1/social-accounts/:id</code></td><td>Disconnect an account</td></tr>
             <tr><td><code>GET /api/v1/posts</code></td><td>List posts &mdash; filter with <code>?status=</code> and <code>?social_account_id=</code></td></tr>
             <tr><td><code>GET /api/v1/posts/:id</code></td><td>Get a single post</td></tr>
-            <tr><td><code>POST /api/v1/posts</code></td><td>Create a draft or scheduled post (<code>social_account_id</code> <em>or</em> <code>social_account_ids</code>, <code>content</code>, optional <code>scheduled_for</code>, <code>repeat_interval</code>, <code>repeat_until</code>)</td></tr>
-            <tr><td><code>PATCH /api/v1/posts/:id</code></td><td>Update a post's content, status, schedule, or repeat settings</td></tr>
+            <tr><td><code>POST /api/v1/posts</code></td><td>Create a draft or scheduled post (<code>social_account_id</code> <em>or</em> <code>social_account_ids</code>, <code>content</code>, optional <code>scheduled_for</code>, <code>repeat_interval</code>, <code>repeat_until</code>, <code>tiktok_options</code>)</td></tr>
+            <tr><td><code>PATCH /api/v1/posts/:id</code></td><td>Update a post's content, status, schedule, repeat settings, or <code>tiktok_options</code></td></tr>
             <tr><td><code>DELETE /api/v1/posts/:id</code></td><td>Delete a post</td></tr>
             <tr><td><code>GET /api/v1/analytics/summary</code></td><td>Engagement totals, a 7-day views chart, and your top post this week</td></tr>
             <tr><td><code>GET /api/v1/webhooks</code></td><td>List your webhook endpoints <span class="hint">(Team &amp; Pro plans)</span></td></tr>
@@ -91,6 +91,22 @@
         to a scheduled post to make it recurring. Optionally set <code>repeat_until</code> (ISO 8601) to
         stop after a date; otherwise it runs for up to a year. When an occurrence publishes, Postfalcon queues
         the next one automatically with its own copy of any attached media.
+      </p>
+    </section>
+
+    <section class="api-docs-section">
+      <h2>TikTok settings</h2>
+      <p>
+        TikTok requires the person posting to choose each video's audience and interaction settings. Pass
+        <code>tiktok_options</code> (an object, or a JSON string in a multipart request) with
+        <code>privacy_level</code> (<code>PUBLIC_TO_EVERYONE</code>, <code>MUTUAL_FOLLOW_FRIENDS</code>,
+        <code>FOLLOWER_OF_CREATOR</code>, or <code>SELF_ONLY</code>), and the booleans
+        <code>allow_comment</code>, <code>allow_duet</code>, <code>allow_stitch</code>,
+        <code>brand_organic</code> (promoting yourself), and <code>brand_content</code> (a paid partnership,
+        which can't be <code>SELF_ONLY</code>). Every boolean defaults to <code>false</code>. It only applies
+        to the TikTok channels of a cross-post. A TikTok post without a <code>privacy_level</code> publishes
+        as <code>SELF_ONLY</code> with interactions off; a level TikTok no longer offers for the account fails
+        the post rather than being swapped for another.
       </p>
     </section>
 

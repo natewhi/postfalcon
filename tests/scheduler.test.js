@@ -707,6 +707,114 @@ describe('scheduler', () => {
     await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
   });
 
+  describe('TikTok post settings', () => {
+    function stubTikTok(creatorInfo, captured) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url, options) => {
+          const u = String(url);
+          if (u === 'https://open.tiktokapis.com/v2/post/publish/creator_info/query/') {
+            return jsonResponse({ error: { code: 'ok' }, data: creatorInfo });
+          }
+          if (u === 'https://open.tiktokapis.com/v2/post/publish/video/init/') {
+            captured.init = JSON.parse(options.body);
+            return jsonResponse({ error: { code: 'ok' }, data: { publish_id: 'pub-2', upload_url: 'https://up.tiktok/abc' } });
+          }
+          if (u === 'https://up.tiktok/abc') return jsonResponse({});
+          if (u === 'https://open.tiktokapis.com/v2/post/publish/status/fetch/') {
+            return jsonResponse({ error: { code: 'ok' }, data: { status: 'PUBLISH_COMPLETE' } });
+          }
+          throw new Error(`unexpected fetch: ${u}`);
+        })
+      );
+    }
+
+    async function createTikTokVideoPost(email, platformOptions) {
+      const userId = await createUser(email);
+      const accountId = await createVideoAccount(userId, 'tiktok');
+      const filename = `test-${crypto.randomUUID()}.mp4`;
+      await fs.writeFile(path.join(uploadDir, filename), 'fake-video-bytes');
+      const postId = await createScheduledPost(userId, accountId, 'tiktok clip');
+      await createPostMedia(postId, { url: `${process.env.BASE_URL}/uploads/${filename}`, mediaType: 'video' });
+      if (platformOptions) {
+        await pool.query('UPDATE posts SET platform_options = $2 WHERE id = $1', [postId, platformOptions]);
+      }
+      return { postId, filename };
+    }
+
+    const openCreator = {
+      privacy_level_options: ['PUBLIC_TO_EVERYONE', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY'],
+      comment_disabled: false,
+      duet_disabled: true,
+      stitch_disabled: false,
+    };
+
+    it("sends the user's chosen privacy, interactions and disclosure", async () => {
+      const { postId, filename } = await createTikTokVideoPost('tk-opts@example.com', {
+        tiktok: {
+          privacy_level: 'FOLLOWER_OF_CREATOR',
+          allow_comment: true,
+          allow_duet: true,
+          allow_stitch: false,
+          brand_organic: true,
+          brand_content: false,
+        },
+      });
+      const captured = {};
+      stubTikTok(openCreator, captured);
+
+      await processDuePosts();
+
+      const { rows } = await pool.query('SELECT status FROM posts WHERE id = $1', [postId]);
+      expect(rows[0].status).toBe('posted');
+      expect(captured.init.post_info).toEqual({
+        title: 'tiktok clip',
+        privacy_level: 'FOLLOWER_OF_CREATOR',
+        disable_comment: false,
+        // The creator disabled duets account-wide, which wins over the post's choice.
+        disable_duet: true,
+        disable_stitch: true,
+        brand_organic_toggle: true,
+        brand_content_toggle: false,
+      });
+      await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
+    });
+
+    it('publishes privately with interactions off when no settings were chosen', async () => {
+      const { filename } = await createTikTokVideoPost('tk-noopts@example.com', null);
+      const captured = {};
+      stubTikTok(openCreator, captured);
+
+      await processDuePosts();
+
+      expect(captured.init.post_info).toMatchObject({
+        privacy_level: 'SELF_ONLY',
+        disable_comment: true,
+        disable_duet: true,
+        disable_stitch: true,
+        brand_organic_toggle: false,
+        brand_content_toggle: false,
+      });
+      await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
+    });
+
+    it('fails rather than silently changing a privacy level TikTok no longer offers', async () => {
+      const { postId, filename } = await createTikTokVideoPost('tk-gone@example.com', {
+        tiktok: { privacy_level: 'PUBLIC_TO_EVERYONE' },
+      });
+      const captured = {};
+      stubTikTok({ ...openCreator, privacy_level_options: ['SELF_ONLY'] }, captured);
+
+      await processDuePosts();
+
+      const { rows } = await pool.query('SELECT status, error_message FROM posts WHERE id = $1', [postId]);
+      expect(rows[0].status).toBe('failed');
+      expect(rows[0].error_message).toMatch(/no longer offers/);
+      expect(captured.init).toBeUndefined();
+      await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
+    });
+  });
+
   it('publishes a due Bluesky post with an image', async () => {
     const userId = await createUser('bs-sched@example.com');
     const account = await pool.query(

@@ -28,6 +28,36 @@ const accountIds = z
   ])
   .optional();
 
+const TIKTOK_PRIVACY_LEVELS = ['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY'];
+
+// TikTok's Content Sharing Guidelines make these the user's explicit choice per post (see
+// lib/platforms/tiktok.js resolvePostInfo). Arrives as a JSON string in multipart creates,
+// or as an object in JSON bodies.
+const tiktokOptions = z
+  .preprocess(
+    (v) => {
+      if (typeof v !== 'string') return v;
+      try {
+        return JSON.parse(v);
+      } catch {
+        return v;
+      }
+    },
+    z
+      .object({
+        privacy_level: z.enum(TIKTOK_PRIVACY_LEVELS).optional(),
+        allow_comment: z.boolean().default(false),
+        allow_duet: z.boolean().default(false),
+        allow_stitch: z.boolean().default(false),
+        brand_organic: z.boolean().default(false),
+        brand_content: z.boolean().default(false),
+      })
+      .refine((o) => !(o.brand_content && o.privacy_level === 'SELF_ONLY'), {
+        message: 'branded content cannot be private',
+      })
+  )
+  .optional();
+
 const createPostSchema = z
   .object({
     social_account_id: z.coerce.number().int().positive().optional(),
@@ -37,6 +67,7 @@ const createPostSchema = z
     repeat_interval: z.enum(REPEAT_INTERVALS).optional(),
     repeat_until: z.string().datetime().optional().refine(futureDateRefinement, futureDateMessage),
     alt_texts: z.string().optional(),
+    tiktok_options: tiktokOptions,
   })
   .refine((d) => d.social_account_id || (d.social_account_ids && d.social_account_ids.length), {
     message: 'social_account_id or social_account_ids is required',
@@ -52,6 +83,7 @@ const updatePostSchema = z
     status: z.enum(STATUSES).optional(),
     repeat_interval: z.enum(REPEAT_INTERVALS).nullable().optional(),
     repeat_until: z.string().datetime().nullable().optional().refine(futureDateRefinement, futureDateMessage),
+    tiktok_options: tiktokOptions,
   })
   .refine((data) => Object.keys(data).length > 0, { message: 'no fields to update' });
 
@@ -139,8 +171,16 @@ router.post(
   validate(createPostSchema),
   enforceScheduledPostLimit,
   asyncHandler(async (req, res) => {
-    const { social_account_id, social_account_ids, content, scheduled_for, repeat_interval, repeat_until, alt_texts } =
-      req.body;
+    const {
+      social_account_id,
+      social_account_ids,
+      content,
+      scheduled_for,
+      repeat_interval,
+      repeat_until,
+      alt_texts,
+      tiktok_options,
+    } = req.body;
 
     const requestedIds = [...new Set(social_account_ids ?? [social_account_id])];
     if (requestedIds.length > 1 && !planHasCapability(req.user.plan, 'crossPosting')) {
@@ -148,10 +188,11 @@ router.post(
     }
 
     const owned = await pool.query(
-      'SELECT id FROM social_accounts WHERE id = ANY($1) AND user_id = $2',
+      'SELECT id, platform FROM social_accounts WHERE id = ANY($1) AND user_id = $2',
       [requestedIds, req.user.id]
     );
     const targetIds = owned.rows.map((r) => r.id);
+    const platformById = new Map(owned.rows.map((r) => [r.id, r.platform]));
     if (targetIds.length === 0) {
       return res.status(400).json({ error: 'invalid social_account_id' });
     }
@@ -184,12 +225,25 @@ router.post(
     const created = [];
     for (let n = 0; n < targetIds.length; n++) {
       const accId = targetIds[n];
+      // Only the TikTok channel(s) of a cross-post carry the TikTok settings.
+      const platformOptions = tiktok_options && platformById.get(accId) === 'tiktok' ? { tiktok: tiktok_options } : {};
       const { rows } = await pool.query(
         `INSERT INTO posts
-           (user_id, social_account_id, content, status, scheduled_for, repeat_interval, repeat_until, crosspost_group_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           (user_id, social_account_id, content, status, scheduled_for, repeat_interval, repeat_until, crosspost_group_id,
+            platform_options)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
-        [req.user.id, accId, content, status, scheduled_for ?? null, repeat_interval ?? null, repeat_until ?? null, groupId]
+        [
+          req.user.id,
+          accId,
+          content,
+          status,
+          scheduled_for ?? null,
+          repeat_interval ?? null,
+          repeat_until ?? null,
+          groupId,
+          platformOptions,
+        ]
       );
       const post = rows[0];
       for (const m of baseMedia) {
@@ -227,7 +281,7 @@ router.patch(
   asyncHandler(async (req, res) => {
     const id = parseId(req, res);
     if (id === null) return;
-    const { content, scheduled_for, status, repeat_interval, repeat_until } = req.body;
+    const { content, scheduled_for, status, repeat_interval, repeat_until, tiktok_options } = req.body;
     if (repeat_interval && !planHasCapability(req.user.plan, 'repeatedPosts')) {
       return res.status(402).json({ error: 'plan_capability', message: 'Recurring posts are not available on your plan.' });
     }
@@ -239,6 +293,10 @@ router.patch(
     if (status !== undefined) { fields.push(`status = $${i++}`); values.push(status); }
     if (repeat_interval !== undefined) { fields.push(`repeat_interval = $${i++}`); values.push(repeat_interval); }
     if (repeat_until !== undefined) { fields.push(`repeat_until = $${i++}`); values.push(repeat_until); }
+    if (tiktok_options !== undefined) {
+      fields.push(`platform_options = platform_options || $${i++}::jsonb`);
+      values.push({ tiktok: tiktok_options });
+    }
     values.push(id, req.user.id);
 
     const result = await pool.query(

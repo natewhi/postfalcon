@@ -4027,6 +4027,14 @@ body.dark-canvas .auth-card {
   cursor: pointer;
 }
 
+.cal-posted-mark {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .cal-retry-btn:hover {
   background: rgba(255, 255, 255, 0.6);
 }
@@ -4168,6 +4176,137 @@ dialog#post-dialog label .label-optional {
 .composer-label {
   font-weight: 600;
   font-size: 0.85rem;
+}
+
+/* TikTok panel in the composer — the controls TikTok's Content Sharing Guidelines require
+   before a post (see the TikTok section of public/dashboard.js). */
+.tiktok-panel[hidden],
+.tiktok-disclose-options[hidden] {
+  display: none;
+}
+
+.tiktok-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.tiktok-creator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.tiktok-creator strong {
+  color: var(--color-text);
+}
+
+.tiktok-creator-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+#tiktok-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+#tiktok-controls[hidden] {
+  display: none;
+}
+
+dialog#post-dialog .tiktok-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.tiktok-field select {
+  max-width: 260px;
+  font-size: 0.85rem;
+}
+
+dialog#post-dialog .tiktok-interactions {
+  border: none;
+  padding: 0;
+  flex-direction: row;
+  flex-wrap: wrap;
+  column-gap: var(--space-4);
+}
+
+.tiktok-interactions legend {
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+
+.tiktok-interactions .hint {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+dialog#post-dialog .tiktok-interactions label,
+dialog#post-dialog .tiktok-toggle,
+dialog#post-dialog .tiktok-disclose-options label {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-weight: 400;
+}
+
+dialog#post-dialog .tiktok-toggle {
+  font-weight: 600;
+}
+
+.tiktok-interactions input:disabled + *,
+.tiktok-interactions label:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tiktok-field .hint {
+  margin: 0;
+}
+
+.tiktok-disclose-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--color-border);
+  font-size: 0.85rem;
+}
+
+.tiktok-disclose-label {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.tiktok-disclose-label.is-warning,
+#tiktok-duration-warning.is-warning {
+  color: var(--color-danger);
+}
+
+.tiktok-consent {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+/* Save stays clickable (withLoading owns the disabled state) but looks unavailable while
+   the TikTok panel is incomplete; the submit handler explains what's missing. */
+dialog#post-dialog button[type='submit'].is-blocked {
+  opacity: 0.55;
 }
 
 .account-picker {

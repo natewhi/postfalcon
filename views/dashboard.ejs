@@ -94,6 +94,54 @@
       </label>
     </div>
 
+    <div class="composer-field tiktok-panel" id="tiktok-panel" hidden>
+      <div class="tiktok-panel-header">
+        <span class="composer-label">TikTok settings</span>
+        <span class="tiktok-creator" id="tiktok-creator"></span>
+      </div>
+      <p class="hint" id="tiktok-status" hidden></p>
+
+      <div id="tiktok-controls">
+        <label class="tiktok-field">
+          <span>Who can view this video</span>
+          <select id="tiktok-privacy">
+            <option value="">Select privacy level</option>
+          </select>
+        </label>
+
+        <fieldset class="tiktok-field tiktok-interactions">
+          <legend>Allow users to</legend>
+          <label><input type="checkbox" id="tiktok-allow-comment"> Comment</label>
+          <label><input type="checkbox" id="tiktok-allow-duet"> Duet</label>
+          <label><input type="checkbox" id="tiktok-allow-stitch"> Stitch</label>
+          <p class="hint" id="tiktok-interactions-note" hidden>Greyed-out options are turned off in your TikTok app settings.</p>
+        </fieldset>
+
+        <div class="tiktok-field">
+          <label class="tiktok-toggle">
+            <input type="checkbox" id="tiktok-disclose">
+            <span>Disclose video content</span>
+          </label>
+          <p class="hint">Turn on to disclose that this video promotes goods or services in exchange for something of value. Your video could promote yourself, a third party, or both.</p>
+          <div id="tiktok-disclose-options" class="tiktok-disclose-options" hidden>
+            <label>
+              <input type="checkbox" id="tiktok-brand-organic">
+              <span><strong>Your brand</strong><br>You are promoting yourself or your own business. This video will be classified as Brand Organic.</span>
+            </label>
+            <label>
+              <input type="checkbox" id="tiktok-brand-content">
+              <span><strong>Branded content</strong><br>You are promoting another brand or a third party. This video will be classified as Branded Content.</span>
+            </label>
+            <p class="tiktok-disclose-label" id="tiktok-disclose-label"></p>
+          </div>
+        </div>
+
+        <p class="hint" id="tiktok-duration-warning" hidden></p>
+        <p class="tiktok-consent" id="tiktok-consent"></p>
+        <p class="hint">After publishing, it can take a few minutes for TikTok to process the video before it appears on your profile.</p>
+      </div>
+    </div>
+
     <div class="composer-field">
       <span class="composer-label">When</span>
       <div class="schedule-toggle">

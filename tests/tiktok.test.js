@@ -86,3 +86,78 @@ describe('tiktok oauth', () => {
     });
   });
 });
+
+describe('tiktok creator info', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  async function loginWithTikTok() {
+    const client = request.agent(app);
+    const email = `tkci${Date.now()}${Math.random()}@example.com`;
+    await client.post('/api/users').send({ email, password: 'password123' });
+    await client.post('/api/auth/login').send({ email, password: 'password123' });
+    const { rows } = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, refresh_token, token_expires_at)
+       SELECT id, 'tiktok', '@creator', 'open-ci', 'at-ci', 'rt-ci', now() + interval '1 hour' FROM users WHERE email = $1
+       RETURNING id`,
+      [email]
+    );
+    return { client, accountId: rows[0].id };
+  }
+
+  it('returns the creator identity, privacy options and interaction settings', async () => {
+    const { client, accountId } = await loginWithTikTok();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, options) => {
+        expect(String(url)).toBe('https://open.tiktokapis.com/v2/post/publish/creator_info/query/');
+        expect(options.headers.Authorization).toBe('Bearer at-ci');
+        return jsonResponse({
+          error: { code: 'ok' },
+          data: {
+            creator_nickname: 'Creator',
+            creator_username: 'creator1',
+            creator_avatar_url: 'https://p16.tiktokcdn.com/a.jpg',
+            privacy_level_options: ['PUBLIC_TO_EVERYONE', 'SELF_ONLY'],
+            comment_disabled: false,
+            duet_disabled: true,
+            stitch_disabled: false,
+            max_video_post_duration_sec: 600,
+          },
+        });
+      })
+    );
+
+    const res = await client.get(`/api/tiktok/accounts/${accountId}/creator-info`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      nickname: 'Creator',
+      username: 'creator1',
+      avatar_url: 'https://p16.tiktokcdn.com/a.jpg',
+      privacy_level_options: ['PUBLIC_TO_EVERYONE', 'SELF_ONLY'],
+      comment_disabled: false,
+      duet_disabled: true,
+      stitch_disabled: false,
+      max_video_post_duration_sec: 600,
+    });
+  });
+
+  it("404s for another user's TikTok account", async () => {
+    const { accountId } = await loginWithTikTok();
+    const other = await loginNewUser();
+    const res = await other.get(`/api/tiktok/accounts/${accountId}/creator-info`);
+    expect(res.status).toBe(404);
+  });
+
+  it("502s with TikTok's message when the creator can't post", async () => {
+    const { client, accountId } = await loginWithTikTok();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse({ error: { code: 'spam_risk_too_many_posts', message: 'too many posts today' } }, 200)
+      )
+    );
+    const res = await client.get(`/api/tiktok/accounts/${accountId}/creator-info`);
+    expect(res.status).toBe(502);
+    expect(res.body.error).toMatch(/too many posts today/);
+  });
+});
