@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script src="/theme-init.js"></script>
+<script src="/theme-init.js?v=<%= assetVersion %>"></script>
 <meta name="color-scheme" content="light dark">
 <title>Sign up - Postfalcon</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/style.css?v=<%= assetVersion %>">
 </head>
 <body class="dark-canvas">
 <%- include('partials/site-header') %>
@@ -27,8 +27,8 @@
     <span>Already have an account? <a href="/login">Log in</a></span>
   </div>
 </main>
-<script src="/csrf.js"></script>
-<script src="/signup.js"></script>
+<script src="/csrf.js?v=<%= assetVersion %>"></script>
+<script src="/signup.js?v=<%= assetVersion %>"></script>
 <%- include('partials/analytics') %>
 </body>
 </html>

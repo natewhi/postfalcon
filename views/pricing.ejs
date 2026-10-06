@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script src="/theme-init.js"></script>
+<script src="/theme-init.js?v=<%= assetVersion %>"></script>
 <meta name="color-scheme" content="light dark">
 <title>Pricing - Postfalcon</title>
 <meta name="description" content="Postfalcon pricing — Standard, Team and Pro plans for scheduling across every platform. 7-day free trial on every plan.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/style.css?v=<%= assetVersion %>">
 </head>
 <body>
 <div class="landing pricing-page dark-canvas">
@@ -70,8 +70,8 @@
   </footer>
 </div>
 
-<script src="/csrf.js"></script>
-<script src="/pricing.js"></script>
+<script src="/csrf.js?v=<%= assetVersion %>"></script>
+<script src="/pricing.js?v=<%= assetVersion %>"></script>
 <%- include('partials/analytics') %>
 </body>
 </html>

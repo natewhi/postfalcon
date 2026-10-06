@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script src="/theme-init.js"></script>
+<script src="/theme-init.js?v=<%= assetVersion %>"></script>
 <meta name="color-scheme" content="light dark">
 <title>Postfalcon</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/style.css?v=<%= assetVersion %>">
 </head>
 <body>
 <div class="app-shell">
@@ -94,8 +94,8 @@
       </label>
     </div>
 
-    <div class="composer-field tiktok-panel" id="tiktok-panel" hidden>
-      <div class="tiktok-panel-header">
+    <div class="composer-field platform-panel tiktok-panel" id="tiktok-panel" hidden>
+      <div class="platform-panel-header">
         <span class="composer-label">TikTok settings</span>
         <span class="tiktok-creator" id="tiktok-creator"></span>
       </div>
@@ -137,13 +137,15 @@
         </div>
 
         <p class="hint" id="tiktok-duration-warning" hidden></p>
-        <p class="tiktok-consent" id="tiktok-consent"></p>
+        <p class="platform-consent" id="tiktok-consent"></p>
         <p class="hint">After publishing, it can take a few minutes for TikTok to process the video before it appears on your profile.</p>
       </div>
     </div>
 
-    <div class="composer-field youtube-panel" id="youtube-panel" hidden>
-      <span class="composer-label">YouTube settings</span>
+    <div class="composer-field platform-panel youtube-panel" id="youtube-panel" hidden>
+      <div class="platform-panel-header">
+        <span class="composer-label">YouTube settings</span>
+      </div>
 
       <label class="platform-field">
         <span>Title</span>
@@ -162,13 +164,15 @@
 
       <fieldset class="platform-field youtube-audience">
         <legend>Is this video made for kids?</legend>
-        <label><input type="radio" name="youtube-kids" value="no"> No, it's not made for kids</label>
-        <label><input type="radio" name="youtube-kids" value="yes"> Yes, it's made for kids</label>
-        <p class="hint">YouTube requires this for every video, to comply with the Children's Online Privacy Protection Act (COPPA).</p>
+        <div class="youtube-audience-options">
+          <label class="choice-card"><input type="radio" name="youtube-kids" value="no"> <span>No, it's not made for kids</span></label>
+          <label class="choice-card"><input type="radio" name="youtube-kids" value="yes"> <span>Yes, it's made for kids</span></label>
+        </div>
+        <p class="hint">Required by YouTube for every video (Children's Online Privacy Protection Act).</p>
       </fieldset>
 
       <p class="hint">The post text becomes the video description.</p>
-      <p class="youtube-consent">By uploading, you agree to the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube Terms of Service</a>.</p>
+      <p class="platform-consent">By uploading, you agree to the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube Terms of Service</a>.</p>
     </div>
 
     <div class="composer-field">
@@ -203,9 +207,9 @@
   </form>
 </dialog>
 
-<script src="/vendor/fullcalendar/index.global.min.js"></script>
-<script src="/csrf.js"></script>
-<script src="/common.js"></script>
-<script src="/dashboard.js"></script>
+<script src="/vendor/fullcalendar/index.global.min.js?v=<%= assetVersion %>"></script>
+<script src="/csrf.js?v=<%= assetVersion %>"></script>
+<script src="/common.js?v=<%= assetVersion %>"></script>
+<script src="/dashboard.js?v=<%= assetVersion %>"></script>
 </body>
 </html>

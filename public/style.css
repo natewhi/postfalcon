@@ -4192,15 +4192,25 @@ dialog#post-dialog label .label-optional {
   font-size: 0.85rem;
 }
 
-/* TikTok panel in the composer — the controls TikTok's Content Sharing Guidelines require
-   before a post (see the TikTok section of public/dashboard.js). */
-.tiktok-panel[hidden],
-.youtube-panel[hidden],
-.tiktok-disclose-options[hidden] {
+/* Per-platform settings panels in the composer (TikTok, YouTube) — the controls each
+   platform's review requires before a post (see the TikTok / YouTube sections of
+   public/dashboard.js). Selectors are anchored on dialog#post-dialog so they win over the
+   generic `form label` / `input` rules, which stack labels vertically and pad every input. */
+.platform-panel[hidden],
+.tiktok-disclose-options[hidden],
+#tiktok-controls[hidden] {
   display: none;
 }
 
-.tiktok-panel-header {
+dialog#post-dialog .platform-panel {
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text) 3%, var(--color-surface));
+}
+
+.platform-panel-header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -4212,7 +4222,7 @@ dialog#post-dialog label .label-optional {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--color-text-muted);
 }
 
@@ -4233,64 +4243,81 @@ dialog#post-dialog label .label-optional {
   gap: var(--space-3);
 }
 
-#tiktok-controls[hidden] {
-  display: none;
-}
-
+/* A field: small label/legend above its control. */
 dialog#post-dialog .platform-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   margin: 0;
-}
-
-.platform-field select {
-  max-width: 260px;
-  font-size: 0.85rem;
-}
-
-dialog#post-dialog .tiktok-interactions {
-  border: none;
   padding: 0;
-  flex-direction: row;
-  flex-wrap: wrap;
-  column-gap: var(--space-4);
+  border: none;
+  min-width: 0;
 }
 
-.tiktok-interactions legend {
+dialog#post-dialog .platform-field > span:first-child,
+dialog#post-dialog .platform-field > legend {
+  font-size: 0.8rem;
   font-weight: 600;
-  font-size: 0.85rem;
   padding: 0;
   margin-bottom: var(--space-1);
 }
 
-.tiktok-interactions .hint {
-  flex-basis: 100%;
-  margin: 0;
-}
-
-dialog#post-dialog .youtube-audience label,
-dialog#post-dialog .tiktok-interactions label,
-dialog#post-dialog .tiktok-toggle,
-dialog#post-dialog .tiktok-disclose-options label {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: var(--space-2);
+dialog#post-dialog .platform-field input[type='text'],
+dialog#post-dialog .platform-field select {
+  width: 100%;
+  font-size: 0.85rem;
   font-weight: 400;
 }
 
-dialog#post-dialog .tiktok-toggle {
-  font-weight: 600;
+dialog#post-dialog .platform-panel .hint {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 400;
 }
 
-.tiktok-interactions input:disabled + *,
-.tiktok-interactions label:has(input:disabled) {
+/* Checkbox / radio rows: control beside its text, natural size (the generic input rule
+   would otherwise pad and border them like text boxes). */
+dialog#post-dialog .platform-panel input[type='checkbox'],
+dialog#post-dialog .platform-panel input[type='radio'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+dialog#post-dialog .platform-panel label:has(> input[type='checkbox']),
+dialog#post-dialog .platform-panel label:has(> input[type='radio']) {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+dialog#post-dialog .tiktok-interactions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  column-gap: var(--space-4);
+  row-gap: var(--space-1);
+}
+
+dialog#post-dialog .tiktok-interactions > legend,
+dialog#post-dialog .tiktok-interactions > .hint {
+  flex-basis: 100%;
+}
+
+dialog#post-dialog .platform-panel label:has(> input:disabled) {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.platform-field .hint {
-  margin: 0;
+dialog#post-dialog .platform-panel .tiktok-toggle {
+  font-weight: 600;
 }
 
 .tiktok-disclose-options {
@@ -4300,12 +4327,19 @@ dialog#post-dialog .tiktok-toggle {
   margin-top: var(--space-2);
   padding-left: var(--space-4);
   border-left: 2px solid var(--color-border);
-  font-size: 0.85rem;
+}
+
+dialog#post-dialog .tiktok-disclose-options label:has(> input[type='checkbox']) {
+  align-items: flex-start;
+}
+
+dialog#post-dialog .tiktok-disclose-options input[type='checkbox'] {
+  margin-top: 2px;
 }
 
 .tiktok-disclose-label {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
 }
 
@@ -4314,34 +4348,37 @@ dialog#post-dialog .tiktok-toggle {
   color: var(--color-danger);
 }
 
-dialog#post-dialog .youtube-audience {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  border: none;
-  padding: 0;
+/* "Made for kids?" — two side-by-side option cards rather than bare radio buttons. */
+.youtube-audience-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-2);
+}
+
+dialog#post-dialog .platform-panel .choice-card {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  transition: border-color 0.15s ease;
+}
+
+dialog#post-dialog .platform-panel .choice-card:hover {
+  border-color: var(--color-text-muted);
+}
+
+dialog#post-dialog .platform-panel .choice-card:has(> input:checked) {
+  border-color: var(--color-primary);
+}
+
+.platform-consent {
   margin: 0;
-}
-
-.youtube-audience legend {
-  font-weight: 600;
-  font-size: 0.85rem;
-  padding: 0;
-  margin-bottom: var(--space-1);
-}
-
-.platform-field input[type='text'] {
-  font-size: 0.85rem;
-}
-
-.tiktok-consent,
-.youtube-consent {
-  margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 
 /* Save stays clickable (withLoading owns the disabled state) but looks unavailable while
-   the TikTok panel is incomplete; the submit handler explains what's missing. */
+   a platform panel is incomplete; the submit handler explains what's missing. */
 dialog#post-dialog button[type='submit'].is-blocked {
   opacity: 0.55;
 }
