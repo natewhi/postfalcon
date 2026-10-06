@@ -4546,22 +4546,59 @@ dialog#post-dialog button[type='submit'].is-blocked {
   border-color: var(--color-primary);
 }
 
-#scheduled-for-input {
+/* Schedule picker (see the Schedule picker section of public/dashboard.js). */
+.schedule-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   margin-top: var(--space-2);
+}
+
+.schedule-picker[hidden],
+.schedule-summary[hidden] {
+  display: none;
+}
+
+.schedule-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+dialog#post-dialog .schedule-quick-btn {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-input-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.8rem;
+  transition: border-color 0.15s ease;
+}
+
+dialog#post-dialog .schedule-quick-btn:hover {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+}
+
+.schedule-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+}
+
+.schedule-inputs input,
+.schedule-inputs select {
   width: 100%;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-#scheduled-for-input:hover:not(:disabled) {
-  border-color: var(--color-primary);
+.schedule-summary {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
 }
 
-#scheduled-for-input:focus-visible {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+.schedule-summary.is-warning {
+  color: var(--color-danger);
 }
 
 .repeat-fields {
@@ -4584,22 +4621,20 @@ dialog#post-dialog button[type='submit'].is-blocked {
   font-size: 0.85rem;
 }
 
-#scheduled-for-input:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-#scheduled-for-input::-webkit-calendar-picker-indicator {
+#schedule-date::-webkit-calendar-picker-indicator,
+#repeat-until-input::-webkit-calendar-picker-indicator {
   cursor: pointer;
   border-radius: var(--radius-sm);
   padding: 3px;
 }
 
-#scheduled-for-input::-webkit-calendar-picker-indicator:hover {
+#schedule-date::-webkit-calendar-picker-indicator:hover,
+#repeat-until-input::-webkit-calendar-picker-indicator:hover {
   background: var(--hover-tint);
 }
 
-[data-theme="dark"] #scheduled-for-input::-webkit-calendar-picker-indicator {
+[data-theme="dark"] #schedule-date::-webkit-calendar-picker-indicator,
+[data-theme="dark"] #repeat-until-input::-webkit-calendar-picker-indicator {
   filter: invert(1);
 }
 

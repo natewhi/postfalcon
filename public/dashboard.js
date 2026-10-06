@@ -1,8 +1,3 @@
-function toLocalInputValue(date) {
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
 const PLATFORM_DISPLAY_OVERRIDES = { tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn' };
 function platformDisplayName(platform) {
   if (!platform) return 'Unknown';
@@ -619,19 +614,133 @@ const repeatUntilInput = document.getElementById('repeat-until-input');
 const repeatUntilField = document.getElementById('repeat-until-field');
 const repeatFields = document.getElementById('repeat-fields');
 
+// --- Schedule picker ----------------------------------------------------------------------
+// A date field, a time dropdown in 5-minute steps, and quick picks, in place of a native
+// datetime-local, whose popup differs per browser and (in Chrome/Edge) shows only a Cancel
+// button, which reads as if the choice can't be confirmed. The chosen moment is mirrored
+// into the hidden #scheduled-for-input as a local "YYYY-MM-DDTHH:MM" string, which is what
+// the submit handler reads.
+
+const schedulePicker = document.getElementById('schedule-picker');
+const scheduleDateInput = document.getElementById('schedule-date');
+const scheduleTimeSelect = document.getElementById('schedule-time');
+const scheduleSummary = document.getElementById('schedule-summary');
+const SCHEDULE_STEP_MINUTES = 5;
+const QUICK_PICK_HOUR = 9;
+
+const pad2 = (n) => String(n).padStart(2, '0');
+const toDateValue = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const toTimeValue = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+function timeLabel(value) {
+  const [h, m] = value.split(':').map(Number);
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+// The 5-minute grid, plus `extra` (an existing post's off-grid time) so editing never
+// silently moves it.
+function renderTimeOptions(extra) {
+  const values = [];
+  for (let min = 0; min < 24 * 60; min += SCHEDULE_STEP_MINUTES) {
+    values.push(`${pad2(Math.floor(min / 60))}:${pad2(min % 60)}`);
+  }
+  if (extra && !values.includes(extra)) {
+    values.push(extra);
+    values.sort();
+  }
+  scheduleTimeSelect.innerHTML =
+    '<option value="">Select time</option>' +
+    values.map((v) => `<option value="${v}">${escapeHtml(timeLabel(v))}</option>`).join('');
+}
+
+function relativeTime(date) {
+  const minutes = Math.round((date.getTime() - Date.now()) / 60000);
+  const rtf = new Intl.RelativeTimeFormat([], { numeric: 'auto' });
+  if (Math.abs(minutes) < 60) return rtf.format(minutes, 'minute');
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 48) return rtf.format(hours, 'hour');
+  return rtf.format(Math.round(hours / 24), 'day');
+}
+
+// Mirrors the visible controls into the hidden value, greys out today's already-past
+// times, and spells out the chosen moment so it's unambiguous.
+function syncScheduledFor() {
+  const date = scheduleDateInput.value;
+  const time = scheduleTimeSelect.value;
+  scheduledForInput.value = date && time ? `${date}T${time}` : '';
+
+  const today = toDateValue(new Date());
+  const nowTime = toTimeValue(new Date());
+  for (const opt of scheduleTimeSelect.options) {
+    opt.disabled = Boolean(opt.value) && date === today && opt.value <= nowTime;
+  }
+
+  if (!scheduledForInput.value) {
+    scheduleSummary.hidden = true;
+    return;
+  }
+  const when = new Date(scheduledForInput.value);
+  const past = when.getTime() <= Date.now();
+  scheduleSummary.hidden = false;
+  scheduleSummary.classList.toggle('is-warning', past);
+  scheduleSummary.textContent = past
+    ? 'That time has already passed. Pick a later one.'
+    : `Publishes ${when.toLocaleString([], {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+      })} (${relativeTime(when)}).`;
+}
+
+function setScheduledFor(date) {
+  const time = date ? toTimeValue(date) : '';
+  renderTimeOptions(time);
+  scheduleDateInput.value = date ? toDateValue(date) : '';
+  scheduleTimeSelect.value = time;
+  syncScheduledFor();
+}
+
+function quickPickDate(kind) {
+  const d = new Date();
+  if (kind === 'hour') {
+    d.setMinutes(d.getMinutes() + 60, 0, 0);
+    d.setMinutes(Math.ceil(d.getMinutes() / SCHEDULE_STEP_MINUTES) * SCHEDULE_STEP_MINUTES);
+    return d;
+  }
+  if (kind === 'tomorrow') {
+    d.setDate(d.getDate() + 1);
+  } else if (kind === 'monday') {
+    d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7));
+  }
+  d.setHours(QUICK_PICK_HOUR, 0, 0, 0);
+  return d;
+}
+
+const morningLabel = timeLabel(`${pad2(QUICK_PICK_HOUR)}:00`);
+document.querySelector('.schedule-quick-btn[data-quick="tomorrow"]').textContent = `Tomorrow, ${morningLabel}`;
+document.querySelector('.schedule-quick-btn[data-quick="monday"]').textContent = `Next Monday, ${morningLabel}`;
+document.querySelectorAll('.schedule-quick-btn').forEach((btn) => {
+  btn.addEventListener('click', () => setScheduledFor(quickPickDate(btn.dataset.quick)));
+});
+scheduleDateInput.addEventListener('change', syncScheduledFor);
+scheduleTimeSelect.addEventListener('change', syncScheduledFor);
+renderTimeOptions(null);
+
 function refreshScheduleMin() {
-  scheduledForInput.min = toLocalInputValue(new Date());
-  repeatUntilInput.min = toLocalInputValue(new Date());
+  scheduleDateInput.min = toDateValue(new Date());
+  repeatUntilInput.min = toDateValue(new Date());
 }
 
 function setScheduleMode(isSchedule) {
-  scheduledForInput.disabled = !isSchedule;
-  scheduledForInput.required = isSchedule;
+  schedulePicker.hidden = !isSchedule;
   repeatFields.hidden = !isSchedule;
   if (isSchedule) {
     refreshScheduleMin();
+    syncScheduledFor();
   } else {
-    scheduledForInput.value = '';
+    setScheduledFor(null);
     repeatSelect.value = '';
     repeatUntilInput.value = '';
     repeatUntilField.hidden = true;
@@ -788,7 +897,7 @@ function openPostDialog(prefillDate) {
     b.classList.toggle('active', b.dataset.mode === scheduleMode);
   });
   setScheduleMode(scheduleMode === 'schedule');
-  scheduledForInput.value = prefillDate ? toLocalInputValue(prefillDate) : '';
+  setScheduledFor(prefillDate || null);
   repeatSelect.value = '';
   repeatUntilInput.value = '';
   repeatUntilField.hidden = true;
@@ -843,10 +952,10 @@ function openEditDialog(post) {
     b.classList.toggle('active', b.dataset.mode === scheduleMode);
   });
   setScheduleMode(scheduleMode === 'schedule');
-  scheduledForInput.value = post.scheduled_for ? toLocalInputValue(new Date(post.scheduled_for)) : '';
+  setScheduledFor(post.scheduled_for ? new Date(post.scheduled_for) : null);
   repeatSelect.value = post.repeat_interval || '';
   repeatUntilField.hidden = !post.repeat_interval;
-  repeatUntilInput.value = post.repeat_until ? toLocalInputValue(new Date(post.repeat_until)) : '';
+  repeatUntilInput.value = post.repeat_until ? toDateValue(new Date(post.repeat_until)) : '';
 
   updateCharCount();
   updateTikTokState();
@@ -903,7 +1012,8 @@ postDialogForm.addEventListener(
     const scheduleMode = document.querySelector('.schedule-option.active')?.dataset.mode;
     const scheduledLocal = scheduleMode === 'schedule' ? scheduledForInput.value : '';
     const repeatInterval = scheduleMode === 'schedule' ? repeatSelect.value : '';
-    const repeatUntilLocal = repeatInterval ? repeatUntilInput.value : '';
+    // "Until" is a date; repeats run through the end of that day.
+    const repeatUntilLocal = repeatInterval && repeatUntilInput.value ? `${repeatUntilInput.value}T23:59` : '';
 
     if (scheduleMode === 'schedule') {
       if (!scheduledLocal) {

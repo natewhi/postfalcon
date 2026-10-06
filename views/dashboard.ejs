@@ -181,7 +181,25 @@
         <button type="button" class="schedule-option active" data-mode="draft">Save as draft</button>
         <button type="button" class="schedule-option" data-mode="schedule">Schedule</button>
       </div>
-      <input type="datetime-local" name="scheduled_for" id="scheduled-for-input" disabled>
+      <input type="hidden" name="scheduled_for" id="scheduled-for-input">
+      <div class="schedule-picker" id="schedule-picker" hidden>
+        <div class="schedule-quick">
+          <button type="button" class="schedule-quick-btn" data-quick="hour">In 1 hour</button>
+          <button type="button" class="schedule-quick-btn" data-quick="tomorrow">Tomorrow morning</button>
+          <button type="button" class="schedule-quick-btn" data-quick="monday">Next Monday morning</button>
+        </div>
+        <div class="schedule-inputs">
+          <label class="repeat-field">
+            <span>Date</span>
+            <input type="date" id="schedule-date">
+          </label>
+          <label class="repeat-field">
+            <span>Time</span>
+            <select id="schedule-time"></select>
+          </label>
+        </div>
+        <p class="schedule-summary" id="schedule-summary" hidden></p>
+      </div>
       <div id="repeat-fields" class="repeat-fields" hidden>
         <label class="repeat-field">
           <span>Repeat</span>
@@ -193,8 +211,8 @@
           </select>
         </label>
         <label class="repeat-field" id="repeat-until-field" hidden>
-          <span>Until</span>
-          <input type="datetime-local" id="repeat-until-input">
+          <span>Until (end of day)</span>
+          <input type="date" id="repeat-until-input">
         </label>
       </div>
     </div>
