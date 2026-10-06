@@ -234,7 +234,9 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   `scripts/copy-vendor.js` / `postinstall`) instead of pulled from a CDN — don't add CDN `<script src>` tags.
 - Every page's `<head>` repeats the same boilerplate (charset, `theme-init.js`, color-scheme meta, title, favicon,
   stylesheet). There's no shared layout partial for `<head>` — if you add a new page, copy the existing head block
-  from another view rather than improvising a different structure.
+  from another view rather than improvising a different structure. Every local `/*.js`/`/*.css` link carries
+  `?v=<%= assetVersion %>` (`app.locals.assetVersion`, new on each process start) — static files are cached 7
+  days in production, so a link without it keeps serving returning visitors the pre-deploy file.
 - The public + auth pages (landing, pricing, api-docs, login, signup, forgot/reset-password, 404) share one
   header via `<%- include('partials/site-header') %>` — an always-dark bar (its own `--site-header-*` tokens,
   same call as the always-dark sidebar) with the "P" mark, "Postfalcon", and Pricing / API / Log in / Start free
