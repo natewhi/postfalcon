@@ -248,11 +248,25 @@ function platformBadgeInner(platform) {
   return escapeHtml((PLATFORM_META[platform] || { label: '?' }).label);
 }
 
+// First letter of the account name (ignoring a leading @), for the no-picture fallback.
+function accountInitial(displayName) {
+  const first = Array.from(String(displayName || '').replace(/^@+/, '').trim())[0];
+  return first ? first.toUpperCase() : '?';
+}
+
+function accountAvatarPlaceholderHtml(initial, color) {
+  return `<span class="account-avatar-placeholder" style="background:${color}" aria-hidden="true">${escapeHtml(initial)}</span>`;
+}
+
 function accountAvatarHtml(account) {
   const meta = PLATFORM_META[account.platform] || { label: '?', color: '#666666' };
+  const initial = accountInitial(account.display_name);
+  // A broken picture (expired CDN link — TikTok's are signed and expire within days — or a
+  // deleted one) is swapped for the initial-letter placeholder by the error listener below.
   const avatar = account.avatar_url
-    ? `<img class="account-avatar-img" src="${escapeHtml(account.avatar_url)}" alt="">`
-    : `<span class="account-avatar-placeholder" style="background:${meta.color}"></span>`;
+    ? `<img class="account-avatar-img" src="${escapeHtml(account.avatar_url)}" alt="" referrerpolicy="no-referrer"
+         data-initial="${escapeHtml(initial)}" data-color="${meta.color}">`
+    : accountAvatarPlaceholderHtml(initial, meta.color);
   return `
     <span class="account-avatar">
       ${avatar}
@@ -260,6 +274,18 @@ function accountAvatarHtml(account) {
     </span>
   `;
 }
+
+// Image errors don't bubble, so this listens in the capture phase. (An inline onerror=""
+// isn't an option: the CSP blocks inline handlers.)
+document.addEventListener(
+  'error',
+  (e) => {
+    const img = e.target;
+    if (!(img instanceof HTMLImageElement) || !img.classList.contains('account-avatar-img')) return;
+    img.outerHTML = accountAvatarPlaceholderHtml(img.dataset.initial || '?', img.dataset.color || '#666666');
+  },
+  true
+);
 
 async function loadSidebarAccounts() {
   const container = document.getElementById('sidebar-accounts-list');

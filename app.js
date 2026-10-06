@@ -64,7 +64,10 @@ app.use(
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         'script-src': ["'self'"],
-        'img-src': ["'self'", 'data:', 'blob:'],
+        // https: for connected accounts' profile pictures, which live on each platform's CDN
+        // (and on any Mastodon instance's own domain, so they can't be allowlisted by host).
+        // Images can't run code; the avatars are rendered with referrerpolicy="no-referrer".
+        'img-src': ["'self'", 'data:', 'blob:', 'https:'],
         'media-src': ["'self'", 'blob:'],
         ...(isProduction ? {} : { 'upgrade-insecure-requests': null }),
       },
