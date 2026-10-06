@@ -4181,6 +4181,7 @@ dialog#post-dialog label .label-optional {
 /* TikTok panel in the composer — the controls TikTok's Content Sharing Guidelines require
    before a post (see the TikTok section of public/dashboard.js). */
 .tiktok-panel[hidden],
+.youtube-panel[hidden],
 .tiktok-disclose-options[hidden] {
   display: none;
 }
@@ -4222,14 +4223,14 @@ dialog#post-dialog label .label-optional {
   display: none;
 }
 
-dialog#post-dialog .tiktok-field {
+dialog#post-dialog .platform-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   margin: 0;
 }
 
-.tiktok-field select {
+.platform-field select {
   max-width: 260px;
   font-size: 0.85rem;
 }
@@ -4254,6 +4255,7 @@ dialog#post-dialog .tiktok-interactions {
   margin: 0;
 }
 
+dialog#post-dialog .youtube-audience label,
 dialog#post-dialog .tiktok-interactions label,
 dialog#post-dialog .tiktok-toggle,
 dialog#post-dialog .tiktok-disclose-options label {
@@ -4273,7 +4275,7 @@ dialog#post-dialog .tiktok-toggle {
   cursor: not-allowed;
 }
 
-.tiktok-field .hint {
+.platform-field .hint {
   margin: 0;
 }
 
@@ -4298,7 +4300,28 @@ dialog#post-dialog .tiktok-toggle {
   color: var(--color-danger);
 }
 
-.tiktok-consent {
+dialog#post-dialog .youtube-audience {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.youtube-audience legend {
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+
+.platform-field input[type='text'] {
+  font-size: 0.85rem;
+}
+
+.tiktok-consent,
+.youtube-consent {
   margin: 0;
   font-size: 0.85rem;
 }

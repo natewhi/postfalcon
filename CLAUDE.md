@@ -57,7 +57,14 @@ lib/platforms.js     The platform registry — the ONE place a social platform i
                      :id/creator-info, and the choices travel as tiktok_options into
                      posts.platform_options.tiktok (not `metadata`: scheduler.js's join already has
                      social_accounts.metadata). With none set, the adapter posts SELF_ONLY, interactions
-                     off. Bluesky
+                     off. YouTube works the same way: a composer panel (title, visibility with no
+                     default, made-for-kids) -> youtube_options -> posts.platform_options.youtube,
+                     defaulting to private. YouTube's Developer Policies also drive two more optional
+                     adapter exports: refreshStoredData(account), run daily by scheduler.js's
+                     refreshStoredPlatformData() to refresh (or, on invalid_grant, delete) stored API
+                     data beyond refreshPostMetrics()'s 30-day window, and revoke(account), called by
+                     DELETE /api/v1/social-accounts/:id. The YouTube-specific legal text the audit
+                     checks lives in views/privacy.ejs#youtube and views/terms.ejs. Bluesky
                      has no third-party OAuth at all: the user supplies a handle + an "app password"
                      (connect:'token', like Telegram's bot token), stored as access_token, and the
                      adapter just logs in fresh (short-lived session) on every publish. An adapter can

@@ -7,7 +7,7 @@ import { uploadDir } from './middleware/upload.js';
 import { cleanupOldMedia } from './lib/mediaCleanup.js';
 import { cleanupOldActivityLogs, logProductEvent } from './lib/activityLog.js';
 import { logger } from './lib/logger.js';
-import { getAdapter } from './lib/platforms.js';
+import { getAdapter, PLATFORM_IDS } from './lib/platforms.js';
 import { deliverWebhooks } from './lib/webhooks.js';
 
 function addInterval(date, interval) {
@@ -189,6 +189,31 @@ export async function refreshPostMetrics() {
   return { checked: posts.length, refreshed };
 }
 
+// Daily: lets an adapter refresh (or, if access was revoked, delete) whatever API data it
+// keeps beyond what refreshPostMetrics() covers — for platforms whose terms require stored
+// data to stay fresh (currently only YouTube exports refreshStoredData). Same per-item
+// isolation as refreshPostMetrics: one account failing doesn't stop the rest.
+export async function refreshStoredPlatformData() {
+  const platforms = PLATFORM_IDS.filter((id) => getAdapter(id)?.refreshStoredData);
+  if (platforms.length === 0) return { checked: 0, revoked: 0 };
+  const { rows: accounts } = await pool.query(
+    `SELECT id, platform, access_token, refresh_token, token_expires_at FROM social_accounts
+     WHERE platform = ANY($1)`,
+    [platforms]
+  );
+
+  let revoked = 0;
+  for (const account of accounts) {
+    try {
+      const result = await getAdapter(account.platform).refreshStoredData(account);
+      if (result?.revoked) revoked++;
+    } catch (err) {
+      logger.error({ err, socialAccountId: account.id, platform: account.platform }, 'failed to refresh stored platform data');
+    }
+  }
+  return { checked: accounts.length, revoked };
+}
+
 export function startScheduler() {
   cron.schedule('* * * * *', () => {
     processDuePosts().catch((err) => logger.error({ err }, 'scheduler error'));
@@ -224,7 +249,17 @@ export function startScheduler() {
       .catch((err) => logger.error({ err }, 'post metrics refresh error'));
   });
 
+  cron.schedule('30 4 * * *', () => {
+    refreshStoredPlatformData()
+      .then(({ checked, revoked }) => {
+        if (checked > 0) {
+          logger.info({ checked, revoked }, 'stored platform data refresh');
+        }
+      })
+      .catch((err) => logger.error({ err }, 'stored platform data refresh error'));
+  });
+
   logger.info(
-    'Scheduler started (runs every minute); media cleanup, activity log cleanup, and post metrics refresh run on their own schedules.'
+    'Scheduler started (runs every minute); media cleanup, activity log cleanup, post metrics refresh, and stored platform data refresh run on their own schedules.'
   );
 }

@@ -179,6 +179,7 @@ function syncAccountSelection() {
   document.getElementById('account-select').value = ids[0] || '';
   updateCharCount();
   refreshTikTokPanel();
+  refreshYouTubePanel();
 }
 
 // --- TikTok panel -------------------------------------------------------------------------
@@ -359,7 +360,7 @@ function updateTikTokState() {
     : '';
   tiktokEls.durationWarning.classList.toggle('is-warning', Boolean(tooLong));
 
-  postDialogSubmitBtn?.classList.toggle('is-blocked', Boolean(tiktokPublishProblem()));
+  updateSubmitBlocked();
 }
 
 // Why a post can't be *scheduled* for TikTok yet (null if it can). Drafts aren't publishes,
@@ -405,6 +406,84 @@ function tiktokOptionsPayload() {
   tiktokEls.brandOrganic,
   tiktokEls.brandContent,
 ].forEach((el) => el.addEventListener('change', updateTikTokState));
+
+// --- YouTube panel ------------------------------------------------------------------------
+// The upload settings YouTube Studio itself asks for: a title, a visibility the user picks
+// (no default), and the made-for-kids declaration YouTube requires on every video (COPPA).
+// They travel with the post as youtube_options (posts.platform_options.youtube).
+
+const youtubeEls = {
+  panel: document.getElementById('youtube-panel'),
+  title: document.getElementById('youtube-title'),
+  privacy: document.getElementById('youtube-privacy'),
+};
+
+let youtubePrefill = null;
+
+function youtubeKidsValue() {
+  return document.querySelector('input[name="youtube-kids"]:checked')?.value || '';
+}
+
+function preparePlatformPanels(post) {
+  prepareTikTokPanel(post?.platform_options?.tiktok);
+  youtubePrefill = post?.platform_options?.youtube || null;
+  youtubeEls.panel.hidden = true;
+}
+
+function refreshYouTubePanel() {
+  const ids = selectedAccountIds();
+  const show = accountsCache.some((a) => a.platform === 'youtube' && ids.includes(String(a.id)));
+  const wasHidden = youtubeEls.panel.hidden;
+  youtubeEls.panel.hidden = !show;
+  if (show && wasHidden && youtubePrefill) {
+    youtubeEls.title.value = youtubePrefill.title || '';
+    youtubeEls.privacy.value = youtubePrefill.privacy_status || '';
+    const kids = document.querySelector(
+      `input[name="youtube-kids"][value="${youtubePrefill.made_for_kids ? 'yes' : 'no'}"]`
+    );
+    if (kids) kids.checked = true;
+    youtubePrefill = null;
+  }
+  updateSubmitBlocked();
+}
+
+// Why a post can't be *scheduled* for YouTube yet (null if it can); drafts save as-is.
+function youtubePublishProblem() {
+  if (youtubeEls.panel.hidden) return null;
+  const scheduling = document.querySelector('.schedule-option.active')?.dataset.mode === 'schedule';
+  if (!scheduling) return null;
+  const title = youtubeEls.title.value.trim();
+  if (!title) return 'Add a title for the YouTube video.';
+  if (/[<>]/.test(title)) return "YouTube titles can't contain < or >.";
+  if (!youtubeEls.privacy.value) return 'Choose who can see the video on YouTube.';
+  if (!youtubeKidsValue()) return 'Tell YouTube whether this video is made for kids.';
+  if (!editingPostId && !selectedMedia.some((m) => m.file.type.startsWith('video/'))) {
+    return 'YouTube posts need a video attached.';
+  }
+  return null;
+}
+
+function youtubeOptionsPayload() {
+  if (youtubeEls.panel.hidden) return null;
+  const title = youtubeEls.title.value.trim();
+  return {
+    ...(title ? { title } : {}),
+    ...(youtubeEls.privacy.value ? { privacy_status: youtubeEls.privacy.value } : {}),
+    made_for_kids: youtubeKidsValue() === 'yes',
+  };
+}
+
+[youtubeEls.title, youtubeEls.privacy, ...document.querySelectorAll('input[name="youtube-kids"]')].forEach((el) =>
+  el.addEventListener(el.tagName === 'INPUT' && el.type === 'text' ? 'input' : 'change', updateSubmitBlocked)
+);
+
+function platformPublishProblem() {
+  return tiktokPublishProblem() || youtubePublishProblem();
+}
+
+function updateSubmitBlocked() {
+  postDialogSubmitBtn?.classList.toggle('is-blocked', Boolean(platformPublishProblem()));
+}
 
 function showTikTokProcessingNote() {
   showToast(
@@ -695,7 +774,7 @@ function openPostDialog(prefillDate) {
 
   const form = document.getElementById('post-dialog-form');
   form.reset();
-  prepareTikTokPanel(null);
+  preparePlatformPanels(null);
 
   const defaultAccountId = activeAccountId || accountsCache[0]?.id;
   if (defaultAccountId) {
@@ -726,7 +805,7 @@ function openEditDialog(post) {
 
   const form = document.getElementById('post-dialog-form');
   form.reset();
-  prepareTikTokPanel(post.platform_options?.tiktok);
+  preparePlatformPanels(post);
 
   renderAccountPicker();
   selectAccount(post.social_account_id);
@@ -841,12 +920,13 @@ postDialogForm.addEventListener(
       }
     }
 
-    const tiktokProblem = tiktokPublishProblem();
-    if (tiktokProblem) {
-      showToast(tiktokProblem);
+    const platformProblem = platformPublishProblem();
+    if (platformProblem) {
+      showToast(platformProblem);
       return;
     }
     const tiktokOptions = tiktokOptionsPayload();
+    const youtubeOptions = youtubeOptionsPayload();
     const tiktokScheduled = Boolean(tiktokOptions) && scheduleMode === 'schedule';
 
     if (editingPostId) {
@@ -857,6 +937,7 @@ postDialogForm.addEventListener(
         repeat_interval: repeatInterval || null,
         repeat_until: repeatUntilLocal ? new Date(repeatUntilLocal).toISOString() : null,
         ...(tiktokOptions ? { tiktok_options: tiktokOptions } : {}),
+        ...(youtubeOptions ? { youtube_options: youtubeOptions } : {}),
       };
       try {
         await apiJson(`/api/v1/posts/${editingPostId}`, {
@@ -896,6 +977,9 @@ postDialogForm.addEventListener(
     }
     if (tiktokOptions) {
       body.set('tiktok_options', JSON.stringify(tiktokOptions));
+    }
+    if (youtubeOptions) {
+      body.set('youtube_options', JSON.stringify(youtubeOptions));
     }
 
     try {

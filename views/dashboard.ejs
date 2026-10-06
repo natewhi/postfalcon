@@ -102,14 +102,14 @@
       <p class="hint" id="tiktok-status" hidden></p>
 
       <div id="tiktok-controls">
-        <label class="tiktok-field">
+        <label class="platform-field">
           <span>Who can view this video</span>
           <select id="tiktok-privacy">
             <option value="">Select privacy level</option>
           </select>
         </label>
 
-        <fieldset class="tiktok-field tiktok-interactions">
+        <fieldset class="platform-field tiktok-interactions">
           <legend>Allow users to</legend>
           <label><input type="checkbox" id="tiktok-allow-comment"> Comment</label>
           <label><input type="checkbox" id="tiktok-allow-duet"> Duet</label>
@@ -117,7 +117,7 @@
           <p class="hint" id="tiktok-interactions-note" hidden>Greyed-out options are turned off in your TikTok app settings.</p>
         </fieldset>
 
-        <div class="tiktok-field">
+        <div class="platform-field">
           <label class="tiktok-toggle">
             <input type="checkbox" id="tiktok-disclose">
             <span>Disclose video content</span>
@@ -140,6 +140,35 @@
         <p class="tiktok-consent" id="tiktok-consent"></p>
         <p class="hint">After publishing, it can take a few minutes for TikTok to process the video before it appears on your profile.</p>
       </div>
+    </div>
+
+    <div class="composer-field youtube-panel" id="youtube-panel" hidden>
+      <span class="composer-label">YouTube settings</span>
+
+      <label class="platform-field">
+        <span>Title</span>
+        <input type="text" id="youtube-title" maxlength="100" placeholder="Video title (required)">
+      </label>
+
+      <label class="platform-field">
+        <span>Visibility</span>
+        <select id="youtube-privacy">
+          <option value="">Select visibility</option>
+          <option value="public">Public</option>
+          <option value="unlisted">Unlisted</option>
+          <option value="private">Private</option>
+        </select>
+      </label>
+
+      <fieldset class="platform-field youtube-audience">
+        <legend>Is this video made for kids?</legend>
+        <label><input type="radio" name="youtube-kids" value="no"> No, it's not made for kids</label>
+        <label><input type="radio" name="youtube-kids" value="yes"> Yes, it's made for kids</label>
+        <p class="hint">YouTube requires this for every video, to comply with the Children's Online Privacy Protection Act (COPPA).</p>
+      </fieldset>
+
+      <p class="hint">The post text becomes the video description.</p>
+      <p class="youtube-consent">By uploading, you agree to the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube Terms of Service</a>.</p>
     </div>
 
     <div class="composer-field">

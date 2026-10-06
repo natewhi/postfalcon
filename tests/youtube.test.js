@@ -86,3 +86,48 @@ describe('youtube oauth', () => {
     expect(rows[0].token_expires_at).toBeInstanceOf(Date);
   });
 });
+
+describe('youtube disconnect', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('revokes the Google grant when the channel is disconnected', async () => {
+    const client = request.agent(app);
+    const email = `ytrev${Date.now()}${Math.random()}@example.com`;
+    await client.post('/api/users').send({ email, password: 'password123' });
+    await client.post('/api/auth/login').send({ email, password: 'password123' });
+    const { rows } = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, refresh_token)
+       SELECT id, 'youtube', 'My Channel', 'UC-rev', 'at-rev', 'rt-rev' FROM users WHERE email = $1 RETURNING id`,
+      [email]
+    );
+
+    const fetchMock = vi.fn(async () => jsonResponse({}));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await client.delete(`/api/v1/social-accounts/${rows[0].id}`);
+    expect(res.status).toBe(204);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://oauth2.googleapis.com/revoke');
+    expect(String(options.body)).toBe('token=rt-rev');
+
+    const left = await pool.query('SELECT 1 FROM social_accounts WHERE id = $1', [rows[0].id]);
+    expect(left.rows).toHaveLength(0);
+  });
+
+  it('still disconnects locally if Google is unreachable', async () => {
+    const client = request.agent(app);
+    const email = `ytrev2${Date.now()}${Math.random()}@example.com`;
+    await client.post('/api/users').send({ email, password: 'password123' });
+    await client.post('/api/auth/login').send({ email, password: 'password123' });
+    const { rows } = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, refresh_token)
+       SELECT id, 'youtube', 'My Channel', 'UC-rev2', 'at', 'rt' FROM users WHERE email = $1 RETURNING id`,
+      [email]
+    );
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network down'); }));
+
+    const res = await client.delete(`/api/v1/social-accounts/${rows[0].id}`);
+    expect(res.status).toBe(204);
+  });
+});

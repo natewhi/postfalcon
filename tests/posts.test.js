@@ -485,3 +485,82 @@ describe('tiktok options', () => {
     expect(res.body.platform_options).toEqual({ tiktok: options });
   });
 });
+
+describe('youtube options', () => {
+  async function loginWithYouTube() {
+    const client = request.agent(app);
+    const email = `yto${Date.now()}${Math.random()}@example.com`;
+    await client.post('/api/users').send({ email, password: 'password123' });
+    await client.post('/api/auth/login').send({ email, password: 'password123' });
+    const { rows } = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       SELECT id, 'youtube', 'My Channel', 'UC-1', 'tok' FROM users WHERE email = $1 RETURNING id`,
+      [email]
+    );
+    return { client, youtubeId: rows[0].id };
+  }
+
+  it('stores youtube_options on the YouTube post only', async () => {
+    const { client, youtubeId } = await loginWithYouTube();
+    const other = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@a' });
+    const options = { title: 'My first upload', privacy_status: 'unlisted', made_for_kids: false };
+
+    const res = await client.post('/api/v1/posts').send({
+      social_account_ids: [youtubeId, other.body.id],
+      content: 'a longer description',
+      youtube_options: options,
+      tiktok_options: { privacy_level: 'SELF_ONLY' },
+    });
+    expect(res.status).toBe(201);
+    const yt = res.body.posts.find((p) => p.social_account_id === youtubeId);
+    const tw = res.body.posts.find((p) => p.social_account_id === other.body.id);
+    // No TikTok channel was targeted, so the TikTok settings are stored nowhere.
+    expect(yt.platform_options).toEqual({ youtube: options });
+    expect(tw.platform_options).toEqual({});
+  });
+
+  it('rejects an invalid title or privacy status', async () => {
+    const { client, youtubeId } = await loginWithYouTube();
+    const badTitle = await client.post('/api/v1/posts').send({
+      social_account_id: youtubeId,
+      content: 'x',
+      youtube_options: { title: '<b>nope</b>' },
+    });
+    expect(badTitle.status).toBe(400);
+
+    const longTitle = await client.post('/api/v1/posts').send({
+      social_account_id: youtubeId,
+      content: 'x',
+      youtube_options: { title: 'a'.repeat(101) },
+    });
+    expect(longTitle.status).toBe(400);
+
+    const badPrivacy = await client.post('/api/v1/posts').send({
+      social_account_id: youtubeId,
+      content: 'x',
+      youtube_options: { privacy_status: 'friends' },
+    });
+    expect(badPrivacy.status).toBe(400);
+  });
+
+  it('merges youtube_options via PATCH without dropping other platform settings', async () => {
+    const { client, youtubeId } = await loginWithYouTube();
+    const post = await client.post('/api/v1/posts').send({
+      social_account_id: youtubeId,
+      content: 'draft',
+      youtube_options: { title: 'Old title', privacy_status: 'private' },
+    });
+    await pool.query(`UPDATE posts SET platform_options = platform_options || '{"other": {"x": 1}}' WHERE id = $1`, [
+      post.body.id,
+    ]);
+
+    const res = await client
+      .patch(`/api/v1/posts/${post.body.id}`)
+      .send({ youtube_options: { title: 'New title', privacy_status: 'public', made_for_kids: true } });
+    expect(res.status).toBe(200);
+    expect(res.body.platform_options).toEqual({
+      other: { x: 1 },
+      youtube: { title: 'New title', privacy_status: 'public', made_for_kids: true },
+    });
+  });
+});

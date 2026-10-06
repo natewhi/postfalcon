@@ -28,35 +28,63 @@ const accountIds = z
   ])
   .optional();
 
-const TIKTOK_PRIVACY_LEVELS = ['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY'];
-
-// TikTok's Content Sharing Guidelines make these the user's explicit choice per post (see
-// lib/platforms/tiktok.js resolvePostInfo). Arrives as a JSON string in multipart creates,
-// or as an object in JSON bodies.
-const tiktokOptions = z
-  .preprocess(
-    (v) => {
+// Per-platform post settings arrive as a JSON string in multipart creates, or as an object
+// in JSON bodies.
+function jsonOptions(schema) {
+  return z
+    .preprocess((v) => {
       if (typeof v !== 'string') return v;
       try {
         return JSON.parse(v);
       } catch {
         return v;
       }
-    },
-    z
-      .object({
-        privacy_level: z.enum(TIKTOK_PRIVACY_LEVELS).optional(),
-        allow_comment: z.boolean().default(false),
-        allow_duet: z.boolean().default(false),
-        allow_stitch: z.boolean().default(false),
-        brand_organic: z.boolean().default(false),
-        brand_content: z.boolean().default(false),
-      })
-      .refine((o) => !(o.brand_content && o.privacy_level === 'SELF_ONLY'), {
-        message: 'branded content cannot be private',
-      })
-  )
-  .optional();
+    }, schema)
+    .optional();
+}
+
+const TIKTOK_PRIVACY_LEVELS = ['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY'];
+
+// TikTok's Content Sharing Guidelines make these the user's explicit choice per post (see
+// lib/platforms/tiktok.js resolvePostInfo).
+const tiktokOptions = jsonOptions(
+  z
+    .object({
+      privacy_level: z.enum(TIKTOK_PRIVACY_LEVELS).optional(),
+      allow_comment: z.boolean().default(false),
+      allow_duet: z.boolean().default(false),
+      allow_stitch: z.boolean().default(false),
+      brand_organic: z.boolean().default(false),
+      brand_content: z.boolean().default(false),
+    })
+    .refine((o) => !(o.brand_content && o.privacy_level === 'SELF_ONLY'), {
+      message: 'branded content cannot be private',
+    })
+);
+
+// YouTube's upload settings, chosen per post in the composer (see lib/platforms/youtube.js).
+const youtubeOptions = jsonOptions(
+  z.object({
+    title: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .refine((t) => !/[<>]/.test(t), { message: "can't contain < or >" })
+      .optional(),
+    privacy_status: z.enum(['public', 'unlisted', 'private']).optional(),
+    made_for_kids: z.boolean().default(false),
+  })
+);
+
+// Which request field carries each platform's per-post settings. A cross-post stores each
+// platform's settings only on that platform's posts.
+const PLATFORM_OPTION_FIELDS = { tiktok: 'tiktok_options', youtube: 'youtube_options' };
+
+function platformOptionsFor(platform, body) {
+  const field = PLATFORM_OPTION_FIELDS[platform];
+  return field && body[field] ? { [platform]: body[field] } : {};
+}
 
 const createPostSchema = z
   .object({
@@ -68,6 +96,7 @@ const createPostSchema = z
     repeat_until: z.string().datetime().optional().refine(futureDateRefinement, futureDateMessage),
     alt_texts: z.string().optional(),
     tiktok_options: tiktokOptions,
+    youtube_options: youtubeOptions,
   })
   .refine((d) => d.social_account_id || (d.social_account_ids && d.social_account_ids.length), {
     message: 'social_account_id or social_account_ids is required',
@@ -84,6 +113,7 @@ const updatePostSchema = z
     repeat_interval: z.enum(REPEAT_INTERVALS).nullable().optional(),
     repeat_until: z.string().datetime().nullable().optional().refine(futureDateRefinement, futureDateMessage),
     tiktok_options: tiktokOptions,
+    youtube_options: youtubeOptions,
   })
   .refine((data) => Object.keys(data).length > 0, { message: 'no fields to update' });
 
@@ -179,7 +209,6 @@ router.post(
       repeat_interval,
       repeat_until,
       alt_texts,
-      tiktok_options,
     } = req.body;
 
     const requestedIds = [...new Set(social_account_ids ?? [social_account_id])];
@@ -225,8 +254,7 @@ router.post(
     const created = [];
     for (let n = 0; n < targetIds.length; n++) {
       const accId = targetIds[n];
-      // Only the TikTok channel(s) of a cross-post carry the TikTok settings.
-      const platformOptions = tiktok_options && platformById.get(accId) === 'tiktok' ? { tiktok: tiktok_options } : {};
+      const platformOptions = platformOptionsFor(platformById.get(accId), req.body);
       const { rows } = await pool.query(
         `INSERT INTO posts
            (user_id, social_account_id, content, status, scheduled_for, repeat_interval, repeat_until, crosspost_group_id,
@@ -281,7 +309,7 @@ router.patch(
   asyncHandler(async (req, res) => {
     const id = parseId(req, res);
     if (id === null) return;
-    const { content, scheduled_for, status, repeat_interval, repeat_until, tiktok_options } = req.body;
+    const { content, scheduled_for, status, repeat_interval, repeat_until } = req.body;
     if (repeat_interval && !planHasCapability(req.user.plan, 'repeatedPosts')) {
       return res.status(402).json({ error: 'plan_capability', message: 'Recurring posts are not available on your plan.' });
     }
@@ -293,9 +321,13 @@ router.patch(
     if (status !== undefined) { fields.push(`status = $${i++}`); values.push(status); }
     if (repeat_interval !== undefined) { fields.push(`repeat_interval = $${i++}`); values.push(repeat_interval); }
     if (repeat_until !== undefined) { fields.push(`repeat_until = $${i++}`); values.push(repeat_until); }
-    if (tiktok_options !== undefined) {
+    const optionUpdates = Object.assign(
+      {},
+      ...Object.keys(PLATFORM_OPTION_FIELDS).map((platform) => platformOptionsFor(platform, req.body))
+    );
+    if (Object.keys(optionUpdates).length > 0) {
       fields.push(`platform_options = platform_options || $${i++}::jsonb`);
-      values.push({ tiktok: tiktok_options });
+      values.push(optionUpdates);
     }
     values.push(id, req.user.id);
 

@@ -7,7 +7,7 @@ import { validate } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { uploadDir } from '../middleware/upload.js';
 import { logProductEvent } from '../lib/activityLog.js';
-import { PLATFORMS, PLATFORM_IDS } from '../lib/platforms.js';
+import { PLATFORMS, PLATFORM_IDS, getAdapter } from '../lib/platforms.js';
 import { enforceAccountLimit } from '../middleware/planLimit.js';
 
 const router = Router();
@@ -83,7 +83,7 @@ router.delete(
     );
 
     const result = await pool.query(
-      'DELETE FROM social_accounts WHERE id = $1 AND user_id = $2 RETURNING id, platform',
+      'DELETE FROM social_accounts WHERE id = $1 AND user_id = $2 RETURNING id, platform, access_token, refresh_token',
       [id, req.user.id]
     );
     if (result.rows.length === 0) {
@@ -93,6 +93,15 @@ router.delete(
     await Promise.all(
       mediaRows.rows.map((row) => fs.unlink(path.join(uploadDir, path.basename(row.url))).catch(() => {}))
     );
+
+    // Platforms that support it (currently YouTube) also get the grant withdrawn on their
+    // side, not just forgotten here. Best effort: the account is already gone locally.
+    const adapter = getAdapter(result.rows[0].platform);
+    if (adapter?.revoke) {
+      await adapter
+        .revoke(result.rows[0])
+        .catch((err) => req.log.warn({ err, socialAccountId: id }, 'failed to revoke platform token'));
+    }
 
     await logProductEvent(req.user.id, 'social_account_disconnected', {
       platform: result.rows[0].platform,

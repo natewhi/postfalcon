@@ -73,6 +73,13 @@
       <div class="connect-option">
         <h3><%= p.label %></h3>
         <% if (p.hint) { %><p class="hint"><%= p.hint %></p><% } %>
+        <% if (p.id === 'youtube') { %>
+        <p class="hint">
+          Postfalcon uses YouTube API Services. By connecting, you agree to the
+          <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube Terms of Service</a>;
+          see also the <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a>.
+        </p>
+        <% } %>
         <a href="<%= p.connectPath %>" class="btn-link">Connect <%= p.label %></a>
       </div>
       <% }); %>

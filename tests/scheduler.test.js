@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pool } from '../db/pool.js';
-import { processDuePosts, refreshPostMetrics } from '../scheduler.js';
+import { processDuePosts, refreshPostMetrics, refreshStoredPlatformData } from '../scheduler.js';
 import { uploadDir } from '../middleware/upload.js';
 
 function jsonResponse(body, status = 200) {
@@ -547,7 +547,10 @@ describe('scheduler', () => {
       vi.fn(async (url, options) => {
         const u = String(url);
         if (u.startsWith('https://www.googleapis.com/upload/youtube/v3/videos')) {
-          expect(JSON.parse(options.body).snippet.title).toBe('my video');
+          const meta = JSON.parse(options.body);
+          expect(meta.snippet.title).toBe('my video');
+          // No youtube_options chosen: nothing goes public that the user didn't pick.
+          expect(meta.status).toEqual({ privacyStatus: 'private', selfDeclaredMadeForKids: false });
           return { ok: true, status: 200, headers: { get: () => 'https://upload.googleapis.com/resume/abc' } };
         }
         if (u === 'https://upload.googleapis.com/resume/abc') {
@@ -564,6 +567,41 @@ describe('scheduler', () => {
     expect(rows[0].status).toBe('posted');
     expect(rows[0].platform_post_id).toBe('yt-vid-1');
 
+    await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
+  });
+
+  it("uploads a YouTube video with the user's title, visibility and audience", async () => {
+    const userId = await createUser('yt-opts@example.com');
+    const accountId = await createVideoAccount(userId, 'youtube');
+    const filename = `test-${crypto.randomUUID()}.mp4`;
+    await fs.writeFile(path.join(uploadDir, filename), 'fake-video-bytes');
+    const postId = await createScheduledPost(userId, accountId, 'the full description');
+    await createPostMedia(postId, { url: `${process.env.BASE_URL}/uploads/${filename}`, mediaType: 'video' });
+    await pool.query('UPDATE posts SET platform_options = $2 WHERE id = $1', [
+      postId,
+      { youtube: { title: 'Chosen title', privacy_status: 'unlisted', made_for_kids: true } },
+    ]);
+
+    let meta;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, options) => {
+        const u = String(url);
+        if (u.startsWith('https://www.googleapis.com/upload/youtube/v3/videos')) {
+          meta = JSON.parse(options.body);
+          return { ok: true, status: 200, headers: { get: () => 'https://upload.googleapis.com/resume/def' } };
+        }
+        if (u === 'https://upload.googleapis.com/resume/def') return jsonResponse({ id: 'yt-vid-2' });
+        throw new Error(`unexpected fetch: ${u}`);
+      })
+    );
+
+    await processDuePosts();
+
+    expect(meta.snippet).toEqual({ title: 'Chosen title', description: 'the full description' });
+    expect(meta.status).toEqual({ privacyStatus: 'unlisted', selfDeclaredMadeForKids: true });
+    const { rows } = await pool.query('SELECT status FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('posted');
     await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
   });
 
@@ -1244,5 +1282,82 @@ describe('post metrics refresh', () => {
 
     const result = await refreshPostMetrics();
     expect(result.checked).toBe(0);
+  });
+});
+
+describe('stored platform data refresh', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  async function youtubeAccountWithPosts(email, { expired = false } = {}) {
+    const userId = await createUser(email);
+    const account = await pool.query(
+      `INSERT INTO social_accounts
+         (user_id, platform, display_name, external_account_id, access_token, refresh_token, token_expires_at, avatar_url)
+       VALUES ($1, 'youtube', 'Old Name', 'UC-x', 'valid-token', 'refresh-token', $2, 'https://yt3.ggpht.com/old.jpg')
+       RETURNING id`,
+      [userId, expired ? new Date(Date.now() - 60_000) : new Date(Date.now() + 3600_000)]
+    );
+    const accountId = account.rows[0].id;
+    const ids = [];
+    for (const [videoId, daysAgo] of [['vid-old', 90], ['vid-gone', 60]]) {
+      const { rows } = await pool.query(
+        `INSERT INTO posts (user_id, social_account_id, content, status, posted_at, platform_post_id, metric_views)
+         VALUES ($1, $2, 'p', 'posted', now() - make_interval(days => $3), $4, 5) RETURNING id`,
+        [userId, accountId, daysAgo, videoId]
+      );
+      ids.push(rows[0].id);
+    }
+    return { accountId, oldPostId: ids[0], gonePostId: ids[1] };
+  }
+
+  it('refreshes the YouTube channel and every published video, dropping deleted ones', async () => {
+    const { accountId, oldPostId, gonePostId } = await youtubeAccountWithPosts('yt-refresh@example.com');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        const u = new URL(String(url));
+        if (u.pathname === '/youtube/v3/channels') {
+          return jsonResponse({
+            items: [{ snippet: { title: 'New Name', thumbnails: { default: { url: 'https://yt3.ggpht.com/new.jpg' } } } }],
+          });
+        }
+        if (u.pathname === '/youtube/v3/videos') {
+          expect(u.searchParams.get('id').split(',').sort()).toEqual(['vid-gone', 'vid-old']);
+          return jsonResponse({ items: [{ id: 'vid-old', statistics: { viewCount: '42', likeCount: '3', commentCount: '1' } }] });
+        }
+        throw new Error(`unexpected fetch: ${u}`);
+      })
+    );
+
+    const result = await refreshStoredPlatformData();
+    expect(result).toEqual({ checked: 1, revoked: 0 });
+
+    const acct = await pool.query('SELECT display_name, avatar_url FROM social_accounts WHERE id = $1', [accountId]);
+    expect(acct.rows[0]).toEqual({ display_name: 'New Name', avatar_url: 'https://yt3.ggpht.com/new.jpg' });
+    const posts = await pool.query('SELECT id, metric_views, metric_likes FROM posts WHERE id = ANY($1)', [
+      [oldPostId, gonePostId],
+    ]);
+    const byId = Object.fromEntries(posts.rows.map((r) => [r.id, r]));
+    expect(byId[oldPostId]).toMatchObject({ metric_views: 42, metric_likes: 3 });
+    expect(byId[gonePostId]).toMatchObject({ metric_views: null, metric_likes: null });
+  });
+
+  it('deletes stored YouTube data when Google says access was revoked', async () => {
+    const { accountId, oldPostId } = await youtubeAccountWithPosts('yt-revoked@example.com', { expired: true });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        expect(String(url)).toBe('https://oauth2.googleapis.com/token');
+        return jsonResponse({ error: 'invalid_grant', error_description: 'Token has been expired or revoked.' }, 400);
+      })
+    );
+
+    const result = await refreshStoredPlatformData();
+    expect(result).toEqual({ checked: 1, revoked: 1 });
+
+    const acct = await pool.query('SELECT avatar_url FROM social_accounts WHERE id = $1', [accountId]);
+    expect(acct.rows[0].avatar_url).toBeNull();
+    const post = await pool.query('SELECT metric_views FROM posts WHERE id = $1', [oldPostId]);
+    expect(post.rows[0].metric_views).toBeNull();
   });
 });
