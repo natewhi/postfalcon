@@ -188,6 +188,22 @@ function syncAccountSelection() {
 let editingMedia = [];
 let previewAccountId = null;
 
+document.addEventListener(
+  'error',
+  (e) => {
+    const video = e.target;
+    if (!(video instanceof HTMLVideoElement) || !video.closest('#post-dialog')) return;
+    const fallback = document.createElement('div');
+    fallback.className = video.closest('.media-preview-thumb') ? 'media-thumb-fallback' : 'pv-placeholder';
+    fallback.textContent = video.closest('.media-preview-thumb')
+      ? 'Video'
+      : "This browser can't preview this video format, but it will still upload.";
+    if (video.dataset.previewSrc) fallback.dataset.previewSrc = video.dataset.previewSrc;
+    video.replaceWith(fallback);
+  },
+  true
+);
+
 function composerMediaItems() {
   return selectedMedia.length
     ? selectedMedia.map((m) => ({ url: m.previewUrl, video: m.file.type.startsWith('video/') }))
@@ -196,7 +212,7 @@ function composerMediaItems() {
 
 function previewMediaEl(item, { controls = true } = {}) {
   return item.video
-    ? `<video src="${escapeHtml(item.url)}" muted playsinline preload="metadata"${controls ? ' controls' : ''}></video>`
+    ? `<video src="${escapeHtml(item.url)}" data-preview-src="${escapeHtml(item.url)}" muted playsinline preload="metadata"${controls ? ' controls' : ''}></video>`
     : `<img src="${escapeHtml(item.url)}" alt="">`;
 }
 
@@ -327,13 +343,26 @@ function updatePostPreview() {
   const media = composerMediaItems();
   const limit = PLATFORM_CHAR_LIMITS[account.platform];
 
-  if (account.platform === 'youtube') body.innerHTML = renderYouTubePreview(account, content, media);
-  else if (account.platform === 'tiktok') body.innerHTML = renderTikTokPreview(account, content, media, limit);
+  let html;
+  if (account.platform === 'youtube') html = renderYouTubePreview(account, content, media);
+  else if (account.platform === 'tiktok') html = renderTikTokPreview(account, content, media, limit);
   else if (account.platform === 'instagram') {
-    body.innerHTML = renderMediaFirstPreview(account, content, media, limit, { needs: 'media' });
+    html = renderMediaFirstPreview(account, content, media, limit, { needs: 'media' });
   } else if (account.platform === 'pinterest') {
-    body.innerHTML = renderMediaFirstPreview(account, content, media, limit, { needs: 'image' });
-  } else body.innerHTML = renderFeedPreview(account, content, media, limit);
+    html = renderMediaFirstPreview(account, content, media, limit, { needs: 'image' });
+  } else html = renderFeedPreview(account, content, media, limit);
+
+  // The preview re-renders on every keystroke; carry the existing <video> elements (and any
+  // "can't preview" fallback that replaced one) across by source, so playback isn't reset and
+  // the video isn't reloaded each time.
+  const keep = new Map(
+    [...body.querySelectorAll('[data-preview-src]')].map((el) => [el.dataset.previewSrc, el])
+  );
+  body.innerHTML = html;
+  body.querySelectorAll('video[data-preview-src]').forEach((el) => {
+    const old = keep.get(el.dataset.previewSrc);
+    if (old) el.replaceWith(old);
+  });
 
   const over = limit ? content.length - limit : 0;
   note.hidden = over <= 0;

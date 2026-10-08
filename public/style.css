@@ -5161,6 +5161,19 @@ dialog#post-dialog button[type='submit'].is-blocked {
   border: 1px solid var(--color-border);
 }
 
+.media-thumb-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100px;
+  height: 100px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--hover-tint);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
 .media-alt-input {
   font-size: 0.7rem;
   padding: var(--space-1);
