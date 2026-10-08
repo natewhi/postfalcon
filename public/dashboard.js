@@ -1077,7 +1077,7 @@ function openPostDialog(prefillDate) {
 
   updateCharCount();
   updateTikTokState();
-  document.getElementById('post-dialog').showModal();
+  openComposer();
 }
 
 function openEditDialog(post) {
@@ -1133,7 +1133,7 @@ function openEditDialog(post) {
 
   updateCharCount();
   updateTikTokState();
-  document.getElementById('post-dialog').showModal();
+  openComposer();
 }
 
 document.getElementById('new-post-btn').addEventListener('click', () => openPostDialog(null));
@@ -1165,8 +1165,26 @@ document.getElementById('post-dialog-close').addEventListener('click', () => {
   document.getElementById('post-dialog').close();
 });
 
-document.getElementById('post-dialog').addEventListener('click', (e) => {
-  if (e.target.id === 'post-dialog') e.target.close();
+// The composer opens non-modally (show(), not showModal()) so the app sidebar stays visible
+// and usable beside it; the dialog itself is laid out over just the main area (see
+// dialog#post-dialog.composer in style.css). A non-modal dialog gets no built-in Escape
+// handling or page-scroll lock, so both are added here.
+function openComposer() {
+  const dialog = document.getElementById('post-dialog');
+  if (!dialog.open) dialog.show();
+  document.body.classList.add('composer-open');
+  dialog.querySelector('.composer-body').scrollTop = 0;
+}
+
+document.getElementById('post-dialog').addEventListener('close', () => {
+  document.body.classList.remove('composer-open');
+});
+
+document.getElementById('post-dialog').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !e.defaultPrevented) {
+    e.preventDefault();
+    document.getElementById('post-dialog').close();
+  }
 });
 
 const postDialogForm = document.getElementById('post-dialog-form');

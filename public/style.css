@@ -159,6 +159,11 @@ a {
   flex-direction: column;
   gap: var(--space-5);
   padding: var(--space-5) var(--space-4);
+  /* Stays in view while the page scrolls (and beside the open composer). */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .sidebar-brand {
@@ -4102,9 +4107,12 @@ dialog#post-dialog textarea:focus-visible {
    settings) beside a sticky side column (live preview, scheduling, actions). Each section
    is its own card. Single column on narrow screens. */
 dialog#post-dialog.composer {
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
+  /* Covers the main area only; the 220px .sidebar stays visible to the left. */
+  position: fixed;
+  inset: 0 0 0 220px;
+  z-index: 100;
+  width: auto;
+  height: auto;
   max-width: none;
   max-height: none;
   margin: 0;
@@ -4135,6 +4143,7 @@ dialog#post-dialog.composer form {
 .composer-body {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: var(--space-5);
@@ -4175,6 +4184,17 @@ dialog#post-dialog .dialog-actions {
 
 dialog#post-dialog .dialog-actions button[type='submit'] {
   flex: 1;
+}
+
+body.composer-open {
+  overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  /* The sidebar becomes a top bar on phones, so the composer takes the whole screen. */
+  dialog#post-dialog.composer {
+    inset: 0;
+  }
 }
 
 @media (max-width: 900px) {
@@ -5342,6 +5362,9 @@ a.toast {
     align-items: center;
     padding: var(--space-3) var(--space-4);
     gap: var(--space-4);
+    position: static;
+    height: auto;
+    overflow-y: visible;
   }
 
   .sidebar-nav {
