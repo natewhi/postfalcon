@@ -1,4 +1,4 @@
-const PLATFORM_DISPLAY_OVERRIDES = { tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn' };
+const PLATFORM_DISPLAY_OVERRIDES = { tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn', twitter: 'X' };
 function platformDisplayName(platform) {
   if (!platform) return 'Unknown';
   return PLATFORM_DISPLAY_OVERRIDES[platform] || platform.charAt(0).toUpperCase() + platform.slice(1);

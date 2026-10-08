@@ -6,7 +6,7 @@
   const RANGE_KEY = 'postfalcon-analytics-range';
   const METRIC_KEY = 'postfalcon-analytics-metric';
   const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  const NAME_OVERRIDES = { youtube: 'YouTube', tiktok: 'TikTok', linkedin: 'LinkedIn' };
+  const NAME_OVERRIDES = { youtube: 'YouTube', tiktok: 'TikTok', linkedin: 'LinkedIn', twitter: 'X' };
   const METRIC_TITLES = {
     views: 'Views by publish day',
     engagements: 'Engagements by publish day',
