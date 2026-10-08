@@ -131,7 +131,7 @@ routes/analytics.js  Reverse-proxies /stats/* to a self-hosted Umami instance (s
                      Unrelated to routes/postAnalytics.js below — this one is Postfalcon's own traffic/SEO
                      analytics for the site owner, not user-facing post performance.
 routes/postAnalytics.js  /api/v1/analytics/summary — aggregates the metric_* columns scheduler.js keeps
-                     refreshed into a 7-day chart, totals, and a top post. Backs views/analytics.ejs
+                     refreshed into per-day series for ?days=7|30|90 (bucketed in ?tz=, the viewer's IANA timezone), period totals, a per-platform breakdown, the period's posts, and all-time totals + a top post (null = no post in scope reports that metric). Backs views/analytics.ejs
                      (the "Analytics" sidebar page) and is also just another /api/v1 endpoint, so
                      GET /api/v1/posts carries the same raw metric_* fields on every post for scripts/
                      agents (lib/mcpServer.js's get_analytics_summary tool wraps this endpoint).
