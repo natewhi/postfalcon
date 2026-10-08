@@ -4267,6 +4267,14 @@ body.dark-canvas .auth-card {
   cursor: pointer;
 }
 
+.cal-posting-spinner {
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 10px;
+  height: 10px;
+  border-width: 1.5px;
+}
+
 .cal-posted-mark {
   flex-shrink: 0;
   margin-left: auto;

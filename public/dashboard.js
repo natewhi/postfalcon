@@ -1411,7 +1411,11 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
       return;
     }
     try {
-      const statuses = Array.from(activeCalendarStatuses).join(',');
+      // 'posting' (mid-upload) isn't a filter chip of its own: it shows with Scheduled, so a
+      // post doesn't vanish from the calendar while the scheduler is publishing it.
+      const wanted = new Set(activeCalendarStatuses);
+      if (wanted.has('scheduled')) wanted.add('posting');
+      const statuses = Array.from(wanted).join(',');
       const posts = await apiJson(`/api/v1/posts${buildPostsQuery({ status: statuses })}`);
       const events = posts
         .filter((p) => p.scheduled_for)
@@ -1442,6 +1446,7 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
     const meta = PLATFORM_META[arg.event.extendedProps.platform] || { label: '?', color: '#666666' };
     const isFailed = arg.event.extendedProps.status === 'failed';
     const isPosted = arg.event.extendedProps.status === 'posted';
+    const isPosting = arg.event.extendedProps.status === 'posting';
     const wrapper = document.createElement('div');
     wrapper.className = 'cal-event-content';
     wrapper.innerHTML = `
@@ -1449,6 +1454,7 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
       ${arg.timeText ? `<span class="fc-event-time">${escapeHtml(arg.timeText)}</span>` : ''}
       <span class="cal-event-title">${escapeHtml(arg.event.title)}</span>
       ${isPosted ? '<span class="cal-posted-mark" title="Posted" aria-label="Posted">✓</span>' : ''}
+      ${isPosting ? '<span class="spinner cal-posting-spinner" title="Publishing now" aria-label="Publishing now"></span>' : ''}
       ${isFailed ? '<button type="button" class="cal-retry-btn" title="Retry this post">↻</button>' : ''}
     `;
     if (isFailed) {
@@ -1522,6 +1528,11 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
   eventClick: async (info) => {
     const { status, content } = info.event.extendedProps;
 
+    if (status === 'posting') {
+      showToast('This post is being published right now.', 'warning');
+      return;
+    }
+
     if (status === 'scheduled') {
       try {
         const post = await apiJson(`/api/v1/posts/${info.event.id}`);
@@ -1581,3 +1592,66 @@ loadAccountOptions();
 loadDrafts();
 loadFailedBanner();
 loadDashboardStats();
+
+// --- Live publishing updates ----------------------------------------------------------------
+// The scheduler publishes server-side, so without this the dashboard only reflected a post
+// going out after a manual refresh. This polls the scheduled/publishing posts — every 15s
+// while one is due within the next couple of minutes or is mid-upload, otherwise every
+// minute, and not at all while the tab is hidden. When a post leaves that set (published or
+// failed), it refreshes the calendar, stats and failed banner and says what happened.
+const LIVE_FAST_MS = 15000;
+const LIVE_SLOW_MS = 60000;
+const LIVE_DUE_WINDOW_MS = 2 * 60 * 1000;
+let liveActive = new Map(); // post id -> status ('scheduled' due soon, or 'posting')
+let liveTimer = null;
+
+function accountNameFor(post) {
+  return accountsCache.find((a) => a.id === post.social_account_id)?.display_name || 'your channel';
+}
+
+async function checkPublishing() {
+  clearTimeout(liveTimer);
+  if (document.hidden) return;
+  try {
+    const pending = await apiJson('/api/v1/posts?status=scheduled,posting');
+    const now = Date.now();
+    const active = new Map(
+      pending
+        .filter((p) => p.status === 'posting' || new Date(p.scheduled_for).getTime() - now <= LIVE_DUE_WINDOW_MS)
+        .map((p) => [p.id, p.status])
+    );
+
+    const finished = [...liveActive.keys()].filter((id) => !active.has(id));
+    const startedPosting = [...active].some(([id, status]) => status === 'posting' && liveActive.get(id) !== 'posting');
+
+    for (const id of finished) {
+      try {
+        const post = await apiJson(`/api/v1/posts/${id}`);
+        if (post.status === 'posted') {
+          showToast(`Published to ${accountNameFor(post)}.`, 'success');
+        } else if (post.status === 'failed') {
+          showToast(`Couldn't publish to ${accountNameFor(post)}: ${post.error_message || 'unknown error'}`, 'error');
+        }
+      } catch {
+        // deleted meanwhile — nothing to report
+      }
+    }
+    if (finished.length > 0 || startedPosting) {
+      calendar.refetchEvents();
+      loadDashboardStats();
+      loadFailedBanner();
+    }
+    liveActive = active;
+  } catch {
+    // transient network error — try again next tick
+  }
+  liveTimer = setTimeout(checkPublishing, liveActive.size > 0 ? LIVE_FAST_MS : LIVE_SLOW_MS);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) checkPublishing();
+});
+// A post just scheduled for the next couple of minutes should switch to fast polling now,
+// not after the next slow tick.
+document.getElementById('post-dialog').addEventListener('close', () => setTimeout(checkPublishing, 1500));
+checkPublishing();
