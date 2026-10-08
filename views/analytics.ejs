@@ -17,43 +17,103 @@
 
     <div class="page-header">
       <h1>Analytics</h1>
+      <div class="an-segmented" id="an-range" role="group" aria-label="Time period">
+        <button type="button" data-days="7">7 days</button>
+        <button type="button" data-days="30">30 days</button>
+        <button type="button" data-days="90">90 days</button>
+      </div>
     </div>
 
     <div id="analytics-loading" class="loading"><span class="spinner"></span> Loading analytics&hellip;</div>
 
-    <div id="analytics-content" hidden>
-      <section class="analytics-stats">
-        <div class="analytics-stat">
-          <span class="analytics-stat-value" id="stat-views">0</span>
-          <span class="analytics-stat-label">Views</span>
+    <div id="analytics-content" class="an-page" hidden>
+      <p id="analytics-empty" class="an-empty" hidden></p>
+
+      <div class="an-tiles">
+        <div class="an-tile">
+          <span class="an-tile-label">Posts published</span>
+          <span class="an-tile-value" id="an-published">0</span>
+          <span class="an-tile-sub" id="an-published-sub"></span>
         </div>
-        <div class="analytics-stat">
-          <span class="analytics-stat-value" id="stat-likes">0</span>
-          <span class="analytics-stat-label">Likes</span>
+        <div class="an-tile">
+          <span class="an-tile-label">Views</span>
+          <span class="an-tile-value" id="an-views">&mdash;</span>
         </div>
-        <div class="analytics-stat">
-          <span class="analytics-stat-value" id="stat-comments">0</span>
-          <span class="analytics-stat-label">Comments</span>
+        <div class="an-tile">
+          <span class="an-tile-label">Likes</span>
+          <span class="an-tile-value" id="an-likes">&mdash;</span>
         </div>
-        <div class="analytics-stat">
-          <span class="analytics-stat-value" id="stat-shares">0</span>
-          <span class="analytics-stat-label">Shares</span>
+        <div class="an-tile">
+          <span class="an-tile-label">Comments</span>
+          <span class="an-tile-value" id="an-comments">&mdash;</span>
+        </div>
+        <div class="an-tile">
+          <span class="an-tile-label">Shares</span>
+          <span class="an-tile-value" id="an-shares">&mdash;</span>
+        </div>
+        <div class="an-tile">
+          <span class="an-tile-label">Engagement rate</span>
+          <span class="an-tile-value" id="an-rate">&mdash;</span>
+          <span class="an-tile-sub">likes + comments + shares &divide; views</span>
+        </div>
+      </div>
+
+      <section class="an-card">
+        <div class="an-card-head">
+          <div>
+            <h2 class="an-card-title" id="an-chart-title">Views by publish day</h2>
+            <p class="an-card-sub">Posts are grouped by the day they were published.</p>
+          </div>
+          <div class="an-segmented" id="an-metric" role="group" aria-label="Chart metric">
+            <button type="button" data-metric="views">Views</button>
+            <button type="button" data-metric="engagements">Engagements</button>
+            <button type="button" data-metric="published">Posts</button>
+          </div>
+        </div>
+        <div class="an-chart" id="an-chart"></div>
+      </section>
+
+      <section class="an-card">
+        <div class="an-card-head">
+          <h2 class="an-card-title">By platform</h2>
+        </div>
+        <div class="an-table-wrap">
+          <table class="an-table">
+            <thead>
+              <tr>
+                <th>Platform</th><th>Posts</th><th>Views</th><th>Likes</th><th>Comments</th><th>Shares</th><th>Eng. rate</th>
+              </tr>
+            </thead>
+            <tbody id="an-platforms"></tbody>
+          </table>
         </div>
       </section>
 
-      <section class="analytics-chart-section">
-        <h2>Views, last 7 days</h2>
-        <div class="analytics-chart" id="analytics-chart"></div>
+      <section class="an-card">
+        <div class="an-card-head">
+          <div>
+            <h2 class="an-card-title">Posts</h2>
+            <p class="an-card-sub">Published in this period, most viewed first.</p>
+          </div>
+        </div>
+        <div class="an-table-wrap">
+          <table class="an-table an-posts-table">
+            <thead>
+              <tr>
+                <th>Post</th><th>Published</th><th>Views</th><th>Likes</th><th>Comments</th><th>Shares</th>
+              </tr>
+            </thead>
+            <tbody id="an-posts"></tbody>
+          </table>
+        </div>
       </section>
 
-      <div id="analytics-top-post" class="analytics-insight" hidden></div>
-
-      <p id="analytics-empty" class="hint" hidden></p>
-
-      <p class="hint analytics-coverage">
-        Metrics are pulled from each connected account's API a few times a day. Bluesky, Facebook,
-        Instagram, Mastodon, Threads, and YouTube report likes and comments (YouTube and Threads
-        also report views). Telegram and TikTok don&rsquo;t expose post metrics through their APIs yet.
+      <p class="hint an-footnote">
+        <span id="an-updated"></span>
+        Metrics are pulled from each connected account's API every few hours. A dash means the
+        platform doesn&rsquo;t report that number: Bluesky, Facebook, Instagram and Mastodon report
+        likes and comments; YouTube and Threads also report views; Telegram and TikTok don&rsquo;t
+        expose post metrics through their APIs yet.
       </p>
     </div>
   </main>

@@ -63,7 +63,7 @@
             <tr><td><code>POST /api/v1/posts</code></td><td>Create a draft or scheduled post (<code>social_account_id</code> <em>or</em> <code>social_account_ids</code>, <code>content</code>, optional <code>scheduled_for</code>, <code>repeat_interval</code>, <code>repeat_until</code>, <code>tiktok_options</code>, <code>youtube_options</code>)</td></tr>
             <tr><td><code>PATCH /api/v1/posts/:id</code></td><td>Update a post's content, status, schedule, repeat settings, <code>tiktok_options</code>, or <code>youtube_options</code></td></tr>
             <tr><td><code>DELETE /api/v1/posts/:id</code></td><td>Delete a post</td></tr>
-            <tr><td><code>GET /api/v1/analytics/summary</code></td><td>Engagement totals, a 7-day views chart, and your top post this week</td></tr>
+            <tr><td><code>GET /api/v1/analytics/summary</code></td><td>Posts, views, likes, comments and shares for posts published in a period (<code>?days=7|30|90</code>, default 7; <code>?tz=</code> an IANA timezone for day buckets, default UTC): per-day series, per-platform breakdown, top posts, plus all-time totals. A metric is <code>null</code> when no post in scope reports it.</td></tr>
             <tr><td><code>GET /api/v1/webhooks</code></td><td>List your webhook endpoints <span class="hint">(Team &amp; Pro plans)</span></td></tr>
             <tr><td><code>POST /api/v1/webhooks</code></td><td>Register an endpoint (<code>url</code>, optional <code>events</code>) &mdash; returns the signing <code>secret</code> once</td></tr>
             <tr><td><code>DELETE /api/v1/webhooks/:id</code></td><td>Remove a webhook endpoint</td></tr>

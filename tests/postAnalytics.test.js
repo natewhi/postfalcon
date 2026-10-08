@@ -118,4 +118,55 @@ describe('post analytics API', () => {
     expect(res.body.totals.views).toBe(50);
     expect(res.body.days.every((d) => d.views === 0)).toBe(true);
   });
+
+  it('returns a day bucket per day for the requested range, defaulting to 7', async () => {
+    const { client } = await loginNewUser();
+    const thirty = await client.get('/api/v1/analytics/summary?days=30');
+    expect(thirty.body.days).toHaveLength(30);
+    expect(thirty.body.range.days).toBe(30);
+    const bogus = await client.get('/api/v1/analytics/summary?days=12');
+    expect(bogus.body.days).toHaveLength(7);
+  });
+
+  it('falls back to UTC for an unknown timezone, and accepts a real one', async () => {
+    const { client } = await loginNewUser();
+    const bad = await client.get('/api/v1/analytics/summary?tz=Not/AZone');
+    expect(bad.status).toBe(200);
+    expect(bad.body.range.timeZone).toBe('UTC');
+    const good = await client.get('/api/v1/analytics/summary?tz=Australia/Sydney');
+    expect(good.body.range.timeZone).toBe('Australia/Sydney');
+    expect(good.body.days).toHaveLength(7);
+  });
+
+  it('summarises the period, per platform, with null for metrics no post reports', async () => {
+    const { client, userId } = await loginNewUser();
+    const yt = await createAccount(userId, 'youtube');
+    const tk = await createAccount(userId, 'tiktok');
+    await createPostedPost(userId, yt, { content: 'yt', metrics: { views: 200, likes: 10, comments: 5, shares: 5 } });
+    await createPostedPost(userId, tk, { content: 'tk' });
+    await pool.query(
+      `INSERT INTO posts (user_id, social_account_id, content, status) VALUES ($1, $2, 'oops', 'failed'), ($1, $2, 'later', 'scheduled')`,
+      [userId, tk]
+    );
+
+    const res = await client.get('/api/v1/analytics/summary');
+    expect(res.body.period).toMatchObject({
+      published: 2,
+      failed: 1,
+      scheduled: 1,
+      views: 200,
+      likes: 10,
+      comments: 5,
+      shares: 5,
+    });
+    expect(res.body.period.engagementRate).toBeCloseTo(0.1);
+
+    const byPlatform = Object.fromEntries(res.body.platforms.map((p) => [p.platform, p]));
+    expect(byPlatform.youtube).toMatchObject({ posts: 1, views: 200, likes: 10 });
+    expect(byPlatform.tiktok).toMatchObject({ posts: 1, views: null, likes: null });
+
+    expect(res.body.posts.map((p) => p.content)).toEqual(['yt', 'tk']);
+    expect(res.body.days[res.body.days.length - 1].published).toBe(2);
+    expect(res.body.metricsUpdatedAt).toBeTruthy();
+  });
 });
