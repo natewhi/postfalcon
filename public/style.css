@@ -974,19 +974,6 @@ button:disabled {
   display: none;
 }
 
-.account-picker.locked .account-chip.selected {
-  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2);
-  font-size: 0.9rem;
-  border-width: 2px;
-}
-
-.account-picker.locked .account-chip.selected .account-avatar,
-.account-picker.locked .account-chip.selected .account-avatar-img,
-.account-picker.locked .account-chip.selected .account-avatar-placeholder {
-  width: 30px;
-  height: 30px;
-}
-
 /* Auth pages (login/signup/forgot/reset/404) center this card on the dark grid canvas —
    see body.dark-canvas below. */
 body.dark-canvas {
@@ -4111,9 +4098,208 @@ dialog#post-dialog textarea:focus-visible {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
-dialog#post-dialog .composer-field {
-  padding-bottom: var(--space-4);
+/* Full-page composer: a top bar, then a main column (channels, caption, media, platform
+   settings) beside a sticky side column (live preview, scheduling, actions). Each section
+   is its own card. Single column on narrow screens. */
+dialog#post-dialog.composer {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+dialog#post-dialog.composer form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: 100%;
+}
+
+.composer-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.composer-body {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: var(--space-5);
+  align-items: start;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-5);
+}
+
+.composer-main,
+.composer-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.composer-side {
+  position: sticky;
+  top: 0;
+}
+
+dialog#post-dialog .composer-field {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+dialog#post-dialog textarea {
+  min-height: 10rem;
+}
+
+dialog#post-dialog .dialog-actions {
+  margin-top: 0;
+}
+
+dialog#post-dialog .dialog-actions button[type='submit'] {
+  flex: 1;
+}
+
+@media (max-width: 900px) {
+  .composer-body {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-4);
+  }
+
+  .composer-side {
+    position: static;
+  }
+}
+
+/* Channel picker: avatar tiles in a row, like a contact strip. */
+dialog#post-dialog .account-picker {
+  gap: var(--space-2);
+}
+
+dialog#post-dialog .account-chip {
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 78px;
+  padding: var(--space-2) var(--space-1);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-size: 0.72rem;
+}
+
+dialog#post-dialog .account-chip:hover {
+  background: var(--hover-tint);
+}
+
+dialog#post-dialog .account-chip.selected {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+dialog#post-dialog .account-chip .account-avatar,
+dialog#post-dialog .account-chip .account-avatar-img,
+dialog#post-dialog .account-chip .account-avatar-placeholder {
+  width: 46px;
+  height: 46px;
+}
+
+dialog#post-dialog .account-chip .account-avatar-placeholder {
+  font-size: 18px;
+}
+
+dialog#post-dialog .account-chip.selected .account-avatar-img,
+dialog#post-dialog .account-chip.selected .account-avatar-placeholder {
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-primary);
+}
+
+dialog#post-dialog .account-chip .account-badge {
+  width: 18px;
+  height: 18px;
+  border-color: var(--color-surface);
+}
+
+dialog#post-dialog .account-chip .account-badge .platform-glyph {
+  width: 11px;
+  height: 11px;
+}
+
+.account-chip-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Live preview card. */
+.post-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.post-preview-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+}
+
+.post-preview-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.post-preview-more,
+.post-preview-placeholder {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.post-preview-text {
+  margin: 0;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.post-preview-text.is-empty {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.post-preview-media[hidden] {
+  display: none;
+}
+
+.post-preview-media img,
+.post-preview-media video {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  background: #000;
 }
 
 .label-optional,
@@ -4136,14 +4322,6 @@ dialog#post-dialog label .label-optional {
 
 .token-input-row button {
   flex-shrink: 0;
-}
-
-.dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--color-border);
 }
 
 .dialog-close {

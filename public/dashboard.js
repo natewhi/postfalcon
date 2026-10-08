@@ -152,9 +152,10 @@ function renderAccountPicker() {
   picker.innerHTML = accountsCache
     .map(
       (a) => `
-    <button type="button" class="account-chip" data-account-id="${a.id}">
+    <button type="button" class="account-chip" data-account-id="${a.id}"
+      title="${escapeHtml(a.display_name)} (${escapeHtml(platformDisplayName(a.platform))})">
       ${accountAvatarHtml(a)}
-      <span>${escapeHtml(a.display_name)}</span>
+      <span class="account-chip-name">${escapeHtml(a.display_name)}</span>
     </button>
   `
     )
@@ -175,6 +176,43 @@ function syncAccountSelection() {
   updateCharCount();
   refreshTikTokPanel();
   refreshYouTubePanel();
+  updatePostPreview();
+}
+
+// --- Live preview (composer side column) ---------------------------------------------------
+// A rough "how it'll look" card: the first selected channel, the caption, and the first
+// attached image/video. Media comes from the files picked in this session, or, when
+// editing, from the post's existing media (which can't be changed).
+let editingMedia = [];
+
+function updatePostPreview() {
+  const head = document.getElementById('post-preview-head');
+  const text = document.getElementById('post-preview-text');
+  const mediaBox = document.getElementById('post-preview-media');
+
+  const ids = selectedAccountIds();
+  const accounts = accountsCache.filter((a) => ids.includes(String(a.id)));
+  head.innerHTML = accounts.length
+    ? `${accountAvatarHtml(accounts[0])}
+       <span class="post-preview-name">${escapeHtml(accounts[0].display_name)}</span>
+       ${accounts.length > 1 ? `<span class="post-preview-more">+${accounts.length - 1} more</span>` : ''}`
+    : '<span class="post-preview-placeholder">Pick a channel above</span>';
+
+  const content = document.getElementById('post-content').value.trim();
+  text.textContent = content || 'Your caption will appear here.';
+  text.classList.toggle('is-empty', !content);
+
+  const first = selectedMedia[0]
+    ? { url: selectedMedia[0].previewUrl, video: selectedMedia[0].file.type.startsWith('video/') }
+    : editingMedia[0]
+      ? { url: editingMedia[0].url, video: editingMedia[0].media_type === 'video' }
+      : null;
+  mediaBox.hidden = !first;
+  mediaBox.innerHTML = first
+    ? first.video
+      ? `<video src="${escapeHtml(first.url)}" muted controls playsinline></video>`
+      : `<img src="${escapeHtml(first.url)}" alt="">`
+    : '';
 }
 
 // --- TikTok panel -------------------------------------------------------------------------
@@ -534,7 +572,10 @@ function updateCharCount() {
   }
 }
 
-document.getElementById('post-content').addEventListener('input', updateCharCount);
+document.getElementById('post-content').addEventListener('input', () => {
+  updateCharCount();
+  updatePostPreview();
+});
 
 const MAX_MEDIA_PER_POST = 10;
 const mediaInput = document.getElementById('media-input');
@@ -579,6 +620,7 @@ function renderMediaPreview() {
 
   mediaUploadLabel.style.display = selectedMedia.length >= MAX_MEDIA_PER_POST ? 'none' : '';
   updateTikTokState();
+  updatePostPreview();
 }
 
 function resetMediaPreview() {
@@ -890,6 +932,7 @@ function openPostDialog(prefillDate) {
     selectAccount(defaultAccountId);
   }
 
+  editingMedia = [];
   resetMediaPreview();
 
   const scheduleMode = prefillDate ? 'schedule' : 'draft';
@@ -923,6 +966,7 @@ function openEditDialog(post) {
 
   document.getElementById('post-content').value = post.content;
 
+  editingMedia = post.media || [];
   resetMediaPreview();
   mediaUploadLabel.style.display = 'none';
   if (post.media && post.media.length > 0) {

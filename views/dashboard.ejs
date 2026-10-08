@@ -64,163 +64,181 @@
   </main>
 </div>
 
-<dialog id="post-dialog">
+<dialog id="post-dialog" class="composer">
   <form id="post-dialog-form">
-    <div class="dialog-header">
+    <header class="composer-topbar">
       <h3 id="post-dialog-title">New post</h3>
       <button type="button" id="post-dialog-close" class="dialog-close" aria-label="Close">&times;</button>
-    </div>
+    </header>
 
-    <div class="composer-field">
-      <span class="composer-label">Post to</span>
-      <p id="crosspost-hint" class="hint">Pick one or more channels &mdash; posting to several cross-posts the same content.</p>
-      <div id="account-picker" class="account-picker"></div>
-      <input type="hidden" name="social_account_id" id="account-select" required>
-    </div>
+    <div class="composer-body">
+      <div class="composer-main">
+        <div class="composer-field">
+          <span class="composer-label">Post to</span>
+          <p id="crosspost-hint" class="hint">Pick one or more channels &mdash; posting to several cross-posts the same content.</p>
+          <div id="account-picker" class="account-picker"></div>
+          <input type="hidden" name="social_account_id" id="account-select" required>
+        </div>
 
-    <div class="composer-field">
-      <textarea name="content" id="post-content" placeholder="What do you want to post?" required></textarea>
-      <div class="composer-meta">
-        <span id="char-count">0 characters</span>
-      </div>
-    </div>
-
-    <div class="composer-field">
-      <p id="media-edit-hint" class="hint" hidden>Media can't be changed once a post is created.</p>
-      <div id="media-preview-grid" class="media-preview-grid"></div>
-      <label class="media-upload-btn" id="media-upload-label">
-        <input type="file" id="media-input" accept="image/*,video/*" multiple hidden>
-        <span>Add photo or video <span class="label-optional">(up to 10)</span></span>
-      </label>
-    </div>
-
-    <div class="composer-field platform-panel tiktok-panel" id="tiktok-panel" hidden>
-      <div class="platform-panel-header">
-        <span class="composer-label">TikTok settings</span>
-        <span class="tiktok-creator" id="tiktok-creator"></span>
-      </div>
-      <p class="hint" id="tiktok-status" hidden></p>
-
-      <div id="tiktok-controls">
-        <label class="platform-field">
-          <span>Who can view this video</span>
-          <select id="tiktok-privacy">
-            <option value="">Select privacy level</option>
-          </select>
-        </label>
-
-        <fieldset class="platform-field tiktok-interactions">
-          <legend>Allow users to</legend>
-          <label><input type="checkbox" id="tiktok-allow-comment"> Comment</label>
-          <label><input type="checkbox" id="tiktok-allow-duet"> Duet</label>
-          <label><input type="checkbox" id="tiktok-allow-stitch"> Stitch</label>
-          <p class="hint" id="tiktok-interactions-note" hidden>Greyed-out options are turned off in your TikTok app settings.</p>
-        </fieldset>
-
-        <div class="platform-field">
-          <label class="tiktok-toggle">
-            <input type="checkbox" id="tiktok-disclose">
-            <span>Disclose video content</span>
-          </label>
-          <p class="hint">Turn on to disclose that this video promotes goods or services in exchange for something of value. Your video could promote yourself, a third party, or both.</p>
-          <div id="tiktok-disclose-options" class="tiktok-disclose-options" hidden>
-            <label>
-              <input type="checkbox" id="tiktok-brand-organic">
-              <span><strong>Your brand</strong><br>You are promoting yourself or your own business. This video will be classified as Brand Organic.</span>
-            </label>
-            <label>
-              <input type="checkbox" id="tiktok-brand-content">
-              <span><strong>Branded content</strong><br>You are promoting another brand or a third party. This video will be classified as Branded Content.</span>
-            </label>
-            <p class="tiktok-disclose-label" id="tiktok-disclose-label"></p>
+        <div class="composer-field">
+          <span class="composer-label">Caption</span>
+          <textarea name="content" id="post-content" placeholder="What do you want to post?" required></textarea>
+          <div class="composer-meta">
+            <span id="char-count">0 characters</span>
           </div>
         </div>
 
-        <p class="hint" id="tiktok-duration-warning" hidden></p>
-        <p class="platform-consent" id="tiktok-consent"></p>
-        <p class="hint">After publishing, it can take a few minutes for TikTok to process the video before it appears on your profile.</p>
-      </div>
-    </div>
-
-    <div class="composer-field platform-panel youtube-panel" id="youtube-panel" hidden>
-      <div class="platform-panel-header">
-        <span class="composer-label">YouTube settings</span>
-      </div>
-
-      <label class="platform-field">
-        <span>Title</span>
-        <input type="text" id="youtube-title" maxlength="100" placeholder="Video title (required)">
-      </label>
-
-      <label class="platform-field">
-        <span>Visibility</span>
-        <select id="youtube-privacy">
-          <option value="">Select visibility</option>
-          <option value="public">Public</option>
-          <option value="unlisted">Unlisted</option>
-          <option value="private">Private</option>
-        </select>
-      </label>
-
-      <fieldset class="platform-field youtube-audience">
-        <legend>Is this video made for kids?</legend>
-        <div class="youtube-audience-options">
-          <label class="choice-card"><input type="radio" name="youtube-kids" value="no"> <span>No, it's not made for kids</span></label>
-          <label class="choice-card"><input type="radio" name="youtube-kids" value="yes"> <span>Yes, it's made for kids</span></label>
-        </div>
-        <p class="hint">Required by YouTube for every video (Children's Online Privacy Protection Act).</p>
-      </fieldset>
-
-      <p class="hint">The post text becomes the video description.</p>
-      <p class="platform-consent">By uploading, you agree to the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube Terms of Service</a>.</p>
-    </div>
-
-    <div class="composer-field">
-      <span class="composer-label">When</span>
-      <div class="schedule-toggle">
-        <button type="button" class="schedule-option active" data-mode="draft">Save as draft</button>
-        <button type="button" class="schedule-option" data-mode="schedule">Schedule</button>
-      </div>
-      <input type="hidden" name="scheduled_for" id="scheduled-for-input">
-      <div class="schedule-picker" id="schedule-picker" hidden>
-        <div class="schedule-quick">
-          <button type="button" class="schedule-quick-btn" data-quick="hour">In 1 hour</button>
-          <button type="button" class="schedule-quick-btn" data-quick="tomorrow">Tomorrow morning</button>
-          <button type="button" class="schedule-quick-btn" data-quick="monday">Next Monday morning</button>
-        </div>
-        <div class="schedule-inputs">
-          <label class="repeat-field">
-            <span>Date</span>
-            <input type="date" id="schedule-date">
-          </label>
-          <label class="repeat-field">
-            <span>Time</span>
-            <select id="schedule-time"></select>
+        <div class="composer-field">
+          <span class="composer-label">Media</span>
+          <p id="media-edit-hint" class="hint" hidden>Media can't be changed once a post is created.</p>
+          <div id="media-preview-grid" class="media-preview-grid"></div>
+          <label class="media-upload-btn" id="media-upload-label">
+            <input type="file" id="media-input" accept="image/*,video/*" multiple hidden>
+            <span>Add photo or video <span class="label-optional">(up to 10)</span></span>
           </label>
         </div>
-        <p class="schedule-summary" id="schedule-summary" hidden></p>
-      </div>
-      <div id="repeat-fields" class="repeat-fields" hidden>
-        <label class="repeat-field">
-          <span>Repeat</span>
-          <select id="repeat-select">
-            <option value="">Don't repeat</option>
-            <option value="daily">Every day</option>
-            <option value="weekly">Every week</option>
-            <option value="monthly">Every month</option>
-          </select>
-        </label>
-        <label class="repeat-field" id="repeat-until-field" hidden>
-          <span>Until (end of day)</span>
-          <input type="date" id="repeat-until-input">
-        </label>
-      </div>
-    </div>
 
-    <div class="dialog-actions">
-      <button type="button" id="post-dialog-delete" class="delete-btn" hidden>Delete</button>
-      <button type="button" id="post-dialog-cancel">Cancel</button>
-      <button type="submit">Save</button>
+        <div class="composer-field platform-panel tiktok-panel" id="tiktok-panel" hidden>
+          <div class="platform-panel-header">
+            <span class="composer-label">TikTok settings</span>
+            <span class="tiktok-creator" id="tiktok-creator"></span>
+          </div>
+          <p class="hint" id="tiktok-status" hidden></p>
+
+          <div id="tiktok-controls">
+            <label class="platform-field">
+              <span>Who can view this video</span>
+              <select id="tiktok-privacy">
+                <option value="">Select privacy level</option>
+              </select>
+            </label>
+
+            <fieldset class="platform-field tiktok-interactions">
+              <legend>Allow users to</legend>
+              <label><input type="checkbox" id="tiktok-allow-comment"> Comment</label>
+              <label><input type="checkbox" id="tiktok-allow-duet"> Duet</label>
+              <label><input type="checkbox" id="tiktok-allow-stitch"> Stitch</label>
+              <p class="hint" id="tiktok-interactions-note" hidden>Greyed-out options are turned off in your TikTok app settings.</p>
+            </fieldset>
+
+            <div class="platform-field">
+              <label class="tiktok-toggle">
+                <input type="checkbox" id="tiktok-disclose">
+                <span>Disclose video content</span>
+              </label>
+              <p class="hint">Turn on to disclose that this video promotes goods or services in exchange for something of value. Your video could promote yourself, a third party, or both.</p>
+              <div id="tiktok-disclose-options" class="tiktok-disclose-options" hidden>
+                <label>
+                  <input type="checkbox" id="tiktok-brand-organic">
+                  <span><strong>Your brand</strong><br>You are promoting yourself or your own business. This video will be classified as Brand Organic.</span>
+                </label>
+                <label>
+                  <input type="checkbox" id="tiktok-brand-content">
+                  <span><strong>Branded content</strong><br>You are promoting another brand or a third party. This video will be classified as Branded Content.</span>
+                </label>
+                <p class="tiktok-disclose-label" id="tiktok-disclose-label"></p>
+              </div>
+            </div>
+
+            <p class="hint" id="tiktok-duration-warning" hidden></p>
+            <p class="platform-consent" id="tiktok-consent"></p>
+            <p class="hint">After publishing, it can take a few minutes for TikTok to process the video before it appears on your profile.</p>
+          </div>
+        </div>
+
+        <div class="composer-field platform-panel youtube-panel" id="youtube-panel" hidden>
+          <div class="platform-panel-header">
+            <span class="composer-label">YouTube settings</span>
+          </div>
+
+          <label class="platform-field">
+            <span>Title</span>
+            <input type="text" id="youtube-title" maxlength="100" placeholder="Video title (required)">
+          </label>
+
+          <label class="platform-field">
+            <span>Visibility</span>
+            <select id="youtube-privacy">
+              <option value="">Select visibility</option>
+              <option value="public">Public</option>
+              <option value="unlisted">Unlisted</option>
+              <option value="private">Private</option>
+            </select>
+          </label>
+
+          <fieldset class="platform-field youtube-audience">
+            <legend>Is this video made for kids?</legend>
+            <div class="youtube-audience-options">
+              <label class="choice-card"><input type="radio" name="youtube-kids" value="no"> <span>No, it's not made for kids</span></label>
+              <label class="choice-card"><input type="radio" name="youtube-kids" value="yes"> <span>Yes, it's made for kids</span></label>
+            </div>
+            <p class="hint">Required by YouTube for every video (Children's Online Privacy Protection Act).</p>
+          </fieldset>
+
+          <p class="hint">The post text becomes the video description.</p>
+          <p class="platform-consent">By uploading, you agree to the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube Terms of Service</a>.</p>
+        </div>
+
+      </div>
+
+      <aside class="composer-side">
+        <section class="composer-field composer-preview">
+          <span class="composer-label">Preview</span>
+          <div class="post-preview">
+            <div class="post-preview-head" id="post-preview-head"></div>
+            <p class="post-preview-text" id="post-preview-text"></p>
+            <div class="post-preview-media" id="post-preview-media" hidden></div>
+          </div>
+        </section>
+
+        <div class="composer-field">
+          <span class="composer-label">When</span>
+          <div class="schedule-toggle">
+            <button type="button" class="schedule-option active" data-mode="draft">Save as draft</button>
+            <button type="button" class="schedule-option" data-mode="schedule">Schedule</button>
+          </div>
+          <input type="hidden" name="scheduled_for" id="scheduled-for-input">
+          <div class="schedule-picker" id="schedule-picker" hidden>
+            <div class="schedule-quick">
+              <button type="button" class="schedule-quick-btn" data-quick="hour">In 1 hour</button>
+              <button type="button" class="schedule-quick-btn" data-quick="tomorrow">Tomorrow morning</button>
+              <button type="button" class="schedule-quick-btn" data-quick="monday">Next Monday morning</button>
+            </div>
+            <div class="schedule-inputs">
+              <label class="repeat-field">
+                <span>Date</span>
+                <input type="date" id="schedule-date">
+              </label>
+              <label class="repeat-field">
+                <span>Time</span>
+                <select id="schedule-time"></select>
+              </label>
+            </div>
+            <p class="schedule-summary" id="schedule-summary" hidden></p>
+          </div>
+          <div id="repeat-fields" class="repeat-fields" hidden>
+            <label class="repeat-field">
+              <span>Repeat</span>
+              <select id="repeat-select">
+                <option value="">Don't repeat</option>
+                <option value="daily">Every day</option>
+                <option value="weekly">Every week</option>
+                <option value="monthly">Every month</option>
+              </select>
+            </label>
+            <label class="repeat-field" id="repeat-until-field" hidden>
+              <span>Until (end of day)</span>
+              <input type="date" id="repeat-until-input">
+            </label>
+          </div>
+        </div>
+
+        <div class="dialog-actions">
+          <button type="button" id="post-dialog-delete" class="delete-btn" hidden>Delete</button>
+          <button type="button" id="post-dialog-cancel">Cancel</button>
+          <button type="submit">Save</button>
+        </div>
+      </aside>
     </div>
   </form>
 </dialog>
