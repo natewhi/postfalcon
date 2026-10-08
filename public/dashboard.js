@@ -180,39 +180,165 @@ function syncAccountSelection() {
 }
 
 // --- Live preview (composer side column) ---------------------------------------------------
-// A rough "how it'll look" card: the first selected channel, the caption, and the first
-// attached image/video. Media comes from the files picked in this session, or, when
-// editing, from the post's existing media (which can't be changed).
+// One tab per selected channel, each laid out roughly the way that platform shows a post:
+// a 16:9 player for YouTube, a 9:16 frame for TikTok, media-first for Instagram/Pinterest,
+// and a feed post for everything else. Text past a platform's character limit is
+// highlighted, and a platform that needs media it doesn't have yet says so. Media comes
+// from the files picked in this session or, when editing, the post's existing media.
 let editingMedia = [];
+let previewAccountId = null;
+
+function composerMediaItems() {
+  return selectedMedia.length
+    ? selectedMedia.map((m) => ({ url: m.previewUrl, video: m.file.type.startsWith('video/') }))
+    : editingMedia.map((m) => ({ url: m.url, video: m.media_type === 'video' }));
+}
+
+function previewMediaEl(item, { controls = true } = {}) {
+  return item.video
+    ? `<video src="${escapeHtml(item.url)}" muted playsinline preload="metadata"${controls ? ' controls' : ''}></video>`
+    : `<img src="${escapeHtml(item.url)}" alt="">`;
+}
+
+// Caption with anything past the platform's limit wrapped in <mark>, so it's obvious what
+// would be cut.
+function previewCaptionHtml(content, limit) {
+  if (!limit || content.length <= limit) return escapeHtml(content);
+  return `${escapeHtml(content.slice(0, limit))}<mark class="pv-overflow">${escapeHtml(content.slice(limit))}</mark>`;
+}
+
+function previewWhenLabel() {
+  const value = document.getElementById('scheduled-for-input').value;
+  if (!value) return 'Draft';
+  return new Date(value).toLocaleString([], { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+}
+
+function previewPlaceholder(message) {
+  return `<div class="pv-placeholder">${escapeHtml(message)}</div>`;
+}
+
+function renderYouTubePreview(account, content, media) {
+  const video = media.find((m) => m.video);
+  const title = youtubeEls.title.value.trim();
+  const visibility = youtubeEls.privacy.selectedOptions[0];
+  return `
+    <div class="pv-yt">
+      <div class="pv-yt-frame">${video ? previewMediaEl(video) : previewPlaceholder('YouTube needs a video')}</div>
+      <p class="pv-yt-title${title ? '' : ' is-empty'}">${escapeHtml(title || 'Add a title in YouTube settings')}</p>
+      <div class="pv-head">
+        ${accountAvatarHtml(account)}
+        <span class="pv-name">${escapeHtml(account.display_name)}</span>
+        ${youtubeEls.privacy.value ? `<span class="pv-chip">${escapeHtml(visibility.textContent)}</span>` : ''}
+      </div>
+      ${content ? `<p class="pv-text pv-clamp">${escapeHtml(content)}</p>` : ''}
+    </div>`;
+}
+
+function renderTikTokPreview(account, content, media, limit) {
+  const video = media.find((m) => m.video);
+  return `
+    <div class="pv-tt-frame">
+      ${video ? previewMediaEl(video, { controls: false }) : previewPlaceholder('TikTok needs a video')}
+      <div class="pv-tt-overlay">
+        <span class="pv-tt-handle">${escapeHtml(account.display_name)}</span>
+        ${content ? `<p class="pv-tt-caption">${previewCaptionHtml(content, limit)}</p>` : ''}
+      </div>
+    </div>`;
+}
+
+function renderMediaFirstPreview(account, content, media, limit, { needs }) {
+  const first = media.find((m) => (needs === 'image' ? !m.video : true));
+  return `
+    <div class="pv-card">
+      <div class="pv-head">
+        ${accountAvatarHtml(account)}
+        <span class="pv-name">${escapeHtml(account.display_name)}</span>
+      </div>
+      <div class="pv-square">${first ? previewMediaEl(first) : previewPlaceholder(`${platformDisplayName(account.platform)} needs ${needs === 'image' ? 'an image' : 'a photo or video'}`)}</div>
+      ${content ? `<p class="pv-text"><strong>${escapeHtml(account.display_name)}</strong> ${previewCaptionHtml(content, limit)}</p>` : ''}
+    </div>`;
+}
+
+function renderFeedPreview(account, content, media, limit) {
+  const shown = media.slice(0, 4);
+  const extra = media.length - shown.length;
+  return `
+    <div class="pv-card">
+      <div class="pv-head">
+        ${accountAvatarHtml(account)}
+        <div class="pv-head-text">
+          <span class="pv-name">${escapeHtml(account.display_name)}</span>
+          <span class="pv-meta">${escapeHtml(previewWhenLabel())} · ${escapeHtml(platformDisplayName(account.platform))}</span>
+        </div>
+      </div>
+      <p class="pv-text${content ? '' : ' is-empty'}">${content ? previewCaptionHtml(content, limit) : 'Your caption will appear here.'}</p>
+      ${
+        shown.length
+          ? `<div class="pv-grid pv-grid-${shown.length}">${shown
+              .map(
+                (m, i) =>
+                  `<div class="pv-grid-item">${previewMediaEl(m)}${i === shown.length - 1 && extra > 0 ? `<span class="pv-grid-more">+${extra}</span>` : ''}</div>`
+              )
+              .join('')}</div>`
+          : ''
+      }
+    </div>`;
+}
 
 function updatePostPreview() {
-  const head = document.getElementById('post-preview-head');
-  const text = document.getElementById('post-preview-text');
-  const mediaBox = document.getElementById('post-preview-media');
+  const tabs = document.getElementById('post-preview-tabs');
+  const body = document.getElementById('post-preview-body');
+  const note = document.getElementById('post-preview-note');
 
   const ids = selectedAccountIds();
   const accounts = accountsCache.filter((a) => ids.includes(String(a.id)));
-  head.innerHTML = accounts.length
-    ? `${accountAvatarHtml(accounts[0])}
-       <span class="post-preview-name">${escapeHtml(accounts[0].display_name)}</span>
-       ${accounts.length > 1 ? `<span class="post-preview-more">+${accounts.length - 1} more</span>` : ''}`
-    : '<span class="post-preview-placeholder">Pick a channel above</span>';
+  if (accounts.length === 0) {
+    tabs.innerHTML = '';
+    body.innerHTML = previewPlaceholder('Pick a channel to see a preview');
+    note.hidden = true;
+    return;
+  }
+  if (!accounts.some((a) => String(a.id) === previewAccountId)) {
+    previewAccountId = String(accounts[0].id);
+  }
+  const account = accounts.find((a) => String(a.id) === previewAccountId);
+
+  tabs.innerHTML =
+    accounts.length > 1
+      ? accounts
+          .map(
+            (a) => `
+        <button type="button" class="pv-tab${String(a.id) === previewAccountId ? ' active' : ''}" data-preview-id="${a.id}"
+          title="${escapeHtml(a.display_name)}">
+          <span class="cal-platform-badge" style="background:${(PLATFORM_META[a.platform] || { color: '#666666' }).color}">${platformBadgeInner(a.platform)}</span>
+          <span class="pv-tab-name">${escapeHtml(a.display_name)}</span>
+        </button>`
+          )
+          .join('')
+      : '';
+  tabs.querySelectorAll('.pv-tab').forEach((btn) =>
+    btn.addEventListener('click', () => {
+      previewAccountId = btn.dataset.previewId;
+      updatePostPreview();
+    })
+  );
 
   const content = document.getElementById('post-content').value.trim();
-  text.textContent = content || 'Your caption will appear here.';
-  text.classList.toggle('is-empty', !content);
+  const media = composerMediaItems();
+  const limit = PLATFORM_CHAR_LIMITS[account.platform];
 
-  const first = selectedMedia[0]
-    ? { url: selectedMedia[0].previewUrl, video: selectedMedia[0].file.type.startsWith('video/') }
-    : editingMedia[0]
-      ? { url: editingMedia[0].url, video: editingMedia[0].media_type === 'video' }
-      : null;
-  mediaBox.hidden = !first;
-  mediaBox.innerHTML = first
-    ? first.video
-      ? `<video src="${escapeHtml(first.url)}" muted controls playsinline></video>`
-      : `<img src="${escapeHtml(first.url)}" alt="">`
-    : '';
+  if (account.platform === 'youtube') body.innerHTML = renderYouTubePreview(account, content, media);
+  else if (account.platform === 'tiktok') body.innerHTML = renderTikTokPreview(account, content, media, limit);
+  else if (account.platform === 'instagram') {
+    body.innerHTML = renderMediaFirstPreview(account, content, media, limit, { needs: 'media' });
+  } else if (account.platform === 'pinterest') {
+    body.innerHTML = renderMediaFirstPreview(account, content, media, limit, { needs: 'image' });
+  } else body.innerHTML = renderFeedPreview(account, content, media, limit);
+
+  const over = limit ? content.length - limit : 0;
+  note.hidden = over <= 0;
+  note.textContent =
+    over > 0 ? `${over} character${over === 1 ? '' : 's'} over ${platformDisplayName(account.platform)}'s ${limit} limit.` : '';
 }
 
 // --- TikTok panel -------------------------------------------------------------------------
@@ -507,7 +633,10 @@ function youtubeOptionsPayload() {
 }
 
 [youtubeEls.title, youtubeEls.privacy, ...document.querySelectorAll('input[name="youtube-kids"]')].forEach((el) =>
-  el.addEventListener(el.tagName === 'INPUT' && el.type === 'text' ? 'input' : 'change', updateSubmitBlocked)
+  el.addEventListener(el.tagName === 'INPUT' && el.type === 'text' ? 'input' : 'change', () => {
+    updateSubmitBlocked();
+    updatePostPreview();
+  })
 );
 
 function platformPublishProblem() {
@@ -710,6 +839,7 @@ function syncScheduledFor() {
   const date = scheduleDateInput.value;
   const time = scheduleTimeSelect.value;
   scheduledForInput.value = date && time ? `${date}T${time}` : '';
+  updatePostPreview();
 
   const today = toDateValue(new Date());
   const nowTime = toTimeValue(new Date());

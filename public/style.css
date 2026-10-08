@@ -4186,6 +4186,10 @@ dialog#post-dialog .dialog-actions button[type='submit'] {
   .composer-side {
     position: static;
   }
+
+  .pv-body {
+    max-height: none;
+  }
 }
 
 /* Channel picker: avatar tiles in a row, like a contact strip. */
@@ -4247,59 +4251,303 @@ dialog#post-dialog .account-chip .account-badge .platform-glyph {
   white-space: nowrap;
 }
 
-/* Live preview card. */
-.post-preview {
+/* Live preview (see the Live preview section of public/dashboard.js). Media frames are
+   always dark, like the platforms' own players, so their overlay text is fixed white. */
+.pv-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.pv-tabs:empty {
+  display: none;
+}
+
+dialog#post-dialog .pv-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 140px;
+  padding: 3px var(--space-2) 3px 3px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+dialog#post-dialog .pv-tab:hover {
+  background: var(--hover-tint);
+}
+
+dialog#post-dialog .pv-tab.active {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.pv-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pv-body {
+  max-height: calc(100dvh - 380px);
+  min-height: 120px;
+  overflow-y: auto;
+}
+
+.pv-card,
+.pv-yt {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.post-preview-head {
+.pv-head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 0.85rem;
+  min-width: 0;
 }
 
-.post-preview-name {
+.pv-head .account-avatar,
+.pv-head .account-avatar-img,
+.pv-head .account-avatar-placeholder {
+  width: 32px;
+  height: 32px;
+}
+
+.pv-head .account-avatar-placeholder {
+  font-size: 13px;
+}
+
+.pv-head .account-badge {
+  border-color: var(--color-surface);
+}
+
+.pv-head-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pv-name {
+  font-size: 0.85rem;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.post-preview-more,
-.post-preview-placeholder {
+.pv-meta {
+  font-size: 0.72rem;
   color: var(--color-text-muted);
-  font-size: 0.8rem;
 }
 
-.post-preview-text {
+.pv-chip {
+  margin-left: auto;
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  background: var(--hover-tint);
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.pv-text {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  max-height: 12rem;
-  overflow-y: auto;
 }
 
-.post-preview-text.is-empty {
+.pv-text.is-empty {
   color: var(--color-text-muted);
   font-style: italic;
 }
 
-.post-preview-media[hidden] {
-  display: none;
+.pv-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
 }
 
-.post-preview-media img,
-.post-preview-media video {
+.pv-overflow {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border-radius: 2px;
+}
+
+.pv-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  padding: var(--space-4);
+  border: 1px dashed var(--color-input-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.pv-yt-frame,
+.pv-tt-frame,
+.pv-square {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: #000;
+}
+
+.pv-yt-frame {
+  aspect-ratio: 16 / 9;
+}
+
+.pv-square {
+  aspect-ratio: 1;
+}
+
+.pv-tt-frame {
+  aspect-ratio: 9 / 16;
+  max-height: 460px;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 260px;
+}
+
+.pv-yt-frame video,
+.pv-yt-frame img,
+.pv-tt-frame video,
+.pv-tt-frame img,
+.pv-square video,
+.pv-square img {
   display: block;
   width: 100%;
-  max-height: 320px;
+  height: 100%;
   object-fit: contain;
-  border-radius: var(--radius-sm);
+}
+
+.pv-tt-frame video,
+.pv-tt-frame img,
+.pv-square video,
+.pv-square img {
+  object-fit: cover;
+}
+
+.pv-yt-frame .pv-placeholder,
+.pv-tt-frame .pv-placeholder,
+.pv-square .pv-placeholder {
+  border: none;
+  color: #bbb;
+}
+
+.pv-yt-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.pv-yt-title.is-empty {
+  color: var(--color-text-muted);
+  font-weight: 400;
+  font-style: italic;
+}
+
+.pv-tt-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: var(--space-5) var(--space-3) var(--space-3);
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
+  color: #fff;
+  pointer-events: none;
+}
+
+.pv-tt-handle {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.pv-tt-caption {
+  margin: var(--space-1) 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pv-grid {
+  display: grid;
+  gap: 2px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.pv-grid-2,
+.pv-grid-4 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.pv-grid-3 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.pv-grid-3 .pv-grid-item:first-child {
+  grid-column: span 2;
+}
+
+.pv-grid-item {
+  position: relative;
+  aspect-ratio: 4 / 3;
   background: #000;
+}
+
+.pv-grid-1 .pv-grid-item {
+  aspect-ratio: auto;
+  max-height: 320px;
+}
+
+.pv-grid-item img,
+.pv-grid-item video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 320px;
+  object-fit: cover;
+}
+
+.pv-grid-more {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.pv-note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-danger);
+}
+
+.pv-note[hidden] {
+  display: none;
 }
 
 .label-optional,
