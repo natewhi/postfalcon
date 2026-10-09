@@ -137,11 +137,27 @@ const PLATFORM_CHAR_LIMITS = {
   pinterest: 500,
 };
 
+// Accounts whose platform rejected their credentials (or whose token is about to lapse):
+// scheduled posts to them will fail, so say so above the calendar.
+function renderReconnectBanner() {
+  const banner = document.getElementById('reconnect-banner');
+  const broken = accountsCache.filter((a) => accountConnectionIssue(a) === 'reconnect');
+  const expiring = accountsCache.filter((a) => accountConnectionIssue(a) === 'expiring');
+  const names = (list) => list.map((a) => a.display_name).join(', ');
+  if (broken.length) {
+    banner.textContent = `⚠ ${names(broken)} ${broken.length === 1 ? 'needs' : 'need'} reconnecting. Posts to ${broken.length === 1 ? 'it' : 'them'} will fail until you do. Reconnect →`;
+  } else if (expiring.length) {
+    banner.textContent = `⚠ The connection to ${names(expiring)} expires within a week. Reconnect →`;
+  }
+  banner.hidden = !(broken.length || expiring.length);
+}
+
 async function loadAccountOptions() {
   try {
     accountsCache = await apiJson('/api/v1/social-accounts');
     hasAccounts = accountsCache.length > 0;
     renderAccountPicker();
+    renderReconnectBanner();
   } catch (err) {
     showToast(err.message);
   }

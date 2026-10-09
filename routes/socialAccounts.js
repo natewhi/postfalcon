@@ -29,7 +29,13 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const result = await pool.query(
-      'SELECT id, platform, display_name, external_account_id, avatar_url, created_at FROM social_accounts WHERE user_id = $1 ORDER BY created_at',
+      `SELECT id, platform, display_name, external_account_id, avatar_url, created_at,
+              needs_reconnect_at, reconnect_reason, token_expires_at,
+              -- No refresh token means the access token simply dies at token_expires_at
+              -- (LinkedIn, Pinterest, Threads); warn a week ahead.
+              (refresh_token IS NULL AND token_expires_at IS NOT NULL
+                AND token_expires_at < now() + interval '7 days') AS expires_soon
+       FROM social_accounts WHERE user_id = $1 ORDER BY created_at`,
       [req.user.id]
     );
     res.json(result.rows);

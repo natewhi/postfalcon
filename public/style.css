@@ -632,6 +632,58 @@ section {
   display: none;
 }
 
+a.attention-banner-link {
+  text-decoration: none;
+}
+
+a.attention-banner-link:hover {
+  filter: brightness(1.05);
+}
+
+/* Connection problems on the Accounts list (see accountConnectionIssue in common.js). */
+.account-issue {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.account-issue-reconnect {
+  background: var(--status-failed-bg);
+  color: var(--status-failed-text);
+  border: 1px solid var(--status-failed-border);
+}
+
+.account-issue-expiring {
+  background: var(--status-posting-bg);
+  color: var(--status-posting-text);
+  border: 1px solid var(--status-posting-border);
+}
+
+.account-reconnect {
+  flex-shrink: 0;
+}
+
+#accounts-list li.has-issue {
+  border-color: var(--status-failed-border);
+}
+
+/* Small dot on a sidebar account that needs attention. */
+.sidebar-account.has-issue .account-avatar::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  border: 1.5px solid var(--color-sidebar-bg);
+}
+
 .status-filter {
   display: flex;
   align-items: center;

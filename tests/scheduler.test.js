@@ -1361,3 +1361,79 @@ describe('stored platform data refresh', () => {
     expect(post.rows[0].metric_views).toBeNull();
   });
 });
+
+describe('reconnect flagging', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  async function linkedinPost(email) {
+    const userId = await createUser(email);
+    const account = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       VALUES ($1, 'linkedin', 'Alice', 'li-1', 'tok') RETURNING id`,
+      [userId]
+    );
+    const accountId = account.rows[0].id;
+    const postId = await createScheduledPost(userId, accountId, 'hello');
+    return { accountId, postId };
+  }
+
+  function stubLinkedIn(status, body) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: status < 300,
+        status,
+        text: async () => body,
+        json: async () => ({}),
+        headers: { get: (h) => (h === 'x-restli-id' ? 'urn:li:share:1' : null) },
+      }))
+    );
+  }
+
+  it('flags the account and emails the owner once when the platform rejects its token', async () => {
+    const { sendMail } = await import('../lib/mailer.js');
+    sendMail.mockClear();
+    const { accountId } = await linkedinPost('li-401@example.com');
+    const second = await createScheduledPost(
+      (await pool.query('SELECT user_id FROM social_accounts WHERE id = $1', [accountId])).rows[0].user_id,
+      accountId,
+      'again'
+    );
+    stubLinkedIn(401, '{"message":"Invalid access token"}');
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT needs_reconnect_at, reconnect_reason FROM social_accounts WHERE id = $1', [
+      accountId,
+    ]);
+    expect(rows[0].needs_reconnect_at).toBeInstanceOf(Date);
+    expect(rows[0].reconnect_reason).toMatch(/401/);
+    // Two posts failed for the same account, but only one email goes out.
+    expect(sendMail).toHaveBeenCalledTimes(1);
+    expect(sendMail.mock.calls[0][0].to).toBe('li-401@example.com');
+    expect(second).toBeTruthy();
+  });
+
+  it('does not flag the account for an ordinary failure', async () => {
+    const { accountId } = await linkedinPost('li-500@example.com');
+    stubLinkedIn(500, 'internal error');
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT needs_reconnect_at FROM social_accounts WHERE id = $1', [accountId]);
+    expect(rows[0].needs_reconnect_at).toBeNull();
+  });
+
+  it('clears the flag after a successful publish', async () => {
+    const { accountId } = await linkedinPost('li-ok@example.com');
+    await pool.query(`UPDATE social_accounts SET needs_reconnect_at = now(), reconnect_reason = 'x' WHERE id = $1`, [
+      accountId,
+    ]);
+    stubLinkedIn(201, '');
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT needs_reconnect_at FROM social_accounts WHERE id = $1', [accountId]);
+    expect(rows[0].needs_reconnect_at).toBeNull();
+  });
+});

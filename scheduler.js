@@ -9,6 +9,7 @@ import { cleanupOldActivityLogs, logProductEvent } from './lib/activityLog.js';
 import { logger } from './lib/logger.js';
 import { getAdapter, PLATFORM_IDS } from './lib/platforms.js';
 import { deliverWebhooks } from './lib/webhooks.js';
+import { looksLikeAuthFailure, markNeedsReconnect, clearNeedsReconnect } from './lib/reconnect.js';
 
 function addInterval(date, interval) {
   const d = new Date(date);
@@ -113,6 +114,9 @@ export async function processDuePosts() {
     await pool.query(`UPDATE posts SET status = 'posting' WHERE id = $1`, [post.id]);
     try {
       const platformPostId = await sendPost(post);
+      await clearNeedsReconnect(post.social_account_id).catch((err) =>
+        logger.error({ err, socialAccountId: post.social_account_id }, 'failed to clear reconnect flag')
+      );
       await pool.query(`UPDATE posts SET status = 'posted', posted_at = now(), platform_post_id = $2 WHERE id = $1`, [
         post.id,
         platformPostId,
@@ -136,6 +140,11 @@ export async function processDuePosts() {
         post.id,
         err.message,
       ]);
+      if (looksLikeAuthFailure(err)) {
+        await markNeedsReconnect(post.social_account_id, err.message).catch((markErr) =>
+          logger.error({ err: markErr, socialAccountId: post.social_account_id }, 'failed to flag account for reconnect')
+        );
+      }
       await logProductEvent(post.user_id, 'post_failed', {
         postId: post.id,
         socialAccountId: post.social_account_id,
@@ -184,6 +193,9 @@ export async function refreshPostMetrics() {
       refreshed++;
     } catch (err) {
       logger.error({ err, postId: post.id, platform: post.platform }, 'failed to refresh post metrics');
+      if (looksLikeAuthFailure(err)) {
+        await markNeedsReconnect(post.social_account_id, err.message).catch(() => {});
+      }
     }
   }
   return { checked: posts.length, refreshed };
@@ -206,7 +218,10 @@ export async function refreshStoredPlatformData() {
   for (const account of accounts) {
     try {
       const result = await getAdapter(account.platform).refreshStoredData(account);
-      if (result?.revoked) revoked++;
+      if (result?.revoked) {
+        revoked++;
+        await markNeedsReconnect(account.id, 'Access was revoked or expired on the platform side.');
+      }
     } catch (err) {
       logger.error({ err, socialAccountId: account.id, platform: account.platform }, 'failed to refresh stored platform data');
     }

@@ -3,17 +3,38 @@ async function loadAccounts() {
   list.innerHTML = '<li class="loading"><span class="spinner"></span> Loading accounts…</li>';
   try {
     const accounts = await apiJson('/api/v1/social-accounts');
+    let reconnectTargets = {};
+    try {
+      reconnectTargets = JSON.parse(list.dataset.reconnect || '{}');
+    } catch {
+      // fall back to no Reconnect buttons
+    }
     list.innerHTML =
       accounts
-        .map(
-          (a) => `
-      <li>
+        .map((a) => {
+          const issue = accountConnectionIssue(a);
+          const target = reconnectTargets[a.platform];
+          const days = a.token_expires_at
+            ? Math.max(0, Math.ceil((new Date(a.token_expires_at).getTime() - Date.now()) / 86400000))
+            : null;
+          const pill =
+            issue === 'reconnect'
+              ? `<span class="account-issue account-issue-reconnect" title="${escapeHtml(a.reconnect_reason || '')}">Needs reconnecting</span>`
+              : issue === 'expiring'
+                ? `<span class="account-issue account-issue-expiring">${days === 0 ? 'Expires today' : `Expires in ${days} day${days === 1 ? '' : 's'}`}</span>`
+                : '';
+          return `
+      <li class="${issue ? 'has-issue' : ''}">
         ${accountAvatarHtml(a)}
-        <span class="content">${escapeHtml(a.display_name)}</span>
+        <span class="content">
+          ${escapeHtml(a.display_name)}
+          ${pill}
+        </span>
+        ${issue && target ? `<a class="btn-link account-reconnect" href="${escapeHtml(target)}">Reconnect</a>` : ''}
         <button data-id="${a.id}" class="delete-btn">Remove</button>
       </li>
-    `
-        )
+    `;
+        })
         .join('') ||
       '<li class="empty">No accounts connected yet &mdash; connect one below to start scheduling posts.</li>';
 

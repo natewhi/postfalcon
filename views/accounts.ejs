@@ -21,13 +21,21 @@
 
     <section>
       <h2>Connected Accounts</h2>
-      <ul id="accounts-list"></ul>
+      <%
+        // Where each platform's "Reconnect" button goes: its OAuth start URL, or (for the
+        // form-based connects) the form further down this page.
+        const reconnectTargets = Object.fromEntries(
+          platforms.map((p) => [p.id, p.connect === 'oauth' && p.connectPath ? p.connectPath : `#connect-${p.id}`])
+        );
+        reconnectTargets.instagram = '/api/facebook/connect';
+      %>
+      <ul id="accounts-list" data-reconnect="<%= JSON.stringify(reconnectTargets) %>"></ul>
     </section>
 
     <section>
       <h2>Connect a platform</h2>
 
-      <div class="connect-option">
+      <div class="connect-option" id="connect-mastodon">
         <h3>Mastodon</h3>
         <p class="hint">Enter your instance domain to connect via OAuth.</p>
         <form id="mastodon-connect-form" action="/api/mastodon/connect" method="GET">
@@ -36,13 +44,13 @@
         </form>
       </div>
 
-      <div class="connect-option">
+      <div class="connect-option" id="connect-facebook">
         <h3>Facebook &amp; Instagram</h3>
         <p class="hint">Connects any Facebook Pages you manage, and their linked Instagram business accounts.</p>
         <a href="/api/facebook/connect" class="btn-link">Connect Facebook / Instagram</a>
       </div>
 
-      <div class="connect-option">
+      <div class="connect-option" id="connect-telegram">
         <h3>Telegram</h3>
         <p class="hint">
           Create a bot with <a href="https://t.me/botfather" target="_blank" rel="noopener">@BotFather</a>, add it
@@ -55,7 +63,7 @@
         </form>
       </div>
 
-      <div class="connect-option">
+      <div class="connect-option" id="connect-bluesky">
         <h3>Bluesky</h3>
         <p class="hint">
           Enter your handle and an
@@ -70,7 +78,7 @@
       </div>
 
       <% platforms.filter((p) => p.connect === 'oauth' && p.connectPath && p.id !== 'facebook').forEach((p) => { %>
-      <div class="connect-option">
+      <div class="connect-option" id="connect-<%= p.id %>">
         <h3><%= p.label %></h3>
         <% if (p.hint) { %><p class="hint"><%= p.hint %></p><% } %>
         <% if (p.id === 'youtube') { %>

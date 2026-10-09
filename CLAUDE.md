@@ -64,7 +64,13 @@ lib/platforms.js     The platform registry — the ONE place a social platform i
                      refreshStoredPlatformData() to refresh (or, on invalid_grant, delete) stored API
                      data beyond refreshPostMetrics()'s 30-day window, and revoke(account), called by
                      DELETE /api/v1/social-accounts/:id. The YouTube-specific legal text the audit
-                     checks lives in views/privacy.ejs#youtube and views/terms.ejs. Bluesky
+                     checks lives in views/privacy.ejs#youtube and views/terms.ejs. Expired/revoked
+                     credentials: lib/reconnect.js classifies a publish/metrics error as an auth
+                     failure (looksLikeAuthFailure — 401, invalid_grant, Meta code 190, etc.) and sets
+                     social_accounts.needs_reconnect_at (+ one email); a DB trigger (migration 022)
+                     clears it whenever the account gets a new access_token (reconnect or refresh), as
+                     does a successful publish. The UI shows it on Accounts, the dashboard banner and
+                     the sidebar dot. Bluesky
                      has no third-party OAuth at all: the user supplies a handle + an "app password"
                      (connect:'token', like Telegram's bot token), stored as access_token, and the
                      adapter just logs in fresh (short-lived session) on every publish. An adapter can

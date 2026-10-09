@@ -55,7 +55,7 @@
             <tr><th>Method &amp; path</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>GET /api/v1/social-accounts</code></td><td>List your connected social accounts</td></tr>
+            <tr><td><code>GET /api/v1/social-accounts</code></td><td>List your connected social accounts. <code>needs_reconnect_at</code> / <code>reconnect_reason</code> are set when the platform rejected the account's credentials (posts to it will fail until it's reconnected); <code>expires_soon</code> is true when a non-refreshable token expires within 7 days</td></tr>
             <tr><td><code>POST /api/v1/social-accounts</code></td><td>Connect an account (<code>platform</code>, <code>display_name</code>, ...)</td></tr>
             <tr><td><code>DELETE /api/v1/social-accounts/:id</code></td><td>Disconnect an account</td></tr>
             <tr><td><code>GET /api/v1/posts</code></td><td>List posts &mdash; filter with <code>?status=</code> and <code>?social_account_id=</code></td></tr>

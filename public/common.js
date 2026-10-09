@@ -287,6 +287,14 @@ document.addEventListener(
   true
 );
 
+// 'reconnect' when the platform rejected the account's credentials (see lib/reconnect.js),
+// 'expiring' when a token with no refresh token runs out within a week, else null.
+function accountConnectionIssue(account) {
+  if (account.needs_reconnect_at) return 'reconnect';
+  if (account.expires_soon) return 'expiring';
+  return null;
+}
+
 async function loadSidebarAccounts() {
   const container = document.getElementById('sidebar-accounts-list');
   if (!container) return;
@@ -299,7 +307,7 @@ async function loadSidebarAccounts() {
       accounts
         .map(
           (a) => `
-        <a href="/dashboard?account=${a.id}" class="sidebar-account${String(a.id) === activeAccount ? ' active' : ''}" data-account-id="${a.id}">
+        <a href="/dashboard?account=${a.id}" class="sidebar-account${String(a.id) === activeAccount ? ' active' : ''}${accountConnectionIssue(a) ? ' has-issue' : ''}" data-account-id="${a.id}"${accountConnectionIssue(a) === 'reconnect' ? ' title="Needs reconnecting"' : ''}>
           ${accountAvatarHtml(a)}
           <span class="sidebar-account-name">${escapeHtml(a.display_name)}</span>
         </a>
