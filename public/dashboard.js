@@ -1202,12 +1202,61 @@ document.getElementById('post-dialog-delete').addEventListener(
   })
 );
 
-document.getElementById('post-dialog-cancel').addEventListener('click', () => {
-  document.getElementById('post-dialog').close();
+// --- Unsaved changes -------------------------------------------------------------------------
+// Any edit inside the composer marks it dirty; Cancel / × / Escape, a sidebar link, or
+// leaving the page then asks before throwing the work away. Saving closes the dialog
+// directly (not through requestCloseComposer), so it never prompts.
+let composerDirty = false;
+
+function markComposerClean() {
+  composerDirty = false;
+}
+
+['input', 'change'].forEach((type) =>
+  document.getElementById('post-dialog-form').addEventListener(type, () => {
+    composerDirty = true;
+  })
+);
+document.getElementById('account-picker').addEventListener('click', () => {
+  composerDirty = true;
+});
+document.querySelectorAll('.schedule-option, .schedule-quick-btn').forEach((b) =>
+  b.addEventListener('click', () => {
+    composerDirty = true;
+  })
+);
+
+async function confirmDiscardComposer() {
+  if (!composerDirty) return true;
+  return confirmDialog(
+    editingPostId ? 'Discard your changes to this post?' : 'Discard this post? It hasn\u2019t been saved.',
+    { confirmText: 'Discard', cancelText: 'Keep editing' }
+  );
+}
+
+async function requestCloseComposer() {
+  if (await confirmDiscardComposer()) document.getElementById('post-dialog').close();
+}
+
+document.getElementById('post-dialog-cancel').addEventListener('click', requestCloseComposer);
+document.getElementById('post-dialog-close').addEventListener('click', requestCloseComposer);
+
+// The composer sits beside the sidebar (non-modal), so its links are live while editing.
+document.querySelector('.sidebar')?.addEventListener('click', async (e) => {
+  const link = e.target.closest('a[href]');
+  if (!link || !document.getElementById('post-dialog').open || !composerDirty) return;
+  e.preventDefault();
+  if (await confirmDiscardComposer()) {
+    composerDirty = false;
+    window.location.href = link.href;
+  }
 });
 
-document.getElementById('post-dialog-close').addEventListener('click', () => {
-  document.getElementById('post-dialog').close();
+window.addEventListener('beforeunload', (e) => {
+  if (document.getElementById('post-dialog').open && composerDirty) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
 });
 
 // The composer opens non-modally (show(), not showModal()) so the app sidebar stays visible
@@ -1216,6 +1265,7 @@ document.getElementById('post-dialog-close').addEventListener('click', () => {
 // handling or page-scroll lock, so both are added here.
 function openComposer() {
   const dialog = document.getElementById('post-dialog');
+  markComposerClean();
   if (!dialog.open) dialog.show();
   document.body.classList.add('composer-open');
   dialog.querySelector('.composer-body').scrollTop = 0;
@@ -1228,7 +1278,7 @@ document.getElementById('post-dialog').addEventListener('close', () => {
 document.getElementById('post-dialog').addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !e.defaultPrevented) {
     e.preventDefault();
-    document.getElementById('post-dialog').close();
+    requestCloseComposer();
   }
 });
 
