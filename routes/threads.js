@@ -8,7 +8,8 @@ import { logger } from '../lib/logger.js';
 import { atAccountLimit } from '../middleware/planLimit.js';
 
 const router = Router();
-const SCOPES = 'threads_basic,threads_content_publish';
+// threads_manage_insights backs fetchMetrics() in lib/platforms/threads.js (the /insights endpoint).
+const SCOPES = 'threads_basic,threads_content_publish,threads_manage_insights';
 
 function redirectUri() {
   return `${process.env.BASE_URL}/api/threads/callback`;
