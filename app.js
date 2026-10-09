@@ -26,6 +26,7 @@ import youtubeRouter from './routes/youtube.js';
 import tiktokRouter from './routes/tiktok.js';
 import blueskyRouter from './routes/bluesky.js';
 import threadsRouter from './routes/threads.js';
+import metaCallbacksRouter from './routes/metaCallbacks.js';
 import pinterestRouter from './routes/pinterest.js';
 import linkedinRouter from './routes/linkedin.js';
 import pagesRouter from './routes/pages.js';
@@ -92,6 +93,11 @@ app.use('/api/billing/webhook', express.raw({ type: 'application/json' }), billi
 // parsing and re-serializing JSON. Also ahead of csrfProtection — it's not under /api and
 // isn't cookie/session-authenticated at all.
 app.use('/stats', express.raw({ type: '*/*', limit: '256kb' }), analyticsRouter);
+
+// Meta's Threads uninstall / data-deletion callbacks: server-to-server form POSTs carrying a
+// signed_request HMAC'd with the app secret, so (like the Stripe webhook) ahead of
+// csrfProtection and with no session auth. See routes/metaCallbacks.js.
+app.use('/api/meta', express.urlencoded({ extended: false, limit: '16kb' }), metaCallbacksRouter);
 
 app.use(express.json({ limit: '100kb' }));
 app.use(
