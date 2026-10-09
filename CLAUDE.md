@@ -110,6 +110,9 @@ lib/                 passport strategy, mailer (real SMTP via nodemailer, falls 
 routes/billing.js    Stripe Checkout / Billing Portal / plan-status endpoints (session auth, /api/billing)
 routes/billingWebhook Stripe webhook — mounted in app.js with express.raw() BEFORE express.json() and
                      csrfProtection (Stripe authenticates by signature). Updates users.plan/plan_status.
+routes/metaCallbacks.js  Meta's server-to-server Threads callbacks (uninstall, data deletion) at
+                     /api/meta/*: signed_request verified by HMAC with THREADS_CLIENT_SECRET, mounted
+                     ahead of csrfProtection with express.urlencoded, no session auth.
 routes/webhooks.js   /api/v1/webhooks CRUD for user-registered outbound webhook endpoints (Team/Pro only,
                      gated by requireCapability('webhooks'))
 content/blog/*.md    The blog — one Markdown file per post (frontmatter: title, slug, description, date,
