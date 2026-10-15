@@ -2,7 +2,8 @@
 
 Social media post scheduler. Node.js/Express backend, Postgres, EJS server-rendered views, vanilla JS on the
 frontend (no framework, no bundler). Users connect social accounts (live: Mastodon, Bluesky, Facebook, Instagram,
-Threads, Telegram, YouTube, TikTok, Pinterest, LinkedIn; hidden stubs, no adapter yet: Reddit, Google Business
+Threads, Telegram, YouTube, TikTok, Pinterest; LinkedIn's adapter is built but `unlisted` — not offered
+anywhere until a LinkedIn developer app exists; hidden stubs, no adapter yet: Reddit, Google Business
 Profile — see `lib/platforms.js`). Deliberately out of scope: messaging apps (WhatsApp, WeChat, Messenger) —
 Postfalcon schedules social *posts*, not chat messages, and none of them have a public feed to publish to. Twitter/X
 is excluded too, but for a different reason: its posting API is paid. Users compose posts as drafts or schedule
