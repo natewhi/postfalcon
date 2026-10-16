@@ -63,6 +63,11 @@ app.locals.blogEnabled = isBlogEnabled();
 // pages when set. Meta's business verification requires the operator's legal name on the site;
 // a self-hoster's instance just leaves it unset.
 app.locals.operatorName = process.env.OPERATOR_NAME?.trim() || null;
+// Australian Business Number, shown next to the name. Accepts it with or without spaces and
+// renders the standard "XX XXX XXX XXX" grouping; anything that isn't 11 digits is ignored.
+const abnDigits = (process.env.OPERATOR_ABN || '').replace(/\D/g, '');
+app.locals.operatorAbn =
+  abnDigits.length === 11 ? abnDigits.replace(/^(\d{2})(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3 $4') : null;
 
 // Appended as ?v= to every /*.js and /*.css link in views/. Static files are cached for 7
 // days in production, so without this a deploy's new CSS/JS wouldn't reach returning

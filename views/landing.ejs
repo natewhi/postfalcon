@@ -359,7 +359,7 @@
   </main>
 
   <footer class="landing-footer">
-    <span>&copy; <%= new Date().getFullYear() %> Postfalcon<% if (operatorName) { %> &middot; operated by <%= operatorName %><% } %></span>
+    <span>&copy; <%= new Date().getFullYear() %> Postfalcon<% if (operatorName) { %> &middot; operated by <%= operatorName %><% if (operatorAbn) { %> (ABN <%= operatorAbn %>)<% } %><% } %></span>
     <a href="/pricing">Pricing</a>
     <% if (blogEnabled) { %><a href="/blog">Blog</a><% } %>
     <a href="/api-docs">API docs</a>

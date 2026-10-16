@@ -28,7 +28,7 @@
       </p>
       <% if (operatorName) { %>
       <p>
-        Postfalcon is operated by <%= operatorName %>, a sole trader based in New South Wales,
+        Postfalcon is operated by <%= operatorName %><% if (operatorAbn) { %> (ABN <%= operatorAbn %>)<% } %>, a sole trader based in New South Wales,
         Australia, who is responsible for the personal information described here.
       </p>
       <% } %>
@@ -168,7 +168,7 @@
   </main>
 
   <footer class="landing-footer">
-    <span>&copy; <%= new Date().getFullYear() %> Postfalcon<% if (operatorName) { %> &middot; operated by <%= operatorName %><% } %></span>
+    <span>&copy; <%= new Date().getFullYear() %> Postfalcon<% if (operatorName) { %> &middot; operated by <%= operatorName %><% if (operatorAbn) { %> (ABN <%= operatorAbn %>)<% } %><% } %></span>
     <% if (blogEnabled) { %><a href="/blog">Blog</a><% } %>
     <a href="/api-docs">API docs</a>
     <a href="/terms">Terms</a>
