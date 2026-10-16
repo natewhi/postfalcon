@@ -15,6 +15,11 @@ const fs = await import('node:fs/promises');
 
 beforeAll(async () => {
   await migrate();
+  // Production signups start 'incomplete' until Stripe Checkout completes (migration 023).
+  // Nearly every test signs up through POST /api/users and then posts/connects, so the test
+  // DB's default stands in for "this user already finished Checkout". billing.test.js sets
+  // 'incomplete' explicitly to cover the real default.
+  await pool.query("ALTER TABLE users ALTER COLUMN plan_status SET DEFAULT 'trialing'");
 });
 
 afterEach(async () => {

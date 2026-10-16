@@ -24,24 +24,27 @@ function limitReached(res, plan, max, noun) {
   });
 }
 
-function notEntitled(res) {
-  return res.status(402).json({
-    error: 'plan_inactive',
-    message: 'Your trial or subscription has ended. Reactivate at /pricing to keep publishing.',
-  });
+function notEntitled(res, user) {
+  // 'incomplete' = signed up but never finished Stripe Checkout (migration 023), as opposed
+  // to a trial/subscription that ran out.
+  const message =
+    user?.plan_status === 'incomplete'
+      ? 'Start your free trial at /pricing to connect channels and publish.'
+      : 'Your trial or subscription has ended. Reactivate at /pricing to keep publishing.';
+  return res.status(402).json({ error: 'plan_inactive', message });
 }
 
 // Blocks mutating actions once the trial/subscription has lapsed (plan_status not
 // active / trialing / past_due).
 export function requireActivePlan(req, res, next) {
-  if (!isEntitled(req.user)) return notEntitled(res);
+  if (!isEntitled(req.user)) return notEntitled(res, req.user);
   next();
 }
 
 // Gates a route to plans whose `capabilities[cap]` is true.
 export function requireCapability(cap) {
   return (req, res, next) => {
-    if (!isEntitled(req.user)) return notEntitled(res);
+    if (!isEntitled(req.user)) return notEntitled(res, req.user);
     if (!planHasCapability(req.user.plan, cap)) {
       return res.status(402).json({
         error: 'plan_capability',
@@ -56,7 +59,7 @@ export function requireCapability(cap) {
 
 // POST /api/v1/social-accounts — blocks once the user is at their plan's channel cap.
 export const enforceAccountLimit = asyncHandler(async (req, res, next) => {
-  if (!isEntitled(req.user)) return notEntitled(res);
+  if (!isEntitled(req.user)) return notEntitled(res, req.user);
   const max = limitsForPlan(req.user.plan).accounts;
   if (max !== Infinity && (await countAccounts(req.user.id)) >= max) {
     return limitReached(res, req.user.plan, max, 'connected channels');
@@ -68,7 +71,7 @@ export const enforceAccountLimit = asyncHandler(async (req, res, next) => {
 // Every paid plan has an unlimited queue, so this only bites when a plan is capped — but it
 // still enforces entitlement. Must run after validate().
 export const enforceScheduledPostLimit = asyncHandler(async (req, res, next) => {
-  if (!isEntitled(req.user)) return notEntitled(res);
+  if (!isEntitled(req.user)) return notEntitled(res, req.user);
 
   const willSchedule =
     (req.method === 'POST' && req.body.scheduled_for) ||

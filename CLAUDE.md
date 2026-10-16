@@ -202,8 +202,9 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
 - Billing: plans live in `lib/billing.js` (`PLANS` — each has `priceUsd`, `limits`, `capabilities`, `features`);
   `users.plan`/`plan_status`/`plan_renews_at` are the app's read-fast copy of Stripe state, written only by
   `routes/billingWebhook.js`. There is no free plan — new rows default to `plan='standard'`,
-  `plan_status='trialing'` (migration 013) and Checkout adds a 7-day `trial_period_days` for never-subscribed
-  customers. `isEntitled(user)` (plan_status in active/trialing/past_due) is the "can still publish" gate;
+  `plan_status='incomplete'` (migration 023 — not entitled until Stripe Checkout completes and the webhook sets
+  `trialing`/`active`), and Checkout adds a 7-day `trial_period_days` for never-subscribed customers. A test/
+  reviewer login that should work without Stripe is just set to `plan_status='active'` by hand. `isEntitled(user)` (plan_status in active/trialing/past_due) is the "can still publish" gate;
   when a subscription lapses the `plan` string sticks and `plan_status` drives the lockout. Enforce with the
   middleware in `middleware/planLimit.js`: `enforceAccountLimit` (402 `plan_limit`), `enforceScheduledPostLimit`
   (still entitlement-checks even though every paid queue is unlimited), and `requireCapability('webhooks'|…)`
@@ -292,6 +293,9 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
 - The `posts` table has a `BEFORE UPDATE` trigger that forces `updated_at = now()`. You cannot backdate
   `updated_at`/`posted_at` via `UPDATE` in a test fixture — insert the row directly with the backdated timestamp
   instead (triggers don't fire on INSERT). See `tests/mediaCleanup.test.js` for the pattern.
+- `tests/setup.js` resets the test DB's `users.plan_status` default to `'trialing'`, so users signed up via
+  `POST /api/users` in tests act as if they'd finished Checkout. To test the real never-checked-out state, set
+  `plan_status = 'incomplete'` on the user explicitly (see `tests/billing.test.js`).
 - One test file per resource, matching the route file name. Add new tests there rather than starting a new file.
 
 ## Before adding a feature, check

@@ -129,7 +129,8 @@ blueskyForm?.addEventListener(
 );
 
 if (new URLSearchParams(location.search).get('error') === 'plan_limit') {
-  showToast('Some accounts were not connected — your plan’s account limit was reached.', 'error', '/pricing');
+  // atAccountLimit() also returns true for an account with no active trial/subscription.
+  showToast('Some accounts were not connected — start your free trial, or upgrade if your plan’s channel limit was reached.', 'error', '/pricing');
   history.replaceState(null, '', location.pathname);
 }
 

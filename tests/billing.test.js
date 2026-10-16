@@ -134,6 +134,16 @@ describe('plan limits', () => {
     expect(res.status).toBe(402);
     expect(res.body.error).toBe('plan_inactive');
   });
+
+  it('blocks an account that signed up but never finished Checkout', async () => {
+    const { client, userId } = await loginNewUser();
+    await pool.query("UPDATE users SET plan_status = 'incomplete' WHERE id = $1", [userId]);
+
+    const res = await addAccount(client, '@no-checkout');
+    expect(res.status).toBe(402);
+    expect(res.body.error).toBe('plan_inactive');
+    expect(res.body.message).toMatch(/start your free trial/i);
+  });
 });
 
 describe('POST /api/billing/webhook', () => {
