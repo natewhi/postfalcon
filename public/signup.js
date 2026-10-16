@@ -24,6 +24,14 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
       body: JSON.stringify({ email: form.email.value, password: form.password.value }),
     });
 
+    if (res.status === 409) {
+      const errorEl = document.getElementById('error');
+      const loginLink = document.createElement('a');
+      loginLink.href = '/login';
+      loginLink.textContent = 'Log in instead';
+      errorEl.append('An account with this email already exists. ', loginLink);
+      return;
+    }
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       document.getElementById('error').textContent = data.error || 'Sign up failed';
