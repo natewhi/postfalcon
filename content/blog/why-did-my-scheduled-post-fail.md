@@ -19,8 +19,6 @@ A few platforms won't accept a post that's missing (or has the wrong kind of) at
 - **Instagram** — every post needs an image or video attached. There's no text-only post.
 - **Pinterest** — every Pin needs an image. Video Pins aren't supported yet.
 - **TikTok** — every post needs a video attached.
-- **LinkedIn** — the opposite problem: it's text-only for now, so a post with an image or video
-  attached to a LinkedIn channel will fail until that support ships.
 - **Bluesky** — supports images, not video, so a video attached to a Bluesky post fails.
 
 If a cross-posted post went to several channels and only one of them failed, this is the first
@@ -42,11 +40,8 @@ and reconnect the account from the **Accounts** page.
 
 ## The account's token expired
 
-Some platforms hand out a token that just expires after a while, with no way to silently renew
-it in the background:
+Platforms renew most access tokens in the background, but that renewal can still fail:
 
-- **LinkedIn** access tokens expire after about 60 days with no refresh token issued for
-  standard apps — this is expected, not a bug, and just needs a reconnect when it happens.
 - **Threads** self-refreshes its long-lived token automatically most of the time, but can still
   fail if that refresh itself lapses.
 - **YouTube and TikTok** refresh their short-lived tokens automatically in the background on

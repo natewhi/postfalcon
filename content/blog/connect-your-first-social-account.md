@@ -1,7 +1,7 @@
 ---
 title: "Getting Started: Connect Your First Social Account"
 slug: connect-your-first-social-account
-description: "A step-by-step walkthrough of connecting Mastodon, Bluesky, Facebook, Instagram, Threads, Telegram, YouTube, TikTok, Pinterest, and LinkedIn to Postfalcon, plus what to do if a connection fails."
+description: "A step-by-step walkthrough of connecting Mastodon, Bluesky, Facebook, Instagram, Threads, Telegram, YouTube, TikTok, and Pinterest to Postfalcon, plus what to do if a connection fails."
 date: 2026-08-20
 author: nathan
 tags: ["Getting Started", "Guides"]
@@ -21,7 +21,7 @@ Log in and open **Accounts** from the sidebar. Every platform Postfalcon support
 own card with a "Connect" button or a small form. You can connect as many accounts as your
 plan allows, across as many platforms as you like — there's no limit on mixing and matching.
 
-## OAuth platforms: Mastodon, Facebook, Instagram, Threads, YouTube, TikTok, Pinterest, LinkedIn
+## OAuth platforms: Mastodon, Facebook, Instagram, Threads, YouTube, TikTok, Pinterest
 
 Most platforms use OAuth: you click "Connect," get redirected to the platform's own login
 screen, approve the permissions Postfalcon is asking for, and land back on your Accounts page
@@ -38,8 +38,6 @@ A couple of platform-specific notes:
   any other OAuth account, but Postfalcon will ask for a video file when you come to post.
 - **Pinterest** picks your account's first board automatically — there's no board picker yet,
   so every scheduled Pin lands there for now. Pins always need an image attached.
-- **LinkedIn** connects your personal profile (not a Company Page) and is text-only for now —
-  image and video posting isn't built yet.
 
 ## Telegram: a bot token instead of a login
 
