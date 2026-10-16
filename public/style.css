@@ -3003,6 +3003,7 @@ body.dark-canvas .auth-card {
   font-size: 0.85rem;
   border-top: 1px solid var(--color-border);
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-4);
   justify-content: center;
 }

@@ -25,6 +25,12 @@
         These terms govern your use of Postfalcon (postfalcon.co). By creating an account, you agree
         to them. If you don't agree, don't use the service.
       </p>
+      <% if (operatorName) { %>
+      <p>
+        Postfalcon is operated by <%= operatorName %>, a sole trader based in New South Wales,
+        Australia (&ldquo;we&rdquo;, &ldquo;us&rdquo;).
+      </p>
+      <% } %>
     </section>
 
     <section class="api-docs-section">
@@ -140,7 +146,7 @@
   </main>
 
   <footer class="landing-footer">
-    <span>&copy; <%= new Date().getFullYear() %> Postfalcon</span>
+    <span>&copy; <%= new Date().getFullYear() %> Postfalcon<% if (operatorName) { %> &middot; operated by <%= operatorName %><% } %></span>
     <% if (blogEnabled) { %><a href="/blog">Blog</a><% } %>
     <a href="/api-docs">API docs</a>
     <a href="/privacy">Privacy</a>

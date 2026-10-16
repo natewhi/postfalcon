@@ -59,6 +59,11 @@ if (isProduction) {
 // lib/blog.js for why a self-hoster would turn this off.
 app.locals.blogEnabled = isBlogEnabled();
 
+// The legal name of whoever runs this instance, shown in public footers and the Terms/Privacy
+// pages when set. Meta's business verification requires the operator's legal name on the site;
+// a self-hoster's instance just leaves it unset.
+app.locals.operatorName = process.env.OPERATOR_NAME?.trim() || null;
+
 // Appended as ?v= to every /*.js and /*.css link in views/. Static files are cached for 7
 // days in production, so without this a deploy's new CSS/JS wouldn't reach returning
 // visitors until their cache expired. Changes on every process start, i.e. every deploy.
