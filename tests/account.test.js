@@ -79,6 +79,17 @@ describe('email verification', () => {
     expect(rows[0].email_verified_at).not.toBeNull();
   });
 
+  it('still creates the account when the verification email fails to send', async () => {
+    const email = 'verify-smtp-down@example.com';
+    sendMail.mockRejectedValueOnce(new Error('SMTP connection refused'));
+    const res = await request(app).post('/api/users').send({ email, password: 'password123' });
+    expect(res.status).toBe(201);
+
+    const { rows } = await pool.query('SELECT email_verified_at FROM users WHERE email = $1', [email]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].email_verified_at).toBeNull();
+  });
+
   it('rejects an invalid verification token', async () => {
     const res = await request(app).get('/api/auth/verify-email?token=not-real');
     expect(res.status).toBe(400);

@@ -47,7 +47,12 @@ router.post(
 
     const token = await createToken(user.id, 'email_verification', ONE_DAY_MS);
     const verifyUrl = `${process.env.BASE_URL}/api/auth/verify-email?token=${token}`;
-    await sendMail({ to: email, subject: 'Verify your Postfalcon email', text: `Verify your email: ${verifyUrl}` });
+    // The account already exists at this point, so a mail failure (SMTP down, recipient
+    // rejected) mustn't turn into a 500 — the client would show an error, and retrying would
+    // then 409. The user can resend from the verify banner (POST /api/auth/resend-verification).
+    await sendMail({ to: email, subject: 'Verify your Postfalcon email', text: `Verify your email: ${verifyUrl}` }).catch(
+      (mailErr) => req.log.error({ err: mailErr, userId: user.id }, 'failed to send signup verification email')
+    );
 
     await logAuthEvent(req, 'signup', { userId: user.id, email: user.email }).catch((logErr) =>
       req.log.error({ err: logErr }, 'failed to record auth event')
