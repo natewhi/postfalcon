@@ -144,6 +144,20 @@ describe('plan limits', () => {
     expect(res.body.error).toBe('plan_inactive');
     expect(res.body.message).toMatch(/start your free trial/i);
   });
+
+  it('shows the start-trial banner in the app only until the account can publish', async () => {
+    const { client, userId } = await loginNewUser();
+    const entitled = await client.get('/dashboard');
+    expect(entitled.text).not.toContain('trial-banner');
+
+    await pool.query("UPDATE users SET plan_status = 'incomplete' WHERE id = $1", [userId]);
+    const notStarted = await client.get('/dashboard');
+    expect(notStarted.text).toContain('Start your 7-day free trial');
+
+    await pool.query("UPDATE users SET plan_status = 'canceled' WHERE id = $1", [userId]);
+    const lapsed = await client.get('/accounts');
+    expect(lapsed.text).toContain('Your trial or subscription has ended');
+  });
 });
 
 describe('POST /api/billing/webhook', () => {

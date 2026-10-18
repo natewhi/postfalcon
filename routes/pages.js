@@ -3,10 +3,18 @@ import { requirePageAuth, requireAdmin } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { logPageVisit } from '../lib/activityLog.js';
 import { connectablePlatforms, livePlatforms } from '../lib/platforms.js';
-import { PLANS } from '../lib/billing.js';
+import { PLANS, isEntitled } from '../lib/billing.js';
 import { listPosts, isBlogEnabled } from '../lib/blog.js';
 
 const router = Router();
+
+// What the in-app pages' trial banner (partials/trial-banner.ejs) should say: null when the
+// account can publish, else whether it never finished Checkout ('incomplete', migration 023)
+// or had a trial/subscription that lapsed. Mirrors the 402 the API returns (planLimit.js).
+function planBanner(user) {
+  if (isEntitled(user)) return null;
+  return user.plan_status === 'incomplete' ? 'start' : 'lapsed';
+}
 
 // The publicly crawlable pages, in the order they should be listed — used by /sitemap.xml.
 // '/blog' only when isBlogEnabled() — see that function for why a self-hoster might turn it off.
@@ -78,6 +86,7 @@ router.get('/dashboard', requirePageAuth, (req, res) => {
   res.render('dashboard', {
     email: req.user.email,
     emailVerified: Boolean(req.user.email_verified_at),
+    planBanner: planBanner(req.user),
   });
 });
 
@@ -85,6 +94,7 @@ router.get('/analytics', requirePageAuth, (req, res) => {
   res.render('analytics', {
     email: req.user.email,
     emailVerified: Boolean(req.user.email_verified_at),
+    planBanner: planBanner(req.user),
   });
 });
 
@@ -92,6 +102,7 @@ router.get('/accounts', requirePageAuth, (req, res) => {
   res.render('accounts', {
     email: req.user.email,
     emailVerified: Boolean(req.user.email_verified_at),
+    planBanner: planBanner(req.user),
     platforms: connectablePlatforms(),
   });
 });
@@ -100,6 +111,7 @@ router.get('/settings', requirePageAuth, (req, res) => {
   res.render('settings', {
     email: req.user.email,
     emailVerified: Boolean(req.user.email_verified_at),
+    planBanner: planBanner(req.user),
     createdAt: req.user.created_at,
     hasPassword: Boolean(req.user.has_password),
     hasGoogle: Boolean(req.user.has_google),

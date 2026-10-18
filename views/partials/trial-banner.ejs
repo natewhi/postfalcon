@@ -1,0 +1,11 @@
+<% if (planBanner === 'start') { %>
+<section class="verify-banner trial-banner">
+  <span>Start your 7-day free trial to connect channels and publish posts.</span>
+  <a class="banner-action" href="/pricing">Choose a plan</a>
+</section>
+<% } else if (planBanner === 'lapsed') { %>
+<section class="verify-banner trial-banner">
+  <span>Your trial or subscription has ended. Reactivate to keep publishing.</span>
+  <a class="banner-action" href="/pricing">Reactivate</a>
+</section>
+<% } %>

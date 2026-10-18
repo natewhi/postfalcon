@@ -617,6 +617,21 @@ section {
   background: color-mix(in srgb, var(--status-posting-text) 15%, transparent);
 }
 
+/* The trial banner's call to action is a link to /pricing, styled like the banner's button. */
+.verify-banner .banner-action {
+  color: var(--status-posting-text);
+  border: 1px solid var(--status-posting-text);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+  text-decoration: none;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.verify-banner .banner-action:hover {
+  background: color-mix(in srgb, var(--status-posting-text) 15%, transparent);
+}
+
 .attention-banner {
   display: flex;
   align-items: center;
