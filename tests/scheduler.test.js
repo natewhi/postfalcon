@@ -557,6 +557,9 @@ describe('scheduler', () => {
           expect(options.method).toBe('PUT');
           return jsonResponse({ id: 'yt-vid-1' });
         }
+        if (u.startsWith('https://www.googleapis.com/youtube/v3/videos?part=statistics&id=yt-vid-1')) {
+          return jsonResponse({ items: [{ id: 'yt-vid-1', statistics: { viewCount: '0', likeCount: '0', commentCount: '0' } }] });
+        }
         throw new Error(`unexpected fetch: ${u}`);
       })
     );
@@ -566,6 +569,9 @@ describe('scheduler', () => {
     const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
     expect(rows[0].status).toBe('posted');
     expect(rows[0].platform_post_id).toBe('yt-vid-1');
+    // Metrics are read right after publishing, not only on the next 3-hourly refresh.
+    expect(rows[0].metric_views).toBe(0);
+    expect(rows[0].metrics_updated_at).not.toBeNull();
 
     await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
   });

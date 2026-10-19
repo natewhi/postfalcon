@@ -129,6 +129,13 @@ export async function processDuePosts() {
       await scheduleNextOccurrence(post).catch((err) =>
         logger.error({ err, postId: post.id }, 'failed to schedule the next recurring occurrence')
       );
+      // First metrics read right away, so Analytics shows the new post's (zero) counts instead
+      // of "—" until the next 3-hourly refreshPostMetrics() run. Best effort.
+      if (platformPostId) {
+        await storePostMetrics({ ...post, platform_post_id: platformPostId }).catch((err) =>
+          logger.warn({ err, postId: post.id, platform: post.platform }, 'initial metrics fetch failed')
+        );
+      }
       deliverWebhooks(post.user_id, 'post.published', {
         post_id: post.id,
         platform: post.platform,
@@ -165,6 +172,22 @@ export async function processDuePosts() {
 // (Telegram and TikTok don't currently have one) — everything else silently skips. A failure
 // fetching one post's metrics (rate limit, revoked token, deleted post) is logged and skipped,
 // not fatal to the run, same isolation as processDuePosts below.
+// Fetches one posted post's metrics through its adapter and stores them. Returns false if the
+// adapter has no fetchMetrics or the platform returned nothing.
+async function storePostMetrics(post) {
+  const adapter = getAdapter(post.platform);
+  if (!adapter?.fetchMetrics) return false;
+  const metrics = await adapter.fetchMetrics(post);
+  if (!metrics) return false;
+  await pool.query(
+    `UPDATE posts
+     SET metric_views = $2, metric_likes = $3, metric_comments = $4, metric_shares = $5, metrics_updated_at = now()
+     WHERE id = $1`,
+    [post.id, metrics.views, metrics.likes, metrics.comments, metrics.shares]
+  );
+  return true;
+}
+
 export async function refreshPostMetrics() {
   const { rows: posts } = await pool.query(`
     SELECT posts.id, posts.platform_post_id, posts.social_account_id,
@@ -179,18 +202,9 @@ export async function refreshPostMetrics() {
 
   let refreshed = 0;
   for (const post of posts) {
-    const adapter = getAdapter(post.platform);
-    if (!adapter?.fetchMetrics) continue;
+    if (!getAdapter(post.platform)?.fetchMetrics) continue;
     try {
-      const metrics = await adapter.fetchMetrics(post);
-      if (!metrics) continue;
-      await pool.query(
-        `UPDATE posts
-         SET metric_views = $2, metric_likes = $3, metric_comments = $4, metric_shares = $5, metrics_updated_at = now()
-         WHERE id = $1`,
-        [post.id, metrics.views, metrics.likes, metrics.comments, metrics.shares]
-      );
-      refreshed++;
+      if (await storePostMetrics(post)) refreshed++;
     } catch (err) {
       logger.error({ err, postId: post.id, platform: post.platform }, 'failed to refresh post metrics');
       if (looksLikeAuthFailure(err)) {
