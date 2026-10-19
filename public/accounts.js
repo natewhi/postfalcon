@@ -134,4 +134,9 @@ if (new URLSearchParams(location.search).get('error') === 'plan_limit') {
   history.replaceState(null, '', location.pathname);
 }
 
+if (new URLSearchParams(location.search).get('error') === 'facebook_no_pages') {
+  showToast('Facebook didn’t share any Pages. Connect again and tick at least one Page (and its Instagram account) when Facebook asks which to allow.', 'error');
+  history.replaceState(null, '', location.pathname);
+}
+
 loadAccounts();

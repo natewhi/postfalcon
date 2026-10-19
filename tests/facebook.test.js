@@ -140,6 +140,25 @@ describe('facebook oauth', () => {
     expect(ig.avatar_url).toBe('https://example.com/ig-1.png');
   });
 
+  it('redirects with facebook_no_pages when no Pages were granted', async () => {
+    const client = await loginNewUser();
+    const api = mockFacebookApi({ pages: [] });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) =>
+        new URL(String(url)).pathname === '/v19.0/me/permissions' ? jsonResponse({ data: [] }) : api(url)
+      )
+    );
+
+    const connectRes = await client.get('/api/facebook/connect');
+    const state = new URL(connectRes.headers.location).searchParams.get('state');
+    const callbackRes = await client.get(`/api/facebook/callback?code=fake-code&state=${state}`);
+    expect(callbackRes.headers.location).toBe('/accounts?error=facebook_no_pages');
+
+    const accounts = await client.get('/api/v1/social-accounts');
+    expect(accounts.body).toHaveLength(0);
+  });
+
   it('does not create a duplicate page without a linked instagram account', async () => {
     const client = await loginNewUser();
     vi.stubGlobal(

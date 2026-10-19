@@ -96,7 +96,19 @@ router.get(
     if (!pagesRes.ok) {
       return res.status(502).send('Failed to fetch your Facebook Pages.');
     }
-    const { data: pages } = await pagesRes.json();
+    const { data: pages = [] } = await pagesRes.json();
+
+    // Facebook happily completes the login even when the user granted no Pages (unticked them
+    // in the dialog, or the login config issues the wrong token type) — /me/accounts is then
+    // just empty. Say so instead of silently landing back on /accounts with nothing added.
+    if (pages.length === 0) {
+      const permsRes = await fetch(
+        `https://graph.facebook.com/${GRAPH_VERSION}/me/permissions?access_token=${encodeURIComponent(longLivedToken)}`
+      ).catch(() => null);
+      const perms = permsRes?.ok ? (await permsRes.json()).data : null;
+      req.log.warn({ userId: req.user.id, permissions: perms }, 'facebook connect returned no pages');
+      return res.redirect('/accounts?error=facebook_no_pages');
+    }
 
     // Reconnecting an account already on the books just refreshes its token, so it's always
     // allowed; brand-new accounts are capped by the user's plan. Track a running count so
