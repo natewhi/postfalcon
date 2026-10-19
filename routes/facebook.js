@@ -45,7 +45,13 @@ router.get(
     authorizeUrl.searchParams.set('client_id', process.env.FACEBOOK_APP_ID);
     authorizeUrl.searchParams.set('redirect_uri', redirectUri());
     authorizeUrl.searchParams.set('state', state);
-    authorizeUrl.searchParams.set('scope', SCOPE);
+    // A Business-type Meta app (Facebook Login for Business) defines its permissions in a
+    // login configuration and takes its id instead of a scope list.
+    if (process.env.FACEBOOK_CONFIG_ID) {
+      authorizeUrl.searchParams.set('config_id', process.env.FACEBOOK_CONFIG_ID);
+    } else {
+      authorizeUrl.searchParams.set('scope', SCOPE);
+    }
 
     res.redirect(authorizeUrl.toString());
   })

@@ -66,6 +66,19 @@ describe('facebook oauth', () => {
     expect(location.searchParams.get('scope')).toContain('pages_manage_posts');
   });
 
+  it('sends a Facebook Login for Business config_id instead of scope when one is configured', async () => {
+    process.env.FACEBOOK_CONFIG_ID = 'cfg-123';
+    try {
+      const client = await loginNewUser();
+      const res = await client.get('/api/facebook/connect');
+      const location = new URL(res.headers.location);
+      expect(location.searchParams.get('config_id')).toBe('cfg-123');
+      expect(location.searchParams.get('scope')).toBeNull();
+    } finally {
+      delete process.env.FACEBOOK_CONFIG_ID;
+    }
+  });
+
   it('rejects a callback with a mismatched state', async () => {
     const client = await loginNewUser();
     await client.get('/api/facebook/connect');
