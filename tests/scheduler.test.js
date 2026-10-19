@@ -1245,6 +1245,43 @@ describe('post metrics refresh', () => {
     expect(rows[0].metric_shares).toBe(0);
   });
 
+  it("doesn't ask for `shares` on a Facebook video (a Video node has no such field)", async () => {
+    const userId = await createUser('metrics-fb-video@example.com');
+    const { rows: acct } = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       VALUES ($1, 'facebook', 'My Page', 'page-1', 'page-token') RETURNING id`,
+      [userId]
+    );
+    const videoPostId = await createPostedPost(userId, acct[0].id, { platformPostId: '987654321', content: 'video' });
+    const feedPostId = await createPostedPost(userId, acct[0].id, { platformPostId: 'page-1_555', content: 'text' });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        const fields = new URL(String(url)).searchParams.get('fields');
+        if (String(url).includes('987654321')) {
+          expect(fields).not.toContain('shares');
+          return jsonResponse({ likes: { summary: { total_count: 4 } }, comments: { summary: { total_count: 1 } } });
+        }
+        expect(fields).toContain('shares');
+        // A Page post with no shares omits the field entirely.
+        return jsonResponse({ likes: { summary: { total_count: 2 } }, comments: { summary: { total_count: 0 } } });
+      })
+    );
+
+    const result = await refreshPostMetrics();
+    expect(result.refreshed).toBe(2);
+
+    const { rows } = await pool.query(
+      'SELECT id, metric_likes, metric_comments, metric_shares FROM posts WHERE id = ANY($1)',
+      [[videoPostId, feedPostId]]
+    );
+    const video = rows.find((r) => r.id === videoPostId);
+    const feed = rows.find((r) => r.id === feedPostId);
+    expect(video).toMatchObject({ metric_likes: 4, metric_comments: 1, metric_shares: null });
+    expect(feed).toMatchObject({ metric_likes: 2, metric_comments: 0, metric_shares: 0 });
+  });
+
   it('skips a platform with no metrics adapter (Telegram) without touching its metric columns', async () => {
     const userId = await createUser('metrics-telegram@example.com');
     const { rows: acct } = await pool.query(
