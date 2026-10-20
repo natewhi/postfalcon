@@ -25,7 +25,7 @@ router.get(
     try {
       object = await getMediaObject(req.params.name, req.headers.range);
     } catch (err) {
-      if (err.$metadata?.httpStatusCode === 416) return res.status(416).end();
+      if (err.httpStatus === 416) return res.status(416).end();
       throw err;
     }
     if (!object) return next();

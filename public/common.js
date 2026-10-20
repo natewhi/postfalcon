@@ -33,7 +33,12 @@ function extractErrorMessageFromData(data) {
   if (data.error === 'too_many_requests') {
     return 'Too many attempts. Please wait a few minutes and try again.';
   }
-  return data.error || 'Something went wrong.';
+  if (data.error === 'internal_server_error') {
+    return 'Something went wrong on our side. Please try again.';
+  }
+  // Responses that pair a machine-readable code with a human sentence (plan_limit,
+  // storage_unavailable, ...) show the sentence.
+  return data.message || data.error || 'Something went wrong.';
 }
 
 async function extractErrorMessage(res) {

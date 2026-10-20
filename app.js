@@ -244,6 +244,11 @@ app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError || err.status === 400) {
     return res.status(400).json({ error: err.message });
   }
+  // The media bucket (lib/storage.js) failed or hit its daily cap: not a bug in the request.
+  if (err.code === 'storage_unavailable') {
+    req.log.error({ err: err.cause ?? err }, 'media storage error');
+    return res.status(503).json({ error: 'storage_unavailable', message: err.message });
+  }
   req.log.error({ err }, 'unhandled error');
   res.status(500).json({ error: 'internal_server_error' });
 });

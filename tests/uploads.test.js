@@ -5,9 +5,16 @@ import path from 'node:path';
 import app from '../app.js';
 import { uploadDir } from '../middleware/upload.js';
 import { copyMedia, readMedia } from '../lib/storage.js';
+import { looksLikeAuthFailure } from '../lib/reconnect.js';
+import { pool } from '../db/pool.js';
+
+function s3Error(name, message, httpStatusCode) {
+  return Object.assign(new Error(message), { name, $metadata: { httpStatusCode } });
+}
 
 // An in-memory stand-in for an S3 bucket: key -> { body, contentType }.
-const { bucket } = vi.hoisted(() => ({ bucket: new Map() }));
+// `outage`, when set, is the S3 error every request fails with.
+const { bucket, fake } = vi.hoisted(() => ({ bucket: new Map(), fake: { outage: null } }));
 
 vi.mock('@aws-sdk/client-s3', async () => {
   const { Readable } = await import('node:stream');
@@ -24,6 +31,7 @@ vi.mock('@aws-sdk/client-s3', async () => {
 
   class S3Client {
     async send(cmd) {
+      if (fake.outage) throw fake.outage;
       const { Key } = cmd.input;
       if (cmd instanceof PutObjectCommand) {
         const chunks = [];
@@ -140,5 +148,45 @@ describe('uploads in an S3 bucket', () => {
     fs.writeFileSync(path.join(uploadDir, legacy), 'on-disk');
     expect((await readMedia(legacy)).toString()).toBe('on-disk');
     fs.unlinkSync(path.join(uploadDir, legacy));
+  });
+
+  describe('when the bucket fails', () => {
+    afterAll(() => {
+      fake.outage = null;
+    });
+
+    it('rejects the post with a readable 503 and leaves no files or rows behind', async () => {
+      const client = await loginNewUser();
+      const before = fs.readdirSync(uploadDir).length;
+      fake.outage = s3Error('InvalidAccessKeyId', "The key '005abc' is not valid", 403);
+
+      const post = await postWithImage(client, 'never-stored');
+      expect(post.status).toBe(503);
+      expect(post.body).toEqual({
+        error: 'storage_unavailable',
+        message: 'Media storage is temporarily unavailable. Please try again in a few minutes.',
+      });
+      expect(fs.readdirSync(uploadDir).length).toBe(before);
+      const { rows } = await pool.query('SELECT count(*)::int AS n FROM posts');
+      expect(rows[0].n).toBe(0);
+    });
+
+    it("says so when Backblaze's daily cap is hit", async () => {
+      fake.outage = s3Error(
+        'AccessDenied',
+        'Cannot download file, download bandwidth or transaction (Class B) cap exceeded.',
+        403
+      );
+      await expect(readMedia('33333333-3333-3333-3333-333333333333.mp4')).rejects.toThrow(
+        "Media storage has reached today's free usage limit. Try again tomorrow."
+      );
+    });
+
+    it("isn't mistaken for the social platform rejecting the account", async () => {
+      fake.outage = s3Error('ExpiredToken', 'The provided token has expired.', 400);
+      const err = await readMedia('44444444-4444-4444-4444-444444444444.mp4').catch((e) => e);
+      expect(err.code).toBe('storage_unavailable');
+      expect(looksLikeAuthFailure(err)).toBe(false);
+    });
   });
 });

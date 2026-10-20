@@ -6,7 +6,7 @@ import { pool } from '../db/pool.js';
 import { validate } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { uploadMedia } from '../middleware/upload.js';
-import { storeUploadedFile, copyMedia, deleteMedia, mediaUrl } from '../lib/storage.js';
+import { storeUploadedFiles, copyMedia, deleteMedia, mediaUrl } from '../lib/storage.js';
 import { logProductEvent } from '../lib/activityLog.js';
 import { enforceScheduledPostLimit } from '../middleware/planLimit.js';
 import { planHasCapability } from '../lib/billing.js';
@@ -240,7 +240,7 @@ router.post(
     const status = scheduled_for ? 'scheduled' : 'draft';
     const groupId = targetIds.length > 1 ? crypto.randomUUID() : null;
     const files = req.files || [];
-    await Promise.all(files.map(storeUploadedFile));
+    await storeUploadedFiles(files);
     const baseMedia = files.map((file, i) => ({
       url: mediaUrl(file.filename),
       media_type: file.mimetype.startsWith('video/') ? 'video' : 'image',
