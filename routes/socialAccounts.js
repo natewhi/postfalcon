@@ -1,11 +1,10 @@
 import { Router } from 'express';
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { pool } from '../db/pool.js';
 import { validate } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { uploadDir } from '../middleware/upload.js';
+import { deleteMedia } from '../lib/storage.js';
 import { logProductEvent } from '../lib/activityLog.js';
 import { PLATFORMS, PLATFORM_IDS, getAdapter } from '../lib/platforms.js';
 import { enforceAccountLimit } from '../middleware/planLimit.js';
@@ -97,7 +96,7 @@ router.delete(
     }
 
     await Promise.all(
-      mediaRows.rows.map((row) => fs.unlink(path.join(uploadDir, path.basename(row.url))).catch(() => {}))
+      mediaRows.rows.map((row) => deleteMedia(path.basename(row.url)))
     );
 
     // Platforms that support it (currently YouTube) also get the grant withdrawn on their

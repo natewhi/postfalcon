@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import { pool } from '../db/pool.js';
 import { validate } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { uploadMedia, uploadDir } from '../middleware/upload.js';
+import { uploadMedia } from '../middleware/upload.js';
+import { storeUploadedFile, copyMedia, deleteMedia, mediaUrl } from '../lib/storage.js';
 import { logProductEvent } from '../lib/activityLog.js';
 import { enforceScheduledPostLimit } from '../middleware/planLimit.js';
 import { planHasCapability } from '../lib/billing.js';
@@ -118,10 +118,7 @@ const updatePostSchema = z
   .refine((data) => Object.keys(data).length > 0, { message: 'no fields to update' });
 
 async function copyMediaFile(url) {
-  const oldName = path.basename(url);
-  const newName = `${crypto.randomUUID()}${path.extname(oldName)}`;
-  await fs.copyFile(path.join(uploadDir, oldName), path.join(uploadDir, newName));
-  return `${process.env.BASE_URL}/uploads/${newName}`;
+  return mediaUrl(await copyMedia(path.basename(url)));
 }
 
 function parseId(req, res) {
@@ -243,8 +240,9 @@ router.post(
     const status = scheduled_for ? 'scheduled' : 'draft';
     const groupId = targetIds.length > 1 ? crypto.randomUUID() : null;
     const files = req.files || [];
+    await Promise.all(files.map(storeUploadedFile));
     const baseMedia = files.map((file, i) => ({
-      url: `${process.env.BASE_URL}/uploads/${file.filename}`,
+      url: mediaUrl(file.filename),
       media_type: file.mimetype.startsWith('video/') ? 'video' : 'image',
       alt_text:
         typeof altTextList[i] === 'string' && altTextList[i].trim() ? altTextList[i].trim().slice(0, 1000) : null,
@@ -366,7 +364,7 @@ router.delete(
     if (result.rows.length === 0) return res.status(404).json({ error: 'not found' });
 
     await Promise.all(
-      mediaRows.rows.map((row) => fs.unlink(path.join(uploadDir, path.basename(row.url))).catch(() => {}))
+      mediaRows.rows.map((row) => deleteMedia(path.basename(row.url)))
     );
 
     await logProductEvent(req.user.id, 'post_deleted', { postId: id }).catch((err) =>

@@ -106,6 +106,10 @@ routes/auth.js       Session auth: local email/password (passport-local, lib/pas
                      session itself is the only factor" rather than calling bcrypt on null.
 lib/                 passport strategy, mailer (real SMTP via nodemailer, falls back to console.log if
                      SMTP_* env vars are unset), token hashing, media cleanup logic,
+                     storage.js (uploaded media: local public/uploads by default, or an S3-compatible
+                     bucket when S3_BUCKET is set — routes/uploads.js then streams /uploads/<name>
+                     from it, so media URLs never change; always go through readMedia/copyMedia/
+                     deleteMedia/storeUploadedFile rather than touching uploadDir directly),
                      billing.js (Stripe client + PLANS catalogue: per-plan limits + capabilities + trial),
                      webhooks.js (deliverWebhooks() — HMAC-signed outbound POST, fire-and-forget)
 routes/billing.js    Stripe Checkout / Billing Portal / plan-status endpoints (session auth, /api/billing)

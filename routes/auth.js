@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import passport from '../lib/passport.js';
@@ -12,7 +11,7 @@ import { authLimiter } from '../middleware/rateLimit.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendMail } from '../lib/mailer.js';
 import { createToken, consumeToken, hashToken } from '../lib/tokens.js';
-import { uploadDir } from '../middleware/upload.js';
+import { deleteMedia } from '../lib/storage.js';
 import { logAuthEvent } from '../lib/activityLog.js';
 
 const router = Router();
@@ -338,7 +337,7 @@ router.post(
     );
     await pool.query('DELETE FROM users WHERE id = $1', [req.user.id]);
     await Promise.all(
-      mediaRows.rows.map((row) => fs.unlink(path.join(uploadDir, path.basename(row.url))).catch(() => {}))
+      mediaRows.rows.map((row) => deleteMedia(path.basename(row.url)))
     );
 
     await sendMail({

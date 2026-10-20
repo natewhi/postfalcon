@@ -1,9 +1,7 @@
 import cron from 'node-cron';
-import fs from 'node:fs/promises';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { pool } from './db/pool.js';
-import { uploadDir } from './middleware/upload.js';
+import { copyMedia, mediaUrl } from './lib/storage.js';
 import { cleanupOldMedia } from './lib/mediaCleanup.js';
 import { cleanupOldActivityLogs, logProductEvent } from './lib/activityLog.js';
 import { logger } from './lib/logger.js';
@@ -27,16 +25,15 @@ async function cloneMedia(fromPostId, toPostId) {
     [fromPostId]
   );
   for (const m of rows) {
-    const oldName = path.basename(m.url);
-    const newName = `${crypto.randomUUID()}${path.extname(oldName)}`;
+    let newName;
     try {
-      await fs.copyFile(path.join(uploadDir, oldName), path.join(uploadDir, newName));
+      newName = await copyMedia(path.basename(m.url));
     } catch {
       continue;
     }
     await pool.query(
       'INSERT INTO post_media (post_id, url, media_type, alt_text, position) VALUES ($1, $2, $3, $4, $5)',
-      [toPostId, `${process.env.BASE_URL}/uploads/${newName}`, m.media_type, m.alt_text, m.position]
+      [toPostId, mediaUrl(newName), m.media_type, m.alt_text, m.position]
     );
   }
 }

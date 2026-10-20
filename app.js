@@ -17,6 +17,7 @@ import usersRouter from './routes/users.js';
 import authRouter from './routes/auth.js';
 import socialAccountsRouter from './routes/socialAccounts.js';
 import postsRouter from './routes/posts.js';
+import uploadsRouter from './routes/uploads.js';
 import postAnalyticsRouter from './routes/postAnalytics.js';
 import mcpRouter from './routes/mcp.js';
 import mastodonRouter from './routes/mastodon.js';
@@ -92,6 +93,9 @@ app.use(
 );
 app.use(pinoHttp({ logger }));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: isProduction ? '7d' : '5m' }));
+// Uploaded media that isn't on local disk: streamed from the S3 bucket when S3_BUCKET is set
+// (lib/storage.js), otherwise falls through to the 404 handler as before.
+app.use('/uploads', uploadsRouter);
 
 // Stripe webhook needs the raw request body for signature verification, so it's mounted
 // ahead of express.json() (and ahead of csrfProtection — it authenticates by signature,
