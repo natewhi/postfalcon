@@ -1515,6 +1515,8 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
     const isPosting = arg.event.extendedProps.status === 'posting';
     const wrapper = document.createElement('div');
     wrapper.className = 'cal-event-content';
+    // The calendar shows only the first 40 characters; hovering shows the whole post.
+    wrapper.title = arg.event.extendedProps.content || arg.event.title;
     wrapper.innerHTML = `
       <span class="cal-platform-badge" style="background:${meta.color}" title="${escapeHtml(arg.event.extendedProps.platform || '')}">${platformBadgeInner(arg.event.extendedProps.platform)}</span>
       ${arg.timeText ? `<span class="fc-event-time">${escapeHtml(arg.timeText)}</span>` : ''}
