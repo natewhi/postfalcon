@@ -77,6 +77,10 @@
         you explicitly create get sent to Mastodon, Bluesky, Meta (Facebook/Instagram/Threads),
         Telegram, Google (YouTube), TikTok, Pinterest, or LinkedIn, whichever you've linked.</li>
         <li><strong>Stripe</strong>, for billing and payment processing.</li>
+        <% if (typeof storageProvider !== 'undefined' && storageProvider) { %>
+        <li><strong><%= storageProvider %></strong>, which stores the images and videos you upload
+        (privately — they're only fetched by Postfalcon) until they're deleted as described below.</li>
+        <% } %>
         <li><strong>Our email provider</strong>, to deliver transactional email on our behalf.</li>
       </ul>
       <p>

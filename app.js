@@ -18,6 +18,7 @@ import authRouter from './routes/auth.js';
 import socialAccountsRouter from './routes/socialAccounts.js';
 import postsRouter from './routes/posts.js';
 import uploadsRouter from './routes/uploads.js';
+import { storageProviderName } from './lib/storage.js';
 import postAnalyticsRouter from './routes/postAnalytics.js';
 import mcpRouter from './routes/mcp.js';
 import mastodonRouter from './routes/mastodon.js';
@@ -69,6 +70,9 @@ app.locals.operatorName = process.env.OPERATOR_NAME?.trim() || null;
 const abnDigits = (process.env.OPERATOR_ABN || '').replace(/\D/g, '');
 app.locals.operatorAbn =
   abnDigits.length === 11 ? abnDigits.replace(/^(\d{2})(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3 $4') : null;
+
+// Named in the privacy policy's sharing list when uploads go to a cloud bucket (lib/storage.js).
+app.locals.storageProvider = storageProviderName();
 
 // Appended as ?v= to every /*.js and /*.css link in views/. Static files are cached for 7
 // days in production, so without this a deploy's new CSS/JS wouldn't reach returning
