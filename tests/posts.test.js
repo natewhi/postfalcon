@@ -224,6 +224,57 @@ describe('posts', () => {
   });
 });
 
+describe('post now', () => {
+  const isAboutNow = (iso) => Math.abs(new Date(iso).getTime() - Date.now()) < 10_000;
+
+  it('queues a new post for the next scheduler run', async () => {
+    const client = await loginNewUser();
+    const account = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@me' });
+
+    // Multipart, as the composer sends it (publish_now arrives as the string "true").
+    const post = await client
+      .post('/api/v1/posts')
+      .field('social_account_id', String(account.body.id))
+      .field('content', 'right now')
+      .field('publish_now', 'true');
+    expect(post.status).toBe(201);
+    expect(post.body.status).toBe('scheduled');
+    expect(isAboutNow(post.body.scheduled_for)).toBe(true);
+  });
+
+  it('turns an existing draft into a post-now', async () => {
+    const client = await loginNewUser();
+    const account = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@me' });
+    const draft = await client.post('/api/v1/posts').send({ social_account_id: account.body.id, content: 'later' });
+
+    const res = await client.patch(`/api/v1/posts/${draft.body.id}`).send({ publish_now: true });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('scheduled');
+    expect(isAboutNow(res.body.scheduled_for)).toBe(true);
+  });
+
+  it('rejects publish_now together with a scheduled_for', async () => {
+    const client = await loginNewUser();
+    const account = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@me' });
+    const res = await client.post('/api/v1/posts').send({
+      social_account_id: account.body.id,
+      content: 'which one?',
+      publish_now: true,
+      scheduled_for: new Date(Date.now() + 3_600_000).toISOString(),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('leaves a post a draft when publish_now is false', async () => {
+    const client = await loginNewUser();
+    const account = await client.post('/api/v1/social-accounts').send({ platform: 'twitter', display_name: '@me' });
+    const post = await client
+      .post('/api/v1/posts')
+      .send({ social_account_id: account.body.id, content: 'not yet', publish_now: false });
+    expect(post.body.status).toBe('draft');
+  });
+});
+
 describe('editing posts', () => {
   it('updates content on a draft post', async () => {
     const client = await loginNewUser();

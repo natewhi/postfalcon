@@ -571,7 +571,7 @@ function updateTikTokState() {
 // so they're saved with whatever's been chosen so far.
 function tiktokPublishProblem() {
   if (tiktokEls.panel.hidden) return null;
-  const scheduling = document.querySelector('.schedule-option.active')?.dataset.mode === 'schedule';
+  const scheduling = isPublishing();
   if (!scheduling) return null;
   if (selectedTikTokAccounts().length > 1) return 'Pick one TikTok account per post.';
   if (!tiktokCreator || !tiktokCreator.privacy_level_options.length) {
@@ -654,7 +654,7 @@ function refreshYouTubePanel() {
 // Why a post can't be *scheduled* for YouTube yet (null if it can); drafts save as-is.
 function youtubePublishProblem() {
   if (youtubeEls.panel.hidden) return null;
-  const scheduling = document.querySelector('.schedule-option.active')?.dataset.mode === 'schedule';
+  const scheduling = isPublishing();
   if (!scheduling) return null;
   const title = youtubeEls.title.value.trim();
   if (!title) return 'Add a title for the YouTube video.';
@@ -948,6 +948,16 @@ renderTimeOptions(null);
 function refreshScheduleMin() {
   scheduleDateInput.min = toDateValue(new Date());
   repeatUntilInput.min = toDateValue(new Date());
+}
+
+// The composer's "When" choice: 'draft', 'now' (queued for the scheduler's next run, within a
+// minute) or 'schedule'. Both 'now' and 'schedule' publish, so they get the same platform checks.
+function currentScheduleMode() {
+  return document.querySelector('.schedule-option.active')?.dataset.mode || 'draft';
+}
+
+function isPublishing() {
+  return currentScheduleMode() !== 'draft';
 }
 
 function setScheduleMode(isSchedule) {
@@ -1296,7 +1306,8 @@ postDialogForm.addEventListener(
       return;
     }
 
-    const scheduleMode = document.querySelector('.schedule-option.active')?.dataset.mode;
+    const scheduleMode = currentScheduleMode();
+    const postNow = scheduleMode === 'now';
     const scheduledLocal = scheduleMode === 'schedule' ? scheduledForInput.value : '';
     const repeatInterval = scheduleMode === 'schedule' ? repeatSelect.value : '';
     // "Until" is a date; repeats run through the end of that day.
@@ -1324,13 +1335,17 @@ postDialogForm.addEventListener(
     }
     const tiktokOptions = tiktokOptionsPayload();
     const youtubeOptions = youtubeOptionsPayload();
-    const tiktokScheduled = Boolean(tiktokOptions) && scheduleMode === 'schedule';
+    const tiktokScheduled = Boolean(tiktokOptions) && isPublishing();
 
     if (editingPostId) {
       const payload = {
         content: form.content.value,
-        status: scheduleMode === 'schedule' ? 'scheduled' : 'draft',
-        scheduled_for: scheduledLocal ? new Date(scheduledLocal).toISOString() : null,
+        ...(postNow
+          ? { publish_now: true }
+          : {
+              status: scheduleMode === 'schedule' ? 'scheduled' : 'draft',
+              scheduled_for: scheduledLocal ? new Date(scheduledLocal).toISOString() : null,
+            }),
         repeat_interval: repeatInterval || null,
         repeat_until: repeatUntilLocal ? new Date(repeatUntilLocal).toISOString() : null,
         ...(tiktokOptions ? { tiktok_options: tiktokOptions } : {}),
@@ -1361,7 +1376,9 @@ postDialogForm.addEventListener(
       body.set('social_account_id', accountIds[0]);
     }
     body.set('content', form.content.value);
-    if (scheduledLocal) {
+    if (postNow) {
+      body.set('publish_now', 'true');
+    } else if (scheduledLocal) {
       body.set('scheduled_for', new Date(scheduledLocal).toISOString());
     }
     if (repeatInterval) {

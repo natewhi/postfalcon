@@ -20,6 +20,16 @@ const MAX_MEDIA_PER_POST = 10;
 const futureDateRefinement = (val) => !val || new Date(val).getTime() > Date.now();
 const futureDateMessage = { message: 'must be in the future' };
 
+// "Post now": queued as scheduled for this moment, so the per-minute scheduler publishes it on
+// its next run (within a minute). Deliberately not published inline from the request: the
+// scheduler doesn't lock rows, so publishing from two places could send a post twice. Arrives
+// as a boolean in JSON bodies, or "true"/"false" in multipart creates.
+const publishNow = z.union([z.boolean(), z.enum(['true', 'false']).transform((v) => v === 'true')]).optional();
+const notBothNowAndLater = [
+  (d) => !(d.publish_now && d.scheduled_for),
+  { message: "publish_now can't be combined with scheduled_for" },
+];
+
 // social_account_ids accepts a JSON array, a repeated multipart field, or a single value.
 const accountIds = z
   .union([
@@ -95,15 +105,18 @@ const createPostSchema = z
     repeat_interval: z.enum(REPEAT_INTERVALS).optional(),
     repeat_until: z.string().datetime().optional().refine(futureDateRefinement, futureDateMessage),
     alt_texts: z.string().optional(),
+    publish_now: publishNow,
     tiktok_options: tiktokOptions,
     youtube_options: youtubeOptions,
   })
   .refine((d) => d.social_account_id || (d.social_account_ids && d.social_account_ids.length), {
     message: 'social_account_id or social_account_ids is required',
   })
-  .refine((d) => !d.repeat_interval || d.scheduled_for, {
+  .refine(...notBothNowAndLater)
+  .refine((d) => !d.repeat_interval || d.scheduled_for || d.publish_now, {
     message: 'repeat_interval needs a scheduled_for',
-  });
+  })
+  .transform(({ publish_now, ...d }) => (publish_now ? { ...d, scheduled_for: new Date().toISOString() } : d));
 
 const updatePostSchema = z
   .object({
@@ -112,10 +125,20 @@ const updatePostSchema = z
     status: z.enum(STATUSES).optional(),
     repeat_interval: z.enum(REPEAT_INTERVALS).nullable().optional(),
     repeat_until: z.string().datetime().nullable().optional().refine(futureDateRefinement, futureDateMessage),
+    publish_now: publishNow,
     tiktok_options: tiktokOptions,
     youtube_options: youtubeOptions,
   })
-  .refine((data) => Object.keys(data).length > 0, { message: 'no fields to update' });
+  .refine((data) => Object.keys(data).some((k) => k !== 'publish_now' || data.publish_now), {
+    message: 'no fields to update',
+  })
+  .refine(...notBothNowAndLater)
+  .refine((d) => !(d.publish_now && d.status && d.status !== 'scheduled'), {
+    message: "publish_now can't be combined with that status",
+  })
+  .transform(({ publish_now, ...d }) =>
+    publish_now ? { ...d, status: 'scheduled', scheduled_for: new Date().toISOString() } : d
+  );
 
 async function copyMediaFile(url) {
   return mediaUrl(await copyMedia(path.basename(url)));
