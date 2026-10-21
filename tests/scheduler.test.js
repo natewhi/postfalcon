@@ -1491,6 +1491,18 @@ describe('reconnect flagging', () => {
     expect(second).toBeTruthy();
   });
 
+  it("tells Meta's expired-token errors apart from its other OAuthException-typed errors", async () => {
+    const { looksLikeAuthFailure } = await import('../lib/reconnect.js');
+    const meta = (error) => new Error(`Instagram media creation failed (400): ${JSON.stringify({ error })}`);
+    expect(
+      looksLikeAuthFailure(
+        meta({ message: 'The submitted image with aspect ratio () cannot be published.', type: 'OAuthException', code: 36003 })
+      )
+    ).toBe(false);
+    expect(looksLikeAuthFailure(meta({ message: 'Error validating access token', type: 'OAuthException', code: 190 }))).toBe(true);
+    expect(looksLikeAuthFailure(meta({ message: 'Session expired', type: 'OAuthException', code: 102 }))).toBe(true);
+  });
+
   it('does not flag the account for an ordinary failure', async () => {
     const { accountId } = await linkedinPost('li-500@example.com');
     stubLinkedIn(500, 'internal error');
