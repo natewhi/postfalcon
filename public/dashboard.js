@@ -104,15 +104,37 @@ document.querySelectorAll('.status-filter-chip').forEach((chip) => {
   });
 });
 
+// Adapters store errors as "<what failed> (<status>): <platform's raw response>". When that
+// response is JSON with a message in it (Meta's {"error":{"message","error_user_msg"}}, and most
+// other platforms' similar shapes), show the prefix plus that message instead of the JSON.
+function readablePostError(message) {
+  if (!message) return 'No reason was given.';
+  const start = message.indexOf('{');
+  if (start !== -1) {
+    try {
+      const body = JSON.parse(message.slice(start));
+      const err = body.error && typeof body.error === 'object' ? body.error : body;
+      const detail = err.error_user_msg || err.message || err.error_description || err.error_msg;
+      if (detail) return `${message.slice(0, start).replace(/[:\s]+$/, '')}: ${detail}`.slice(0, 300);
+    } catch {
+      // not JSON after all — fall through to the raw text
+    }
+  }
+  return message.length > 300 ? `${message.slice(0, 300)}…` : message;
+}
+
 async function loadFailedBanner() {
   const banner = document.getElementById('failed-posts-banner');
   try {
     const failed = await apiJson(`/api/v1/posts${buildPostsQuery({ status: 'failed' })}`);
     if (failed.length > 0) {
+      // Say why, not just how many: the most recent failure's reason, straight from the platform.
+      const latest = failed.reduce((a, b) => (new Date(b.updated_at) > new Date(a.updated_at) ? b : a));
+      const reason = `${latest.account_display_name || accountNameFor(latest)}: ${readablePostError(latest.error_message)}`;
       document.getElementById('failed-posts-message').textContent =
         failed.length === 1
-          ? '⚠ 1 post failed to send. Check the calendar (Failed filter) for details.'
-          : `⚠ ${failed.length} posts failed to send. Check the calendar (Failed filter) for details.`;
+          ? `⚠ A post failed to send. ${reason}`
+          : `⚠ ${failed.length} posts failed to send (Failed filter on the calendar). Latest — ${reason}`;
       banner.hidden = false;
     } else {
       banner.hidden = true;
@@ -1715,7 +1737,7 @@ async function checkPublishing() {
         if (post.status === 'posted') {
           showToast(`Published to ${accountNameFor(post)}.`, 'success');
         } else if (post.status === 'failed') {
-          showToast(`Couldn't publish to ${accountNameFor(post)}: ${post.error_message || 'unknown error'}`, 'error');
+          showToast(`Couldn't publish to ${accountNameFor(post)}: ${readablePostError(post.error_message)}`, 'error');
         }
       } catch {
         // deleted meanwhile — nothing to report
