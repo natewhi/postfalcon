@@ -1538,6 +1538,7 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
             platform: p.platform,
             postedAt: p.posted_at,
             accountName: p.account_display_name,
+            errorMessage: p.error_message,
           },
         }));
       successCallback(events);
@@ -1670,7 +1671,12 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
     }
 
     const when = info.event.start.toLocaleString();
-    const ok = await confirmDialog(`[${status}] ${content}\n${when}\n\nDelete this post?`, { confirmText: 'Delete' });
+    const why =
+      status === 'failed'
+        ? `\n\nWhy it failed: ${readablePostError(info.event.extendedProps.errorMessage)}\n` +
+          'Fix the cause, then use ↻ on the calendar to retry.'
+        : '';
+    const ok = await confirmDialog(`[${status}] ${content}\n${when}${why}\n\nDelete this post?`, { confirmText: 'Delete' });
     if (!ok) return;
     try {
       await apiJson(`/api/v1/posts/${info.event.id}`, { method: 'DELETE' });
