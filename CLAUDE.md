@@ -110,6 +110,9 @@ lib/                 passport strategy, mailer (real SMTP via nodemailer, falls 
                      bucket when S3_BUCKET is set — routes/uploads.js then streams /uploads/<name>
                      from it, so media URLs never change; always go through readMedia/copyMedia/
                      deleteMedia/storeUploadedFile rather than touching uploadDir directly),
+                     imageFit.js (fitForInstagram: centres a photo outside Instagram's 4:5–1.91:1 on a
+                     blurred copy of itself and converts to JPEG, via `sharp` — the Instagram adapter
+                     publishes that temporary copy instead of the original and deletes it afterwards),
                      billing.js (Stripe client + PLANS catalogue: per-plan limits + capabilities + trial),
                      webhooks.js (deliverWebhooks() — HMAC-signed outbound POST, fire-and-forget)
 routes/billing.js    Stripe Checkout / Billing Portal / plan-status endpoints (session auth, /api/billing)

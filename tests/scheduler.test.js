@@ -356,6 +356,54 @@ describe('scheduler', () => {
     expect(rows[0].platform_post_id).toBe('ig-post-1');
   });
 
+  it('sends Instagram a fitted JPEG copy of a photo it would reject, then deletes the copy', async () => {
+    const { default: sharp } = await import('sharp');
+    const userId = await createUser('ig-fit@example.com');
+    const accountRes = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       VALUES ($1, 'instagram', '@handle', 'ig-fit', 'ig-token') RETURNING id`,
+      [userId]
+    );
+    // The shape of the real photo that failed: 2928x1332 is ~2.2:1, wider than Instagram's 1.91:1.
+    const filename = `test-${crypto.randomUUID()}.png`;
+    await sharp({ create: { width: 2928, height: 1332, channels: 3, background: '#3366cc' } })
+      .png()
+      .toFile(path.join(uploadDir, filename));
+    const originalUrl = `${process.env.BASE_URL}/uploads/${filename}`;
+    const postId = await createScheduledPost(userId, accountRes.rows[0].id, 'a wide photo');
+    await createPostMedia(postId, { url: originalUrl });
+
+    let sentUrl;
+    let fitted;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, options) => {
+        const u = String(url);
+        if (u === 'https://graph.facebook.com/v19.0/ig-fit/media') {
+          sentUrl = JSON.parse(options.body).image_url;
+          fitted = await sharp(path.join(uploadDir, path.basename(sentUrl))).metadata();
+          return jsonResponse({ id: 'fit-container' });
+        }
+        if (u.startsWith('https://graph.facebook.com/v19.0/fit-container?')) return jsonResponse({ status_code: 'FINISHED' });
+        if (u === 'https://graph.facebook.com/v19.0/ig-fit/media_publish') return jsonResponse({ id: 'ig-fit-post' });
+        throw new Error(`unexpected fetch: ${u}`);
+      })
+    );
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT status FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('posted');
+    expect(sentUrl).not.toBe(originalUrl);
+    expect(fitted.format).toBe('jpeg');
+    expect(fitted.width).toBeLessThanOrEqual(1440);
+    expect(fitted.width / fitted.height).toBeCloseTo(1.91, 1);
+    // The fitted copy is gone; the user's original is untouched.
+    await expect(fs.access(path.join(uploadDir, path.basename(sentUrl)))).rejects.toThrow();
+    await expect(fs.access(path.join(uploadDir, filename))).resolves.toBeUndefined();
+    await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
+  });
+
   it('fails an Instagram post when the media container reports an error', async () => {
     const userId = await createUser('ig-sched-error@example.com');
     const accountRes = await pool.query(

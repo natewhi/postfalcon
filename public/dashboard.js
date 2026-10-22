@@ -707,25 +707,10 @@ function youtubeOptionsPayload() {
   })
 );
 
-// Instagram's API rejects feed photos outside 4:5 (portrait) to 1.91:1 (landscape) — the post
-// would only fail later, at publish time. Small tolerance for rounding in "exact" 4:5 crops.
-const IG_MIN_RATIO = 4 / 5 - 0.01;
-const IG_MAX_RATIO = 1.91 + 0.01;
-
-function instagramPublishProblem() {
-  if (!isPublishing()) return null;
-  const ids = selectedAccountIds();
-  if (!accountsCache.some((a) => a.platform === 'instagram' && ids.includes(String(a.id)))) return null;
-  const bad = selectedMedia.find((m) => m.ratio && (m.ratio < IG_MIN_RATIO || m.ratio > IG_MAX_RATIO));
-  if (!bad) return null;
-  return (
-    `Instagram only accepts photos between 4:5 (portrait) and 1.91:1 (landscape), and ` +
-    `${bad.file.name} is too ${bad.ratio < IG_MIN_RATIO ? 'tall' : 'wide'}. Crop it, or remove Instagram from this post.`
-  );
-}
-
+// (Instagram's photo shape/format limits need no check here: lib/imageFit.js fits any photo
+// at publish time.)
 function platformPublishProblem() {
-  return tiktokPublishProblem() || youtubePublishProblem() || instagramPublishProblem();
+  return tiktokPublishProblem() || youtubePublishProblem();
 }
 
 function updateSubmitBlocked() {
@@ -850,17 +835,8 @@ mediaInput.addEventListener('change', () => {
     showToast(`You can attach up to ${MAX_MEDIA_PER_POST} files per post.`, 'warning');
   }
   for (const file of files) {
-    const item = { file, altText: '', previewUrl: URL.createObjectURL(file), duration: null, ratio: null };
+    const item = { file, altText: '', previewUrl: URL.createObjectURL(file), duration: null };
     selectedMedia.push(item);
-    // Feeds instagramPublishProblem()'s aspect-ratio check.
-    if (file.type.startsWith('image/')) {
-      const img = new Image();
-      img.onload = () => {
-        if (img.naturalHeight) item.ratio = img.naturalWidth / img.naturalHeight;
-        updateSubmitBlocked();
-      };
-      img.src = item.previewUrl;
-    }
     // Feeds the TikTok panel's max_video_post_duration_sec check once the metadata loads.
     if (file.type.startsWith('video/')) {
       readVideoDuration(file).then((duration) => {
