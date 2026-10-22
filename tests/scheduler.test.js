@@ -759,6 +759,42 @@ describe('scheduler', () => {
     expect(rows[0].error_message).toMatch(/need an image/);
   });
 
+  it('pins to the Pinterest sandbox with the developer sandbox token when configured', async () => {
+    process.env.PINTEREST_API_BASE = 'https://api-sandbox.pinterest.com';
+    process.env.PINTEREST_SANDBOX_TOKEN = 'sandbox-token';
+    try {
+      const userId = await createUser('pi-sandbox@example.com');
+      const { rows: acc } = await pool.query(
+        `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, metadata)
+         VALUES ($1, 'pinterest', 'alice', 'alice', 'oauth-token', $2) RETURNING id`,
+        [userId, { board_id: 'sandbox-board' }]
+      );
+      const postId = await createScheduledPost(userId, acc[0].id, 'a sandbox pin');
+      await createPostMedia(postId, { url: 'http://example.test/uploads/pin.jpg' });
+
+      let pinAuth;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url, options) => {
+          if (String(url) === 'https://api-sandbox.pinterest.com/v5/pins') {
+            pinAuth = options.headers.Authorization;
+            return jsonResponse({ id: 'sandbox-pin' });
+          }
+          throw new Error(`unexpected fetch: ${url}`);
+        })
+      );
+
+      await processDuePosts();
+
+      expect(pinAuth).toBe('Bearer sandbox-token');
+      const { rows } = await pool.query('SELECT status, platform_post_id FROM posts WHERE id = $1', [postId]);
+      expect(rows[0]).toEqual({ status: 'posted', platform_post_id: 'sandbox-pin' });
+    } finally {
+      delete process.env.PINTEREST_API_BASE;
+      delete process.env.PINTEREST_SANDBOX_TOKEN;
+    }
+  });
+
   it('renews an expired Pinterest token with its refresh token before pinning', async () => {
     const userId = await createUser('pi-refresh@example.com');
     const { rows: acc } = await pool.query(
