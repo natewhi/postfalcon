@@ -59,8 +59,11 @@ document.querySelectorAll('.plan-cta[data-plan]').forEach((btn) => {
   btn.addEventListener('click', () => startCheckout(btn.dataset.plan, currentBilling(), btn));
 });
 
-const portalBtn = document.querySelector('[data-portal]');
-portalBtn?.addEventListener('click', () => openPortal(portalBtn));
+// The footnote's "Manage billing" link, plus each plan's "Switch to …" button for an existing
+// subscriber: plan changes happen in the Stripe billing portal.
+document.querySelectorAll('[data-portal]').forEach((btn) => {
+  btn.addEventListener('click', () => openPortal(btn));
+});
 
 const params = new URLSearchParams(location.search);
 

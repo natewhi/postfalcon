@@ -13,6 +13,7 @@ import { sendMail } from '../lib/mailer.js';
 import { createToken, consumeToken, hashToken } from '../lib/tokens.js';
 import { deleteMedia } from '../lib/storage.js';
 import { logAuthEvent } from '../lib/activityLog.js';
+import { billingConfigured, cancelRunningSubscriptions } from '../lib/billing.js';
 
 const router = Router();
 
@@ -323,6 +324,23 @@ router.post(
     const existingHash = result.rows[0].password_hash;
     if (existingHash && !(password && (await bcrypt.compare(password, existingHash)))) {
       return res.status(401).json({ error: 'password is incorrect' });
+    }
+
+    // Stop billing before the account (and with it the only link to the Stripe customer) is
+    // gone. If Stripe can't be reached, keep the account rather than risk charging someone
+    // who no longer has one; they can simply try again.
+    const customerId = (await pool.query('SELECT stripe_customer_id FROM users WHERE id = $1', [req.user.id])).rows[0]
+      ?.stripe_customer_id;
+    if (customerId && billingConfigured()) {
+      try {
+        await cancelRunningSubscriptions(customerId);
+      } catch (err) {
+        req.log.error({ err, customerId }, 'could not cancel subscriptions before account deletion');
+        return res.status(503).json({
+          error: 'billing_unavailable',
+          message: "We couldn't cancel your subscription just now, so your account wasn't deleted. Please try again in a few minutes.",
+        });
+      }
     }
 
     const mediaRows = await pool.query(

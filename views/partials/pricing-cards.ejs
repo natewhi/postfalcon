@@ -6,6 +6,7 @@
 %>
 <% const isLoggedIn = typeof loggedIn !== 'undefined' && loggedIn; %>
 <% const current = typeof currentPlan !== 'undefined' ? currentPlan : null; %>
+<% const isSubscribed = typeof subscribed !== 'undefined' && subscribed; %>
 <div class="billing-toggle" role="group" aria-label="Billing period">
   <button type="button" class="billing-toggle-option" data-billing-option="monthly" aria-pressed="true">Monthly</button>
   <button type="button" class="billing-toggle-option" data-billing-option="yearly" aria-pressed="false">Yearly <span class="billing-toggle-save">2 months free</span></button>
@@ -29,6 +30,8 @@
         <a href="/signup?plan=<%= id %>" class="btn-link" data-plan-link="<%= id %>">Start 7-day trial</a>
       <% } else if (current === id) { %>
         <button type="button" class="btn-secondary" disabled>Current plan</button>
+      <% } else if (isSubscribed) { %>
+        <button type="button" class="btn-link" data-portal>Switch to <%= plan.name %></button>
       <% } else { %>
         <button type="button" class="btn-link plan-cta" data-plan="<%= id %>">Start 7-day trial</button>
       <% } %>

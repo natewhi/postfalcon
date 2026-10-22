@@ -9,7 +9,11 @@ const { stripeMock } = vi.hoisted(() => ({
     customers: { create: vi.fn(async () => ({ id: 'cus_test_123' })) },
     checkout: { sessions: { create: vi.fn(async () => ({ url: 'https://checkout.stripe.test/s/abc' })) } },
     billingPortal: { sessions: { create: vi.fn(async () => ({ url: 'https://portal.stripe.test/s/xyz' })) } },
-    subscriptions: { retrieve: vi.fn() },
+    subscriptions: {
+      retrieve: vi.fn(),
+      list: vi.fn(async () => ({ data: [] })),
+      cancel: vi.fn(async (id) => ({ id, status: 'canceled' })),
+    },
     webhooks: { constructEvent: vi.fn() },
   },
 }));
@@ -92,6 +96,39 @@ describe('POST /api/billing/checkout', () => {
     const res = await client.post('/api/billing/checkout').send({ plan: 'standard', interval: 'yearly' });
     expect(res.status).toBe(503);
     expect(res.body.message).toMatch(/yearly standard/);
+  });
+
+  it('still offers the trial after an abandoned Checkout (customer exists, no subscription)', async () => {
+    const { client, userId } = await loginNewUser();
+    await pool.query("UPDATE users SET stripe_customer_id = 'cus_abandoned' WHERE id = $1", [userId]);
+    stripeMock.subscriptions.list.mockResolvedValueOnce({ data: [] });
+
+    const res = await client.post('/api/billing/checkout').send({ plan: 'standard' });
+    expect(res.status).toBe(200);
+    expect(stripeMock.subscriptions.list).toHaveBeenLastCalledWith(expect.objectContaining({ customer: 'cus_abandoned' }));
+    expect(stripeMock.checkout.sessions.create.mock.calls.at(-1)[0].subscription_data).toEqual({ trial_period_days: 7 });
+  });
+
+  it('gives a returning former subscriber no second trial', async () => {
+    const { client, userId } = await loginNewUser();
+    await pool.query("UPDATE users SET stripe_customer_id = 'cus_former' WHERE id = $1", [userId]);
+    stripeMock.subscriptions.list.mockResolvedValueOnce({ data: [{ id: 'sub_old', status: 'canceled' }] });
+
+    const res = await client.post('/api/billing/checkout').send({ plan: 'pro' });
+    expect(res.status).toBe(200);
+    expect(stripeMock.checkout.sessions.create.mock.calls.at(-1)[0].subscription_data).toBeUndefined();
+  });
+
+  it('refuses a second subscription for someone already subscribed', async () => {
+    const { client, userId } = await loginNewUser();
+    await pool.query("UPDATE users SET stripe_customer_id = 'cus_active' WHERE id = $1", [userId]);
+    stripeMock.subscriptions.list.mockResolvedValueOnce({ data: [{ id: 'sub_live', status: 'trialing' }] });
+    const before = stripeMock.checkout.sessions.create.mock.calls.length;
+
+    const res = await client.post('/api/billing/checkout').send({ plan: 'team' });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('already_subscribed');
+    expect(stripeMock.checkout.sessions.create.mock.calls.length).toBe(before);
   });
 
   it('rejects an unknown interval', async () => {
@@ -285,5 +322,62 @@ describe('POST /api/billing/webhook', () => {
     const { rows } = await pool.query('SELECT plan, plan_status FROM users WHERE id = $1', [userId]);
     expect(rows[0].plan).toBe('pro'); // no free tier — plan sticks, status drives the lockout
     expect(rows[0].plan_status).toBe('canceled');
+  });
+});
+
+describe('pricing page for a returning visitor', () => {
+  it('keeps every plan selectable after an abandoned Checkout', async () => {
+    const { client, userId } = await loginNewUser();
+    await pool.query("UPDATE users SET stripe_customer_id = 'cus_abandoned_page', plan_status = 'incomplete' WHERE id = $1", [
+      userId,
+    ]);
+    const res = await client.get('/pricing');
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain('Current plan');
+    expect(res.text).toContain('data-plan="standard"');
+  });
+
+  it('sends a subscriber to the billing portal to switch plan, not to a new Checkout', async () => {
+    const { client, userId } = await loginNewUser();
+    await pool.query(
+      "UPDATE users SET stripe_customer_id = 'cus_sub_page', plan = 'team', plan_status = 'active' WHERE id = $1",
+      [userId]
+    );
+    const res = await client.get('/pricing');
+    expect(res.text).toContain('Current plan');
+    expect(res.text).toContain('Switch to Pro');
+    expect(res.text).not.toContain('data-plan="pro"');
+  });
+});
+
+describe('deleting an account with a subscription', () => {
+  it('cancels the running subscriptions before deleting the account', async () => {
+    const { client, userId } = await loginNewUser();
+    await pool.query("UPDATE users SET stripe_customer_id = 'cus_deleting' WHERE id = $1", [userId]);
+    stripeMock.subscriptions.list.mockResolvedValueOnce({
+      data: [
+        { id: 'sub_running', status: 'trialing' },
+        { id: 'sub_done', status: 'canceled' },
+      ],
+    });
+    stripeMock.subscriptions.cancel.mockClear();
+
+    const res = await client.post('/api/auth/delete-account').send({ password: 'password123' });
+    expect(res.status).toBeLessThan(300);
+    expect(stripeMock.subscriptions.cancel).toHaveBeenCalledTimes(1);
+    expect(stripeMock.subscriptions.cancel).toHaveBeenCalledWith('sub_running');
+    const { rows } = await pool.query('SELECT 1 FROM users WHERE id = $1', [userId]);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("keeps the account if Stripe can't cancel the subscription", async () => {
+    const { client, userId } = await loginNewUser();
+    await pool.query("UPDATE users SET stripe_customer_id = 'cus_stripe_down' WHERE id = $1", [userId]);
+    stripeMock.subscriptions.list.mockRejectedValueOnce(new Error('Stripe is down'));
+
+    const res = await client.post('/api/auth/delete-account').send({ password: 'password123' });
+    expect(res.status).toBe(503);
+    const { rows } = await pool.query('SELECT 1 FROM users WHERE id = $1', [userId]);
+    expect(rows).toHaveLength(1);
   });
 });

@@ -71,14 +71,17 @@ router.get('/terms', (req, res) => {
 });
 
 router.get('/pricing', (req, res) => {
-  // Only treat a plan as "current" once the user has actually checked out (has a Stripe
-  // customer) — a brand-new account sits on the `standard` default with no subscription and
-  // still needs every plan's button to be actionable.
-  const hasSubscription = req.isAuthenticated() && Boolean(req.user.stripe_customer_id);
+  // Only treat a plan as "current" while the user is actually subscribed. Having a Stripe
+  // customer isn't enough: one is created as soon as someone clicks "Start trial", so an
+  // abandoned Checkout leaves a customer, the `standard` default and no subscription, and
+  // every plan's button must stay actionable. A subscriber changes plan in the billing
+  // portal (another Checkout would start a second subscription), so their buttons open it.
+  const subscribed = req.isAuthenticated() && Boolean(req.user.stripe_customer_id) && isEntitled(req.user);
   res.render('pricing', {
     plans: PLANS,
     loggedIn: req.isAuthenticated(),
-    currentPlan: hasSubscription ? req.user.plan : null,
+    subscribed,
+    currentPlan: subscribed ? req.user.plan : null,
   });
 });
 

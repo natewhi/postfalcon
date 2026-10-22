@@ -12,6 +12,9 @@ import {
   billingConfigured,
   priceIdForPlan,
   BILLING_INTERVALS,
+  subscriptionsFor,
+  hasRunningSubscription,
+  trialEligible,
 } from '../lib/billing.js';
 
 const router = Router();
@@ -76,11 +79,26 @@ router.post(
         .json({ error: 'billing_unavailable', message: `No Stripe price configured for the ${interval} ${plan} plan.` });
     }
 
+    // An existing customer may already be subscribed (a second Checkout would start a second,
+    // separately billed subscription — plan changes go through the billing portal instead), or
+    // may just have abandoned an earlier Checkout, which mustn't cost them the trial.
+    let trialOk = true;
+    if (req.user.stripe_customer_id) {
+      const subscriptions = await subscriptionsFor(req.user.stripe_customer_id);
+      if (hasRunningSubscription(subscriptions)) {
+        return res.status(409).json({
+          error: 'already_subscribed',
+          message: 'You already have a subscription. Use Manage billing to change your plan.',
+        });
+      }
+      trialOk = trialEligible(subscriptions);
+    }
+
     const customerId = await getOrCreateCustomer(req.user);
     const stripe = await getStripe();
-    // Only offer the trial to accounts that have never subscribed before (monthly or yearly
-    // alike — a yearly plan's first charge is just as deferred).
-    const trial = req.user.stripe_customer_id ? {} : { subscription_data: { trial_period_days: TRIAL_DAYS } };
+    // The trial is for first-time subscribers, monthly or yearly alike (a yearly plan's first
+    // charge is just as deferred).
+    const trial = trialOk ? { subscription_data: { trial_period_days: TRIAL_DAYS } } : {};
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
