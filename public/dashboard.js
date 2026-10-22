@@ -1455,8 +1455,7 @@ async function retryPost(id) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'scheduled' }),
     });
-    showToast('Post queued for retry.', 'success');
-    calendar.refetchEvents();
+    watchPostNow([{ id }], 'Retrying — this usually takes under a minute.');
     loadFailedBanner();
     loadDashboardStats();
   } catch (err) {
@@ -1767,13 +1766,14 @@ async function checkPublishing() {
   liveTimer = setTimeout(checkPublishing, liveActive.size > 0 ? LIVE_FAST_MS : LIVE_SLOW_MS);
 }
 
-// "Post now" goes out on the scheduler's next run (within a minute). Register the new posts
-// with the watcher straight away: if the first check only happened after the scheduler had
-// already published them, they'd never have been seen as pending, so nothing would refresh.
-function watchPostNow(posts) {
-  for (const p of posts) if (p?.id) liveActive.set(p.id, 'scheduled');
+// "Post now" and a retry both go out on the scheduler's next run (within a minute). Register
+// those posts with the watcher straight away: if its next check only happened after the
+// scheduler had already published them, they'd never have been seen as pending, so nothing
+// would refresh until a page reload.
+function watchPostNow(posts, message = 'Posting now — this usually takes under a minute.') {
+  for (const p of posts) if (p?.id) liveActive.set(Number(p.id), 'scheduled');
   calendar.refetchEvents();
-  showToast('Posting now — this usually takes under a minute.', 'success');
+  showToast(message, 'success');
   clearTimeout(liveTimer);
   liveTimer = setTimeout(checkPublishing, LIVE_FAST_MS);
 }
