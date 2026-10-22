@@ -30,28 +30,8 @@
       <p id="pricing-message" class="error" hidden></p>
     </section>
 
-    <section class="pricing-grid">
-      <% Object.entries(plans).forEach(function ([id, plan]) { %>
-      <div class="pricing-card<%= plan.popular ? ' pricing-card-featured' : '' %>">
-        <% if (plan.popular) { %><span class="pricing-badge">Most popular</span><% } %>
-        <h2><%= plan.name %></h2>
-        <p class="pricing-price">$<%= plan.priceUsd %><span>/mo</span></p>
-        <p class="pricing-tagline"><%= plan.tagline %></p>
-        <p class="pricing-channels"><strong><%= plan.limits.accounts %></strong> connected channels</p>
-        <ul class="pricing-features">
-          <% plan.features.forEach(function (f) { %><li><%= f %></li><% }); %>
-        </ul>
-        <div class="pricing-cta">
-          <% if (!loggedIn) { %>
-            <a href="/signup?plan=<%= id %>" class="btn-link">Start 7-day trial</a>
-          <% } else if (currentPlan === id) { %>
-            <button type="button" class="btn-secondary" disabled>Current plan</button>
-          <% } else { %>
-            <button type="button" class="btn-link plan-cta" data-plan="<%= id %>">Start 7-day trial</button>
-          <% } %>
-        </div>
-      </div>
-      <% }); %>
+    <section class="pricing-plans">
+      <%- include('partials/pricing-cards', { headingTag: 'h2' }) %>
     </section>
 
     <p class="pricing-footnote">
@@ -71,6 +51,7 @@
 </div>
 
 <script src="/csrf.js?v=<%= assetVersion %>"></script>
+<script src="/billing-toggle.js?v=<%= assetVersion %>"></script>
 <script src="/pricing.js?v=<%= assetVersion %>"></script>
 <%- include('partials/analytics') %>
 </body>

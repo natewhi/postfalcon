@@ -1,0 +1,38 @@
+<%#
+  The plan cards, shared by views/pricing.ejs and views/landing.ejs so the two can't drift.
+  Locals: plans, headingTag ('h2' or 'h3'), and optionally loggedIn + currentPlan (pricing only).
+  public/billing-toggle.js drives the Monthly / Yearly switch: without JS the monthly prices
+  simply show, and the yearly ones stay hidden.
+%>
+<% const isLoggedIn = typeof loggedIn !== 'undefined' && loggedIn; %>
+<% const current = typeof currentPlan !== 'undefined' ? currentPlan : null; %>
+<div class="billing-toggle" role="group" aria-label="Billing period">
+  <button type="button" class="billing-toggle-option" data-billing-option="monthly" aria-pressed="true">Monthly</button>
+  <button type="button" class="billing-toggle-option" data-billing-option="yearly" aria-pressed="false">Yearly <span class="billing-toggle-save">2 months free</span></button>
+</div>
+
+<div class="pricing-grid">
+  <% Object.entries(plans).forEach(function ([id, plan]) { %>
+  <div class="pricing-card<%= plan.popular ? ' pricing-card-featured' : '' %>">
+    <% if (plan.popular) { %><span class="pricing-badge">Most popular</span><% } %>
+    <<%= headingTag %>><%= plan.name %></<%= headingTag %>>
+    <p class="pricing-price billing-monthly">$<%= plan.priceUsd %><span>/mo</span></p>
+    <p class="pricing-price billing-yearly">$<%= plan.priceUsdYearly %><span>/yr</span></p>
+    <p class="pricing-yearly-note billing-yearly">$<%= (plan.priceUsdYearly / 12).toFixed(2) %>/mo, billed yearly</p>
+    <p class="pricing-tagline"><%= plan.tagline %></p>
+    <p class="pricing-channels"><strong><%= plan.limits.accounts %></strong> connected channels</p>
+    <ul class="pricing-features">
+      <% plan.features.forEach(function (f) { %><li><%= f %></li><% }); %>
+    </ul>
+    <div class="pricing-cta">
+      <% if (!isLoggedIn) { %>
+        <a href="/signup?plan=<%= id %>" class="btn-link" data-plan-link="<%= id %>">Start 7-day trial</a>
+      <% } else if (current === id) { %>
+        <button type="button" class="btn-secondary" disabled>Current plan</button>
+      <% } else { %>
+        <button type="button" class="btn-link plan-cta" data-plan="<%= id %>">Start 7-day trial</button>
+      <% } %>
+    </div>
+  </div>
+  <% }); %>
+</div>

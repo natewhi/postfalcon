@@ -19,12 +19,13 @@ function resolveStatus(stripeStatus) {
 }
 
 async function applySubscription(userId, customerId, subscription) {
-  const priceId = subscription.items?.data?.[0]?.price?.id;
-  const plan = planForPriceId(priceId); // null if the price id isn't one of ours
+  const item = subscription.items?.data?.[0];
+  const plan = planForPriceId(item?.price?.id); // null if the price id isn't one of ours
   const status = resolveStatus(subscription.status);
-  const renewsAt = subscription.current_period_end
-    ? new Date(subscription.current_period_end * 1000)
-    : null;
+  // Stripe API versions from 2025-03-31 moved current_period_end from the subscription onto
+  // each item, and webhook payloads follow the endpoint's API version, so read either.
+  const periodEnd = subscription.current_period_end ?? item?.current_period_end;
+  const renewsAt = periodEnd ? new Date(periodEnd * 1000) : null;
 
   // There's no free plan: keep the last-known `plan` when the price can't be resolved, and
   // let plan_status ('canceled' / 'incomplete') drive the lockout via lib/billing.js isEntitled.

@@ -3204,6 +3204,62 @@ body.dark-canvas .auth-card {
   z-index: 1;
 }
 
+/* Monthly / Yearly switch above the plan cards (views/partials/pricing-cards.ejs, driven by
+   public/billing-toggle.js). Both pages it's on are committed-dark, hence the --home-* tokens.
+   Without JS there's no data-billing on <html>, so the monthly prices show. */
+.pricing-plans {
+  padding: 0;
+}
+
+.billing-toggle {
+  display: flex;
+  gap: 4px;
+  width: fit-content;
+  margin: 0 auto var(--space-2);
+  padding: 4px;
+  border: 1px solid var(--home-ink-border);
+  border-radius: 999px;
+  background: var(--home-ink-lift);
+}
+
+.billing-toggle-option {
+  border: 0;
+  border-radius: 999px;
+  padding: var(--space-2) var(--space-4);
+  background: transparent;
+  color: var(--home-on-ink-dim);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.billing-toggle-option[aria-pressed='true'] {
+  background: var(--accent);
+  color: #fff;
+}
+
+.billing-toggle-save {
+  margin-left: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.billing-toggle-option[aria-pressed='true'] .billing-toggle-save {
+  color: inherit;
+}
+
+.pricing-yearly-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--home-on-ink-dim);
+}
+
+:root:not([data-billing='yearly']) .billing-yearly,
+:root[data-billing='yearly'] .billing-monthly {
+  display: none;
+}
+
 /* strip the generic card-like `section` chrome so the grid shows through (don't touch
    padding — each section sets its own) */
 .dark-canvas section {

@@ -299,23 +299,7 @@
       <h2 class="home-h2">Simple <span class="underline-mark">pricing.<svg class="underline-mark-line" viewBox="0 0 320 22" preserveAspectRatio="none" aria-hidden="true"><path d="M5 14C70 5 150 5 210 10s70 6 105 1" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/></svg></span></h2>
       <p class="home-hero-lead">Every plan starts with a 7-day free trial. Cancel anytime.</p>
 
-      <div class="pricing-grid">
-        <% Object.entries(plans).forEach(function ([id, plan]) { %>
-        <div class="pricing-card<%= plan.popular ? ' pricing-card-featured' : '' %>">
-          <% if (plan.popular) { %><span class="pricing-badge">Most popular</span><% } %>
-          <h3><%= plan.name %></h3>
-          <p class="pricing-price">$<%= plan.priceUsd %><span>/mo</span></p>
-          <p class="pricing-tagline"><%= plan.tagline %></p>
-          <p class="pricing-channels"><strong><%= plan.limits.accounts %></strong> connected channels</p>
-          <ul class="pricing-features">
-            <% plan.features.forEach(function (f) { %><li><%= f %></li><% }); %>
-          </ul>
-          <div class="pricing-cta">
-            <a href="/signup?plan=<%= id %>" class="btn-link">Start 7-day trial</a>
-          </div>
-        </div>
-        <% }); %>
-      </div>
+      <%- include('partials/pricing-cards', { headingTag: 'h3', loggedIn: false, currentPlan: null }) %>
 
       <p class="pricing-footnote">
         Prices in USD. Every plan includes cross-posting, recurring posts, the REST API and the
@@ -369,6 +353,7 @@
     <a href="/signup">Sign up</a>
   </footer>
 </div>
+<script src="/billing-toggle.js?v=<%= assetVersion %>"></script>
 <script src="/landing.js?v=<%= assetVersion %>"></script>
 <%- include('partials/analytics') %>
 </body>

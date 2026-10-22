@@ -206,7 +206,10 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   session/cookie-based web-app plumbing (login, OAuth redirects, platform connect flows, checkout, CSRF
   issuance), not part of the external contract. If you add a new externally-useful resource route, mount it
   under `/api/v1`, add `apiLimiter`, and add it to `/api-docs`.
-- Billing: plans live in `lib/billing.js` (`PLANS` — each has `priceUsd`, `limits`, `capabilities`, `features`);
+- Billing: plans live in `lib/billing.js` (`PLANS` — each has `priceUsd`, `priceUsdYearly`, `limits`, `capabilities`,
+  `features`). Every plan has a monthly and a yearly Stripe Price (`STRIPE_PRICE_<PLAN>` / `STRIPE_PRICE_<PLAN>_YEARLY`,
+  yearly = "2 months free"); checkout takes `interval`, and the plan cards (`views/partials/pricing-cards.ejs`, shared by
+  landing + pricing, toggled by `public/billing-toggle.js`) pass yearly through signup as `?plan=<plan>-yearly`;
   `users.plan`/`plan_status`/`plan_renews_at` are the app's read-fast copy of Stripe state, written only by
   `routes/billingWebhook.js`. There is no free plan — new rows default to `plan='standard'`,
   `plan_status='incomplete'` (migration 023 — not entitled until Stripe Checkout completes and the webhook sets

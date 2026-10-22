@@ -11,11 +11,15 @@ import {
   getStripe,
   billingConfigured,
   priceIdForPlan,
+  BILLING_INTERVALS,
 } from '../lib/billing.js';
 
 const router = Router();
 
-const checkoutSchema = z.object({ plan: z.enum(PAID_PLAN_IDS) });
+const checkoutSchema = z.object({
+  plan: z.enum(PAID_PLAN_IDS),
+  interval: z.enum(BILLING_INTERVALS).default('monthly'),
+});
 
 function limitOrNull(value) {
   return value === Infinity ? null : value;
@@ -64,14 +68,18 @@ router.post(
     if (!billingConfigured()) {
       return res.status(503).json({ error: 'billing_unavailable', message: 'Billing is not configured on this server.' });
     }
-    const priceId = priceIdForPlan(req.body.plan);
+    const { plan, interval } = req.body;
+    const priceId = priceIdForPlan(plan, interval);
     if (!priceId) {
-      return res.status(503).json({ error: 'billing_unavailable', message: `No Stripe price configured for the ${req.body.plan} plan.` });
+      return res
+        .status(503)
+        .json({ error: 'billing_unavailable', message: `No Stripe price configured for the ${interval} ${plan} plan.` });
     }
 
     const customerId = await getOrCreateCustomer(req.user);
     const stripe = await getStripe();
-    // Only offer the trial to accounts that have never subscribed before.
+    // Only offer the trial to accounts that have never subscribed before (monthly or yearly
+    // alike — a yearly plan's first charge is just as deferred).
     const trial = req.user.stripe_customer_id ? {} : { subscription_data: { trial_period_days: TRIAL_DAYS } };
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',

@@ -22,14 +22,14 @@ async function postJson(path, body = {}) {
   return data;
 }
 
-async function startCheckout(plan, button) {
+async function startCheckout(plan, interval, button) {
   const original = button ? button.textContent : null;
   if (button) {
     button.disabled = true;
     button.textContent = 'Redirecting…';
   }
   try {
-    const { url } = await postJson('/api/billing/checkout', { plan });
+    const { url } = await postJson('/api/billing/checkout', { plan, interval });
     window.location.href = url;
   } catch (err) {
     showMessage(err.message);
@@ -54,8 +54,9 @@ async function openPortal(button) {
   }
 }
 
+// currentBilling() is the Monthly / Yearly switch's state (public/billing-toggle.js).
 document.querySelectorAll('.plan-cta[data-plan]').forEach((btn) => {
-  btn.addEventListener('click', () => startCheckout(btn.dataset.plan, btn));
+  btn.addEventListener('click', () => startCheckout(btn.dataset.plan, currentBilling(), btn));
 });
 
 const portalBtn = document.querySelector('[data-portal]');
@@ -71,9 +72,11 @@ if (params.get('checkout') === 'cancelled') {
 // Arriving from signup with a chosen plan (?start=team) — go straight to the Stripe
 // payment window to add a card and start the trial. A logged-out visitor hitting this
 // URL directly gets bounced to /login by postJson's 401 handling.
-const startPlan = params.get('start');
-if (startPlan) {
+// The value is "<plan>" or "<plan>-yearly" (see public/billing-toggle.js).
+const start = params.get('start');
+if (start) {
   history.replaceState(null, '', location.pathname);
+  const [startPlan, startInterval] = start.split('-');
   showMessage('Starting your trial — taking you to secure checkout…', 'note');
-  startCheckout(startPlan, null);
+  startCheckout(startPlan, startInterval === 'yearly' ? 'yearly' : 'monthly', null);
 }

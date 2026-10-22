@@ -21,6 +21,8 @@ beforeAll(() => {
   process.env.STRIPE_PRICE_STANDARD = 'price_standard_dummy';
   process.env.STRIPE_PRICE_PRO = 'price_pro_dummy';
   process.env.STRIPE_PRICE_TEAM = 'price_team_dummy';
+  process.env.STRIPE_PRICE_TEAM_YEARLY = 'price_team_yearly_dummy';
+  process.env.STRIPE_PRICE_PRO_YEARLY = 'price_pro_yearly_dummy';
 });
 
 async function loginNewUser() {
@@ -74,6 +76,28 @@ describe('POST /api/billing/checkout', () => {
 
     const { rows } = await pool.query('SELECT stripe_customer_id FROM users WHERE id = $1', [userId]);
     expect(rows[0].stripe_customer_id).toBe('cus_test_123');
+  });
+
+  it('charges the yearly Price, with the same trial, when interval is yearly', async () => {
+    const { client } = await loginNewUser();
+    const res = await client.post('/api/billing/checkout').send({ plan: 'team', interval: 'yearly' });
+    expect(res.status).toBe(200);
+    const call = stripeMock.checkout.sessions.create.mock.calls.at(-1)[0];
+    expect(call.line_items[0].price).toBe('price_team_yearly_dummy');
+    expect(call.subscription_data).toEqual({ trial_period_days: 7 });
+  });
+
+  it('says so when a yearly Price is not configured', async () => {
+    const { client } = await loginNewUser();
+    const res = await client.post('/api/billing/checkout').send({ plan: 'standard', interval: 'yearly' });
+    expect(res.status).toBe(503);
+    expect(res.body.message).toMatch(/yearly standard/);
+  });
+
+  it('rejects an unknown interval', async () => {
+    const { client } = await loginNewUser();
+    const res = await client.post('/api/billing/checkout').send({ plan: 'pro', interval: 'weekly' });
+    expect(res.status).toBe(400);
   });
 
   it('rejects an unknown plan', async () => {
@@ -210,6 +234,32 @@ describe('POST /api/billing/webhook', () => {
     expect(res.body.duplicate).toBe(true);
     const { rows } = await pool.query('SELECT plan FROM users WHERE id = $1', [userId]);
     expect(rows[0].plan).toBe('standard'); // not re-applied
+  });
+
+  it('recognises a yearly Price, and reads the renewal date from the item (new API versions)', async () => {
+    const { userId } = await loginNewUser();
+    await pool.query("UPDATE users SET plan = 'standard', stripe_customer_id = 'cus_wh_yearly' WHERE id = $1", [userId]);
+
+    const res = await request(app)
+      .post('/api/billing/webhook')
+      .send({
+        id: 'evt_yearly_1',
+        type: 'customer.subscription.updated',
+        data: {
+          object: {
+            customer: 'cus_wh_yearly',
+            status: 'trialing',
+            // No top-level current_period_end: API versions from 2025-03-31 put it on the item.
+            items: { data: [{ price: { id: 'price_pro_yearly_dummy' }, current_period_end: periodEnd }] },
+          },
+        },
+      });
+    expect(res.status).toBe(200);
+
+    const { rows } = await pool.query('SELECT plan, plan_status, plan_renews_at FROM users WHERE id = $1', [userId]);
+    expect(rows[0].plan).toBe('pro');
+    expect(rows[0].plan_status).toBe('trialing');
+    expect(rows[0].plan_renews_at.getTime()).toBe(periodEnd * 1000);
   });
 
   it('locks the account out (keeps last plan) on customer.subscription.deleted', async () => {
