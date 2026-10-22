@@ -71,6 +71,30 @@ revokeTokenBtn.addEventListener(
 
 loadApiTokenStatus();
 
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// Where the subscription stands, in words. A cancelled-at-period-end subscription keeps
+// working until cancelsAt, so that comes first; renewsAt is the trial's end while trialing.
+function billingStatusLine(s) {
+  if (s.cancelsAt) return `Cancelled — you keep access until ${formatDate(s.cancelsAt)}, and won't be charged again.`;
+  switch (s.planStatus) {
+    case 'trialing':
+      return s.renewsAt ? `Free trial — your first payment is on ${formatDate(s.renewsAt)}.` : 'Free trial.';
+    case 'active':
+      return s.renewsAt ? `Renews ${formatDate(s.renewsAt)}.` : '';
+    case 'past_due':
+      return 'Your last payment failed — update your card in Manage billing to keep publishing.';
+    case 'incomplete':
+      return 'Not started — choose a plan to start your free trial.';
+    case 'canceled':
+      return 'Your subscription has ended — choose a plan to start publishing again.';
+    default:
+      return '';
+  }
+}
+
 async function loadPlan() {
   const summary = document.getElementById('plan-summary');
   const manageBtn = document.getElementById('manage-billing-btn');
@@ -79,9 +103,8 @@ async function loadPlan() {
     const accountsLimit = s.limits.accounts === null ? 'unlimited' : s.limits.accounts;
     const postsLimit = s.limits.scheduledPosts === null ? 'unlimited' : s.limits.scheduledPosts;
     let line = `${s.planName} plan — ${s.usage.accounts}/${accountsLimit} connected accounts, ${s.usage.scheduledPosts}/${postsLimit} scheduled posts.`;
-    if (s.planStatus && s.planStatus !== 'active') line += ` Status: ${s.planStatus}.`;
-    if (s.renewsAt && s.plan !== 'free') line += ` Renews ${new Date(s.renewsAt).toLocaleDateString()}.`;
-    summary.textContent = line;
+    line += ` ${billingStatusLine(s)}`;
+    summary.textContent = line.trim();
     manageBtn.hidden = !s.hasBillingAccount;
 
     if (s.capabilities && s.capabilities.webhooks) {
@@ -110,6 +133,10 @@ manageBillingBtn.addEventListener(
 if (new URLSearchParams(location.search).get('checkout') === 'success') {
   showToast('Subscription active — thanks!', 'success');
   history.replaceState(null, '', location.pathname);
+  // Stripe's webhook usually lands a moment after the redirect back here, so the first
+  // loadPlan() below can still show the pre-checkout state. Look again shortly.
+  setTimeout(loadPlan, 3000);
+  setTimeout(loadPlan, 8000);
 }
 
 loadPlan();

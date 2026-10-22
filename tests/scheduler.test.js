@@ -300,6 +300,24 @@ describe('scheduler', () => {
     await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
   });
 
+  it("doesn't publish (or repeat) a post once its owner's subscription has ended", async () => {
+    const userId = await createUser('lapsed@example.com');
+    await pool.query("UPDATE users SET plan_status = 'canceled' WHERE id = $1", [userId]);
+    const accountId = await createMastodonAccount(userId);
+    const postId = await createScheduledPost(userId, accountId, 'queued before cancelling');
+    await pool.query("UPDATE posts SET repeat_interval = 'daily' WHERE id = $1", [postId]);
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await processDuePosts();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    const { rows } = await pool.query('SELECT status, error_message FROM posts WHERE user_id = $1', [userId]);
+    expect(rows).toHaveLength(1); // no next daily occurrence cloned
+    expect(rows[0].status).toBe('failed');
+    expect(rows[0].error_message).toMatch(/subscription has ended/);
+  });
+
   it('fails an Instagram post with no media attached', async () => {
     const userId = await createUser('ig-sched1@example.com');
     const accountRes = await pool.query(

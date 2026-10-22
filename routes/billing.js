@@ -54,6 +54,8 @@ router.get(
       planName: PLANS[req.user.plan]?.name ?? req.user.plan,
       planStatus: req.user.plan_status,
       renewsAt: req.user.plan_renews_at,
+      // Set when the subscription was cancelled but runs to the end of the paid period.
+      cancelsAt: req.user.plan_cancels_at,
       billingConfigured: billingConfigured(),
       hasBillingAccount: Boolean(req.user.stripe_customer_id),
       capabilities: PLANS[req.user.plan]?.capabilities ?? {},

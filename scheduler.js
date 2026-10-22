@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import path from 'node:path';
 import { pool } from './db/pool.js';
 import { copyMedia, mediaUrl } from './lib/storage.js';
+import { isEntitled } from './lib/billing.js';
 import { cleanupOldMedia } from './lib/mediaCleanup.js';
 import { cleanupOldActivityLogs, logProductEvent } from './lib/activityLog.js';
 import { logger } from './lib/logger.js';
@@ -86,9 +87,11 @@ async function sendPost(post) {
 export async function processDuePosts() {
   const { rows: due } = await pool.query(`
     SELECT posts.*, social_accounts.platform, social_accounts.access_token, social_accounts.refresh_token,
-           social_accounts.token_expires_at, social_accounts.metadata, social_accounts.external_account_id
+           social_accounts.token_expires_at, social_accounts.metadata, social_accounts.external_account_id,
+           users.plan_status AS user_plan_status
     FROM posts
     JOIN social_accounts ON social_accounts.id = posts.social_account_id
+    JOIN users ON users.id = posts.user_id
     WHERE posts.status = 'scheduled' AND posts.scheduled_for <= now()
     ORDER BY posts.scheduled_for
   `);
@@ -108,6 +111,16 @@ export async function processDuePosts() {
   }
 
   for (const post of due) {
+    // Publishing is what a plan pays for. Posts queued (or recurring) before a trial or
+    // subscription lapsed fail here instead of going out for free, and a recurring one stops
+    // cloning itself. The user can retry them once they've reactivated.
+    if (!isEntitled({ plan_status: post.user_plan_status })) {
+      await pool.query(`UPDATE posts SET status = 'failed', error_message = $2 WHERE id = $1`, [
+        post.id,
+        'Not published: your Postfalcon trial or subscription has ended. Reactivate at /pricing, then retry this post.',
+      ]);
+      continue;
+    }
     await pool.query(`UPDATE posts SET status = 'posting' WHERE id = $1`, [post.id]);
     try {
       const platformPostId = await sendPost(post);

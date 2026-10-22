@@ -299,6 +299,82 @@ describe('POST /api/billing/webhook', () => {
     expect(rows[0].plan_renews_at.getTime()).toBe(periodEnd * 1000);
   });
 
+  it("applies the customer's current subscription, not a stale or older one inside the event", async () => {
+    const { userId } = await loginNewUser();
+    await pool.query("UPDATE users SET stripe_customer_id = 'cus_order', plan_status = 'active' WHERE id = $1", [userId]);
+    // A retried "deleted" event for an old subscription arrives after a newer one started.
+    stripeMock.subscriptions.list.mockResolvedValueOnce({
+      data: [
+        { id: 'sub_old', status: 'canceled', created: 100, items: { data: [{ price: { id: 'price_standard_dummy' } }] } },
+        {
+          id: 'sub_new',
+          status: 'active',
+          created: 200,
+          items: { data: [{ price: { id: 'price_team_dummy' }, current_period_end: periodEnd }] },
+        },
+      ],
+    });
+
+    await request(app)
+      .post('/api/billing/webhook')
+      .send({
+        id: 'evt_stale_delete',
+        type: 'customer.subscription.deleted',
+        data: { object: { id: 'sub_old', customer: 'cus_order', status: 'canceled', items: { data: [] } } },
+      })
+      .expect(200);
+
+    const { rows } = await pool.query('SELECT plan, plan_status FROM users WHERE id = $1', [userId]);
+    expect(rows[0]).toEqual({ plan: 'team', plan_status: 'active' });
+  });
+
+  it('records when a subscription cancelled at period end will stop', async () => {
+    const { client, userId } = await loginNewUser();
+    await pool.query("UPDATE users SET stripe_customer_id = 'cus_cancel_later' WHERE id = $1", [userId]);
+    const subscription = {
+      id: 'sub_ending',
+      customer: 'cus_cancel_later',
+      status: 'active',
+      created: 1,
+      cancel_at_period_end: true,
+      items: { data: [{ price: { id: 'price_pro_dummy' }, current_period_end: periodEnd }] },
+    };
+    stripeMock.subscriptions.list.mockResolvedValueOnce({ data: [subscription] });
+
+    await request(app)
+      .post('/api/billing/webhook')
+      .send({ id: 'evt_cancel_later', type: 'customer.subscription.updated', data: { object: subscription } })
+      .expect(200);
+
+    const { rows } = await pool.query('SELECT plan_status, plan_cancels_at FROM users WHERE id = $1', [userId]);
+    expect(rows[0].plan_status).toBe('active'); // still has access until then
+    expect(rows[0].plan_cancels_at.getTime()).toBe(periodEnd * 1000);
+
+    const status = await client.get('/api/billing/status');
+    expect(new Date(status.body.cancelsAt).getTime()).toBe(periodEnd * 1000);
+  });
+
+  it('locks the account once every payment retry has failed (unpaid)', async () => {
+    const { userId } = await loginNewUser();
+    await pool.query("UPDATE users SET stripe_customer_id = 'cus_unpaid', plan_status = 'past_due' WHERE id = $1", [userId]);
+    const subscription = {
+      id: 'sub_unpaid',
+      customer: 'cus_unpaid',
+      status: 'unpaid',
+      created: 1,
+      items: { data: [{ price: { id: 'price_pro_dummy' } }] },
+    };
+    stripeMock.subscriptions.list.mockResolvedValueOnce({ data: [subscription] });
+
+    await request(app)
+      .post('/api/billing/webhook')
+      .send({ id: 'evt_unpaid', type: 'customer.subscription.updated', data: { object: subscription } })
+      .expect(200);
+
+    const { rows } = await pool.query('SELECT plan_status FROM users WHERE id = $1', [userId]);
+    expect(rows[0].plan_status).toBe('canceled');
+  });
+
   it('locks the account out (keeps last plan) on customer.subscription.deleted', async () => {
     const { userId } = await loginNewUser();
     await pool.query("UPDATE users SET plan = 'pro', plan_status = 'active', stripe_customer_id = 'cus_wh_3' WHERE id = $1", [userId]);

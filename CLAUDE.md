@@ -209,7 +209,13 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
 - Billing: plans live in `lib/billing.js` (`PLANS` — each has `priceUsd`, `priceUsdYearly`, `limits`, `capabilities`,
   `features`). Every plan has a monthly and a yearly Stripe Price (`STRIPE_PRICE_<PLAN>` / `STRIPE_PRICE_<PLAN>_YEARLY`,
   yearly = "2 months free"); checkout takes `interval`, and the plan cards (`views/partials/pricing-cards.ejs`, shared by
-  landing + pricing, toggled by `public/billing-toggle.js`) pass yearly through signup as `?plan=<plan>-yearly`;
+  landing + pricing, toggled by `public/billing-toggle.js`) pass yearly through signup as `?plan=<plan>-yearly`.
+  Billing invariants: the trial is decided by the customer's real Stripe subscription history (`trialEligible`), not by
+  having a `stripe_customer_id` (one exists after an abandoned Checkout); Checkout refuses a second running
+  subscription (409, plan changes go through the portal); the webhook applies the customer's *current* subscription
+  fetched from Stripe (`currentSubscription`), never the event's copy, since events arrive out of order; account
+  deletion cancels running subscriptions first; and scheduler.js fails (rather than publishes) due posts of a
+  non-entitled user. `plan_cancels_at` (migration 024) is set while a cancelled subscription runs to period end;
   `users.plan`/`plan_status`/`plan_renews_at` are the app's read-fast copy of Stripe state, written only by
   `routes/billingWebhook.js`. There is no free plan — new rows default to `plan='standard'`,
   `plan_status='incomplete'` (migration 023 — not entitled until Stripe Checkout completes and the webhook sets

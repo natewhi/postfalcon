@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
-import { getStripe, planForPriceId } from '../lib/billing.js';
+import { getStripe, planForPriceId, subscriptionsFor, currentSubscription } from '../lib/billing.js';
 import { logProductEvent } from '../lib/activityLog.js';
 import { logger } from '../lib/logger.js';
 
@@ -9,10 +9,11 @@ import { logger } from '../lib/logger.js';
 // a session or CSRF token.
 const router = Router();
 
-// Maps a Stripe subscription's status onto our narrower plan_status enum.
+// Maps a Stripe subscription's status onto our narrower plan_status enum. past_due (a renewal
+// payment failed, Stripe is still retrying) keeps access; unpaid (every retry failed) doesn't.
 function resolveStatus(stripeStatus) {
   if (stripeStatus === 'trialing') return 'trialing';
-  if (stripeStatus === 'past_due' || stripeStatus === 'unpaid') return 'past_due';
+  if (stripeStatus === 'past_due') return 'past_due';
   if (stripeStatus === 'active') return 'active';
   if (stripeStatus === 'incomplete' || stripeStatus === 'incomplete_expired') return 'incomplete';
   return 'canceled';
@@ -26,6 +27,12 @@ async function applySubscription(userId, customerId, subscription) {
   // each item, and webhook payloads follow the endpoint's API version, so read either.
   const periodEnd = subscription.current_period_end ?? item?.current_period_end;
   const renewsAt = periodEnd ? new Date(periodEnd * 1000) : null;
+  // A subscription cancelled "at the end of the billing period" stays active until then.
+  let cancelsAt = null;
+  if (status !== 'canceled') {
+    if (subscription.cancel_at) cancelsAt = new Date(subscription.cancel_at * 1000);
+    else if (subscription.cancel_at_period_end) cancelsAt = renewsAt;
+  }
 
   // There's no free plan: keep the last-known `plan` when the price can't be resolved, and
   // let plan_status ('canceled' / 'incomplete') drive the lockout via lib/billing.js isEntitled.
@@ -34,9 +41,10 @@ async function applySubscription(userId, customerId, subscription) {
        SET stripe_customer_id = COALESCE(stripe_customer_id, $1),
            plan = COALESCE($2, plan),
            plan_status = $3,
-           plan_renews_at = $4
-     WHERE id = $5`,
-    [customerId, plan, status, renewsAt, userId]
+           plan_renews_at = $4,
+           plan_cancels_at = $5
+     WHERE id = $6`,
+    [customerId, plan, status, renewsAt, cancelsAt, userId]
   );
 
   await logProductEvent(userId, 'plan_changed', { plan: plan ?? 'unchanged', status }).catch((err) =>
@@ -50,6 +58,14 @@ async function resolveUserId(subscription, session) {
   return rows[0]?.id ?? null;
 }
 
+// Applies the customer's current subscription (lib/billing.js currentSubscription), read fresh
+// from Stripe, rather than `eventSubscription` — the copy inside the event, which may be stale
+// or belong to an older subscription. Falls back to it only if Stripe lists none.
+async function applyCurrent(userId, customerId, eventSubscription) {
+  const current = currentSubscription(await subscriptionsFor(customerId)) ?? eventSubscription;
+  await applySubscription(userId, customerId, current);
+}
+
 async function handleEvent(event) {
   switch (event.type) {
     case 'checkout.session.completed': {
@@ -58,7 +74,7 @@ async function handleEvent(event) {
       const stripe = await getStripe();
       const subscription = await stripe.subscriptions.retrieve(session.subscription);
       const userId = await resolveUserId(subscription, session);
-      if (userId) await applySubscription(userId, session.customer, subscription);
+      if (userId) await applyCurrent(userId, session.customer, subscription);
       break;
     }
     case 'customer.subscription.updated':
@@ -66,7 +82,7 @@ async function handleEvent(event) {
       const subscription = event.data.object;
       const userId = await resolveUserId(subscription, null);
       if (userId) {
-        await applySubscription(userId, subscription.customer, subscription);
+        await applyCurrent(userId, subscription.customer, subscription);
       } else {
         logger.warn({ customerId: subscription.customer }, 'subscription webhook for unknown customer');
       }
