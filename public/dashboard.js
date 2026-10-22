@@ -1377,12 +1377,13 @@ postDialogForm.addEventListener(
         ...(youtubeOptions ? { youtube_options: youtubeOptions } : {}),
       };
       try {
-        await apiJson(`/api/v1/posts/${editingPostId}`, {
+        const updated = await apiJson(`/api/v1/posts/${editingPostId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        if (tiktokScheduled) showTikTokProcessingNote();
+        if (postNow) watchPostNow([updated]);
+        else if (tiktokScheduled) showTikTokProcessingNote();
         document.getElementById('post-dialog').close();
         loadDrafts();
         loadFailedBanner();
@@ -1422,14 +1423,16 @@ postDialogForm.addEventListener(
     }
 
     try {
+      let created;
       if (selectedMedia.length > 0) {
-        await apiUpload('/api/v1/posts', body, (pct) => {
+        created = await apiUpload('/api/v1/posts', body, (pct) => {
           postDialogSubmitBtn.textContent = `Uploading… ${pct}%`;
         });
       } else {
-        await apiJson('/api/v1/posts', { method: 'POST', body });
+        created = await apiJson('/api/v1/posts', { method: 'POST', body });
       }
-      if (tiktokScheduled) showTikTokProcessingNote();
+      if (postNow) watchPostNow(created?.posts ?? [created]);
+      else if (tiktokScheduled) showTikTokProcessingNote();
       document.getElementById('post-dialog').close();
       resetMediaPreview();
       loadDrafts();
@@ -1762,6 +1765,17 @@ async function checkPublishing() {
     // transient network error — try again next tick
   }
   liveTimer = setTimeout(checkPublishing, liveActive.size > 0 ? LIVE_FAST_MS : LIVE_SLOW_MS);
+}
+
+// "Post now" goes out on the scheduler's next run (within a minute). Register the new posts
+// with the watcher straight away: if the first check only happened after the scheduler had
+// already published them, they'd never have been seen as pending, so nothing would refresh.
+function watchPostNow(posts) {
+  for (const p of posts) if (p?.id) liveActive.set(p.id, 'scheduled');
+  calendar.refetchEvents();
+  showToast('Posting now — this usually takes under a minute.', 'success');
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(checkPublishing, LIVE_FAST_MS);
 }
 
 document.addEventListener('visibilitychange', () => {
