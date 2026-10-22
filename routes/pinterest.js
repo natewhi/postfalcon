@@ -6,16 +6,14 @@ import { sanitizeUrl } from '../lib/url.js';
 import { logProductEvent } from '../lib/activityLog.js';
 import { logger } from '../lib/logger.js';
 import { atAccountLimit } from '../middleware/planLimit.js';
+import { basicAuthHeader } from '../lib/platforms/pinterest.js';
 
 const router = Router();
-const SCOPES = 'boards:read,pins:read,pins:write';
+// user_accounts:read is what GET /v5/user_account (the username + picture below) needs.
+const SCOPES = 'boards:read,pins:read,pins:write,user_accounts:read';
 
 function redirectUri() {
   return `${process.env.BASE_URL}/api/pinterest/callback`;
-}
-
-function basicAuthHeader() {
-  return `Basic ${Buffer.from(`${process.env.PINTEREST_APP_ID}:${process.env.PINTEREST_APP_SECRET}`).toString('base64')}`;
 }
 
 router.get(
@@ -70,6 +68,7 @@ router.get(
     });
     const profile = await profileRes.json().catch(() => ({}));
     if (!profile.username) {
+      req.log.warn({ status: profileRes.status, body: profile }, 'pinterest user_account lookup failed');
       return res.status(502).send('Pinterest did not return a usable account profile.');
     }
 
@@ -98,10 +97,12 @@ router.get(
 
     const result = await pool.query(
       `INSERT INTO social_accounts
-         (user_id, platform, display_name, external_account_id, access_token, token_expires_at, avatar_url, metadata)
-       VALUES ($1, 'pinterest', $2, $3, $4, $5, $6, $7)
+         (user_id, platform, display_name, external_account_id, access_token, refresh_token, token_expires_at,
+          avatar_url, metadata)
+       VALUES ($1, 'pinterest', $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (user_id, platform, external_account_id)
        DO UPDATE SET display_name = EXCLUDED.display_name, access_token = EXCLUDED.access_token,
+         refresh_token = COALESCE(EXCLUDED.refresh_token, social_accounts.refresh_token),
          token_expires_at = EXCLUDED.token_expires_at, avatar_url = EXCLUDED.avatar_url, metadata = EXCLUDED.metadata
        RETURNING id, (xmax = 0) AS inserted`,
       [
@@ -109,6 +110,7 @@ router.get(
         externalId,
         externalId,
         token.access_token,
+        token.refresh_token ?? null,
         expiresAt,
         avatarUrl,
         JSON.stringify({ board_id: board.id, board_name: board.name }),

@@ -35,6 +35,8 @@ describe('pinterest oauth', () => {
     expect(res.headers.location).toContain('pinterest.com/oauth/');
     const scope = new URL(res.headers.location).searchParams.get('scope');
     expect(scope).toContain('pins:write');
+    // GET /v5/user_account (the username + picture) fails without it.
+    expect(scope).toContain('user_accounts:read');
   });
 
   it('rejects a callback with a mismatched state', async () => {
@@ -55,7 +57,7 @@ describe('pinterest oauth', () => {
         const u = String(url);
         if (u === 'https://api.pinterest.com/v5/oauth/token') {
           expect(opts.headers.Authorization).toMatch(/^Basic /);
-          return jsonResponse({ access_token: 'at-1', expires_in: 2592000 });
+          return jsonResponse({ access_token: 'at-1', refresh_token: 'rt-1', expires_in: 2592000 });
         }
         if (u === 'https://api.pinterest.com/v5/user_account') {
           return jsonResponse({ username: 'alice', profile_image: 'https://example.com/pic.jpg' });
@@ -72,14 +74,17 @@ describe('pinterest oauth', () => {
     expect(res.headers.location).toBe('/accounts');
 
     const { rows } = await pool.query(
-      "SELECT display_name, external_account_id, access_token, metadata FROM social_accounts WHERE platform = 'pinterest'"
+      "SELECT display_name, external_account_id, access_token, refresh_token, token_expires_at, metadata FROM social_accounts WHERE platform = 'pinterest'"
     );
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       display_name: 'alice',
       external_account_id: 'alice',
       access_token: 'at-1',
+      // Kept so the 30-day access token can be renewed (lib/platforms/pinterest.js).
+      refresh_token: 'rt-1',
     });
+    expect(rows[0].token_expires_at).toBeInstanceOf(Date);
     expect(rows[0].metadata).toEqual({ board_id: 'board-1', board_name: 'My Board' });
   });
 

@@ -759,6 +759,42 @@ describe('scheduler', () => {
     expect(rows[0].error_message).toMatch(/need an image/);
   });
 
+  it('renews an expired Pinterest token with its refresh token before pinning', async () => {
+    const userId = await createUser('pi-refresh@example.com');
+    const { rows: acc } = await pool.query(
+      `INSERT INTO social_accounts
+         (user_id, platform, display_name, external_account_id, access_token, refresh_token, token_expires_at, metadata)
+       VALUES ($1, 'pinterest', 'alice', 'alice', 'old-token', 'rt-1', now() - interval '1 day', $2) RETURNING id`,
+      [userId, { board_id: 'board-1' }]
+    );
+    const postId = await createScheduledPost(userId, acc[0].id, 'a pin');
+    await createPostMedia(postId, { url: 'http://example.test/uploads/pin.jpg' });
+
+    let pinAuth;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, options) => {
+        const u = String(url);
+        if (u === 'https://api.pinterest.com/v5/oauth/token') {
+          expect(options.headers.Authorization).toMatch(/^Basic /);
+          expect(String(options.body)).toContain('grant_type=refresh_token');
+          return jsonResponse({ access_token: 'new-token', expires_in: 2592000 });
+        }
+        if (u === 'https://api.pinterest.com/v5/pins') {
+          pinAuth = options.headers.Authorization;
+          return jsonResponse({ id: 'pin-9' });
+        }
+        throw new Error(`unexpected fetch: ${u}`);
+      })
+    );
+
+    await processDuePosts();
+
+    expect(pinAuth).toBe('Bearer new-token');
+    const { rows } = await pool.query('SELECT access_token, refresh_token FROM social_accounts WHERE id = $1', [acc[0].id]);
+    expect(rows[0]).toEqual({ access_token: 'new-token', refresh_token: 'rt-1' });
+  });
+
   it('publishes a due TikTok video and polls until complete', async () => {
     const userId = await createUser('tk-sched@example.com');
     const accountId = await createVideoAccount(userId, 'tiktok');
