@@ -90,18 +90,53 @@ describe('pinterest oauth', () => {
     expect(rows[0].metadata).toEqual({ board_id: 'board-1', board_name: 'My Board' });
   });
 
-  it('refuses to connect an account with no boards', async () => {
+  it('creates a Postfalcon board for an account with none, in the configured API (sandbox)', async () => {
+    process.env.PINTEREST_API_BASE = 'https://api-sandbox.pinterest.com';
+    try {
+      const client = await loginNewUser();
+      const connect = await client.get('/api/pinterest/connect');
+      const state = new URL(connect.headers.location).searchParams.get('state');
+
+      let created;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url, opts) => {
+          const u = String(url);
+          if (u === 'https://api.pinterest.com/v5/oauth/token') return jsonResponse({ access_token: 'at-2', expires_in: 2592000 });
+          // Profile reads stay on production, which Trial access allows.
+          if (u === 'https://api.pinterest.com/v5/user_account') return jsonResponse({ username: 'noboards' });
+          if (u === 'https://api-sandbox.pinterest.com/v5/boards?page_size=1') return jsonResponse({ items: [] });
+          if (u === 'https://api-sandbox.pinterest.com/v5/boards' && opts.method === 'POST') {
+            created = JSON.parse(opts.body);
+            return jsonResponse({ id: 'sandbox-board', name: created.name }, 201);
+          }
+          throw new Error(`unexpected fetch: ${u}`);
+        })
+      );
+
+      const res = await client.get('/api/pinterest/callback').query({ code: 'good-code', state });
+      expect(res.status).toBe(302);
+      expect(created.name).toBe('Postfalcon');
+      const { rows } = await pool.query("SELECT metadata FROM social_accounts WHERE platform = 'pinterest'");
+      expect(rows[0].metadata).toEqual({ board_id: 'sandbox-board', board_name: 'Postfalcon' });
+    } finally {
+      delete process.env.PINTEREST_API_BASE;
+    }
+  });
+
+  it('refuses to connect when it has no board and none can be created', async () => {
     const client = await loginNewUser();
     const connect = await client.get('/api/pinterest/connect');
     const state = new URL(connect.headers.location).searchParams.get('state');
 
     vi.stubGlobal(
       'fetch',
-      vi.fn(async (url) => {
+      vi.fn(async (url, opts) => {
         const u = String(url);
-        if (u === 'https://api.pinterest.com/v5/oauth/token') return jsonResponse({ access_token: 'at-2', expires_in: 2592000 });
+        if (u === 'https://api.pinterest.com/v5/oauth/token') return jsonResponse({ access_token: 'at-3', expires_in: 2592000 });
         if (u === 'https://api.pinterest.com/v5/user_account') return jsonResponse({ username: 'noboards' });
-        if (u.startsWith('https://api.pinterest.com/v5/boards')) return jsonResponse({ items: [] });
+        if (u.startsWith('https://api.pinterest.com/v5/boards?')) return jsonResponse({ items: [] });
+        if (u === 'https://api.pinterest.com/v5/boards' && opts.method === 'POST') return jsonResponse({ message: 'nope' }, 403);
         throw new Error(`unexpected fetch: ${u}`);
       })
     );

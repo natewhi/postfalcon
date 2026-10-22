@@ -6,7 +6,7 @@ import { sanitizeUrl } from '../lib/url.js';
 import { logProductEvent } from '../lib/activityLog.js';
 import { logger } from '../lib/logger.js';
 import { atAccountLimit } from '../middleware/planLimit.js';
-import { basicAuthHeader } from '../lib/platforms/pinterest.js';
+import { basicAuthHeader, pinterestApiBase } from '../lib/platforms/pinterest.js';
 
 const router = Router();
 // The exact set Pinterest's endpoints demand: POST /v5/pins needs boards:read+boards:write+
@@ -76,13 +76,25 @@ router.get(
 
     // A Pin always belongs to a board — pick the account's first one now rather than building
     // a board-picker UI; stored in metadata (same place Mastodon keeps its instance domain).
-    const boardsRes = await fetch('https://api.pinterest.com/v5/boards?page_size=1', {
-      headers: { Authorization: `Bearer ${token.access_token}` },
-    });
+    // An account with no boards (any new account, and always in the API sandbox — see
+    // pinterestApiBase()) gets a "Postfalcon" board created for it.
+    const auth = { Authorization: `Bearer ${token.access_token}` };
+    const boardsRes = await fetch(`${pinterestApiBase()}/v5/boards?page_size=1`, { headers: auth });
     const boards = await boardsRes.json().catch(() => ({}));
-    const board = boards.items?.[0];
+    let board = boards.items?.[0];
     if (!board) {
-      return res.status(400).send('Your Pinterest account needs at least one board before connecting — create one and try again.');
+      const createRes = await fetch(`${pinterestApiBase()}/v5/boards`, {
+        method: 'POST',
+        headers: { ...auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Postfalcon', description: 'Pins published with Postfalcon', privacy: 'PUBLIC' }),
+      });
+      board = createRes.ok ? await createRes.json().catch(() => null) : null;
+      if (!board?.id) {
+        req.log.warn({ status: createRes.status }, 'pinterest board creation failed');
+        return res
+          .status(400)
+          .send('Your Pinterest account has no boards and Postfalcon could not create one — create a board on Pinterest and try again.');
+      }
     }
 
     const externalId = profile.username;
