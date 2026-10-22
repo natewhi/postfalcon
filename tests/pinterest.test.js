@@ -34,9 +34,11 @@ describe('pinterest oauth', () => {
     expect(res.status).toBe(302);
     expect(res.headers.location).toContain('pinterest.com/oauth/');
     const scope = new URL(res.headers.location).searchParams.get('scope');
-    expect(scope).toContain('pins:write');
-    // GET /v5/user_account (the username + picture) fails without it.
-    expect(scope).toContain('user_accounts:read');
+    // POST /v5/pins rejects a token without both write scopes; GET /v5/user_account (the
+    // username + picture) needs user_accounts:read.
+    expect(scope.split(',')).toEqual(
+      expect.arrayContaining(['boards:read', 'boards:write', 'pins:read', 'pins:write', 'user_accounts:read'])
+    );
   });
 
   it('rejects a callback with a mismatched state', async () => {

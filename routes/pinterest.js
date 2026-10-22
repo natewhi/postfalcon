@@ -9,8 +9,10 @@ import { atAccountLimit } from '../middleware/planLimit.js';
 import { basicAuthHeader } from '../lib/platforms/pinterest.js';
 
 const router = Router();
-// user_accounts:read is what GET /v5/user_account (the username + picture below) needs.
-const SCOPES = 'boards:read,pins:read,pins:write,user_accounts:read';
+// The exact set Pinterest's endpoints demand: POST /v5/pins needs boards:read+boards:write+
+// pins:read+pins:write (a Pin is written into a board), and GET /v5/user_account (the
+// username + picture below) needs user_accounts:read.
+const SCOPES = 'boards:read,boards:write,pins:read,pins:write,user_accounts:read';
 
 function redirectUri() {
   return `${process.env.BASE_URL}/api/pinterest/callback`;
