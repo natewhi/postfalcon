@@ -207,8 +207,11 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   issuance), not part of the external contract. If you add a new externally-useful resource route, mount it
   under `/api/v1`, add `apiLimiter`, and add it to `/api-docs`.
 - Billing: plans live in `lib/billing.js` (`PLANS` — each has `priceUsd`, `priceUsdYearly`, `limits`, `capabilities`,
-  `features`). Every plan has a monthly and a yearly Stripe Price (`STRIPE_PRICE_<PLAN>` / `STRIPE_PRICE_<PLAN>_YEARLY`,
-  yearly = "2 months free"); checkout takes `interval`, and the plan cards (`views/partials/pricing-cards.ejs`, shared by
+  `features`). Every plan has a monthly and a yearly Stripe Price (yearly = "2 months free"), created and kept in step
+  with `priceUsd`/`priceUsdYearly` by `npm run stripe:setup` (`scripts/stripe-setup.js`: products, prices, portal plan
+  switching, webhook endpoint; idempotent, test or live). The app charges by lookup key `postfalcon_<plan>_<interval>`
+  and maps a subscription back to its plan by the Price's `metadata.plan`, so .env holds no Price ids (the old
+  `STRIPE_PRICE_*` vars are only a fallback). To change a price: edit `lib/billing.js`, deploy, run the script; checkout takes `interval`, and the plan cards (`views/partials/pricing-cards.ejs`, shared by
   landing + pricing, toggled by `public/billing-toggle.js`) pass yearly through signup as `?plan=<plan>-yearly`.
   Billing invariants: the trial is decided by the customer's real Stripe subscription history (`trialEligible`), not by
   having a `stripe_customer_id` (one exists after an abandoned Checkout); Checkout refuses a second running

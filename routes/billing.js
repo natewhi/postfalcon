@@ -74,7 +74,7 @@ router.post(
       return res.status(503).json({ error: 'billing_unavailable', message: 'Billing is not configured on this server.' });
     }
     const { plan, interval } = req.body;
-    const priceId = priceIdForPlan(plan, interval);
+    const priceId = await priceIdForPlan(plan, interval);
     if (!priceId) {
       return res
         .status(503)

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
-import { getStripe, planForPriceId, subscriptionsFor, currentSubscription } from '../lib/billing.js';
+import { getStripe, planForPrice, subscriptionsFor, currentSubscription } from '../lib/billing.js';
 import { logProductEvent } from '../lib/activityLog.js';
 import { logger } from '../lib/logger.js';
 
@@ -21,7 +21,7 @@ function resolveStatus(stripeStatus) {
 
 async function applySubscription(userId, customerId, subscription) {
   const item = subscription.items?.data?.[0];
-  const plan = planForPriceId(item?.price?.id); // null if the price id isn't one of ours
+  const plan = planForPrice(item?.price); // null if the Price isn't one of ours
   const status = resolveStatus(subscription.status);
   // Stripe API versions from 2025-03-31 moved current_period_end from the subscription onto
   // each item, and webhook payloads follow the endpoint's API version, so read either.

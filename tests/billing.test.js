@@ -9,6 +9,8 @@ const { stripeMock } = vi.hoisted(() => ({
     customers: { create: vi.fn(async () => ({ id: 'cus_test_123' })) },
     checkout: { sessions: { create: vi.fn(async () => ({ url: 'https://checkout.stripe.test/s/abc' })) } },
     billingPortal: { sessions: { create: vi.fn(async () => ({ url: 'https://portal.stripe.test/s/xyz' })) } },
+    // No lookup-keyed Prices by default, so checkout falls back to the STRIPE_PRICE_* ids below.
+    prices: { list: vi.fn(async () => ({ data: [] })) },
     subscriptions: {
       retrieve: vi.fn(),
       list: vi.fn(async () => ({ data: [] })),
@@ -89,6 +91,20 @@ describe('POST /api/billing/checkout', () => {
     const call = stripeMock.checkout.sessions.create.mock.calls.at(-1)[0];
     expect(call.line_items[0].price).toBe('price_team_yearly_dummy');
     expect(call.subscription_data).toEqual({ trial_period_days: 7 });
+  });
+
+  it('charges the Price that carries the plan lookup key, ahead of any .env id', async () => {
+    const { clearPriceCache } = await import('../lib/billing.js');
+    clearPriceCache();
+    stripeMock.prices.list.mockImplementationOnce(async ({ lookup_keys }) => {
+      expect(lookup_keys).toEqual(['postfalcon_pro_monthly']);
+      return { data: [{ id: 'price_pro_from_lookup' }] };
+    });
+    const { client } = await loginNewUser();
+    const res = await client.post('/api/billing/checkout').send({ plan: 'pro' });
+    expect(res.status).toBe(200);
+    expect(stripeMock.checkout.sessions.create.mock.calls.at(-1)[0].line_items[0].price).toBe('price_pro_from_lookup');
+    clearPriceCache();
   });
 
   it('says so when a yearly Price is not configured', async () => {
@@ -326,6 +342,27 @@ describe('POST /api/billing/webhook', () => {
 
     const { rows } = await pool.query('SELECT plan, plan_status FROM users WHERE id = $1', [userId]);
     expect(rows[0]).toEqual({ plan: 'team', plan_status: 'active' });
+  });
+
+  it("recognises a plan from its Price's metadata, even an old price no longer in .env", async () => {
+    const { userId } = await loginNewUser();
+    await pool.query("UPDATE users SET plan = 'standard', stripe_customer_id = 'cus_meta' WHERE id = $1", [userId]);
+    const subscription = {
+      id: 'sub_meta',
+      customer: 'cus_meta',
+      status: 'active',
+      created: 1,
+      items: { data: [{ price: { id: 'price_old_team_29', metadata: { plan: 'team', interval: 'monthly' } } }] },
+    };
+    stripeMock.subscriptions.list.mockResolvedValueOnce({ data: [subscription] });
+
+    await request(app)
+      .post('/api/billing/webhook')
+      .send({ id: 'evt_meta', type: 'customer.subscription.updated', data: { object: subscription } })
+      .expect(200);
+
+    const { rows } = await pool.query('SELECT plan FROM users WHERE id = $1', [userId]);
+    expect(rows[0].plan).toBe('team');
   });
 
   it('records when a subscription cancelled at period end will stop', async () => {

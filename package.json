@@ -9,7 +9,8 @@
     "migrate": "node db/migrate.js",
     "test": "vitest run",
     "postinstall": "node scripts/copy-vendor.js",
-    "mcp": "node mcp/server.js"
+    "mcp": "node mcp/server.js",
+    "stripe:setup": "node scripts/stripe-setup.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
