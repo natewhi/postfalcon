@@ -5770,6 +5770,11 @@ a.toast {
     display: none;
   }
 
+  /* On the one-row mobile bar the admin link just sits inline, without its heading. */
+  .sidebar-admin .sidebar-section-label {
+    display: none;
+  }
+
   .sidebar-footer {
     flex-direction: row;
     align-items: center;

@@ -12,10 +12,16 @@
     <a href="/analytics" class="nav-link<%= active === 'analytics' ? ' active' : '' %>">Analytics</a>
     <a href="/accounts" class="nav-link<%= active === 'accounts' ? ' active' : '' %>">Accounts</a>
     <a href="/settings" class="nav-link<%= active === 'settings' ? ' active' : '' %>">Settings</a>
-    <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
-    <a href="/admin/activity" class="nav-link<%= active === 'admin' ? ' active' : '' %>">Admin</a>
-    <% } %>
   </nav>
+
+  <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
+  <div class="sidebar-admin">
+    <div class="sidebar-section-label">Admin</div>
+    <nav class="sidebar-nav" aria-label="Admin">
+      <a href="/admin/activity" class="nav-link<%= active === 'admin' ? ' active' : '' %>">Activity &amp; billing</a>
+    </nav>
+  </div>
+  <% } %>
 
   <div class="sidebar-accounts">
     <div class="sidebar-section-label">Connected accounts</div>
