@@ -272,3 +272,28 @@ describe('admin customers', () => {
     expect((await other.post('/api/admin/users/1/access').send({ grant: true })).status).toBe(404);
   });
 });
+
+describe('admin overview backups check', () => {
+  it('flags a missing database backup, and reports a recent one', async () => {
+    const fs = await import('node:fs/promises');
+    const os = await import('node:os');
+    const path = await import('node:path');
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pf-backups-'));
+    process.env.BACKUP_DIR = dir;
+    try {
+      const email = 'admin-backup@example.com';
+      const admin = await signupAndLogin(email);
+      await makeAdmin(email);
+
+      let res = await admin.get('/api/admin/overview');
+      expect(res.body.setup.checks.find((c) => c.title === 'No database backup yet')?.level).toBe('error');
+
+      await fs.writeFile(path.join(dir, 'postfalcon-2026-01-01.dump'), 'x');
+      res = await admin.get('/api/admin/overview');
+      expect(res.body.setup.checks.find((c) => c.title === 'Database is backed up')?.level).toBe('ok');
+    } finally {
+      delete process.env.BACKUP_DIR;
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+});

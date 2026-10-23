@@ -9,12 +9,16 @@
 //   2. points the default customer portal's plan switching at exactly those current Prices.
 //   3. ensures a webhook endpoint at BASE_URL/api/billing/webhook with the events the app
 //      handles. A newly created endpoint's signing secret is printed once, for .env.
+//   4. forgets stored customer ids this account doesn't know (left over from the other mode
+//      after switching test -> live), resetting their Stripe-backed plans to "not started".
 // The portal's other settings (cancellation mode, proration...) and the Subscriptions and
 // emails settings are left as set in the dashboard. A CLI script, so it logs with console.
 import dotenv from 'dotenv';
-import { PLANS, PLAN_IDS, BILLING_INTERVALS, lookupKeyFor, getStripe } from '../lib/billing.js';
-
 dotenv.config();
+
+const { PLANS, PLAN_IDS, BILLING_INTERVALS, lookupKeyFor, getStripe } = await import('../lib/billing.js');
+// Imported after dotenv so the pool sees DATABASE_URL.
+const { pool } = await import('../db/pool.js');
 
 const WEBHOOK_EVENTS = ['checkout.session.completed', 'customer.subscription.updated', 'customer.subscription.deleted'];
 const STRIPE_INTERVAL = { monthly: 'month', yearly: 'year' };
@@ -117,6 +121,40 @@ async function syncWebhook(stripe) {
   console.log(`\n  Put this in .env, then restart the app (it's only shown now):\n  STRIPE_WEBHOOK_SECRET=${endpoint.secret}\n`);
 }
 
+// After switching keys (test -> live), users still hold customer ids from the other mode, which
+// this account has never heard of: checkout, the portal and the nightly reconciliation would all
+// fail for them with "No such customer". Forget only the ids Stripe says don't exist here, and
+// put users whose plan came from that other mode's subscription back to "not started"; logins
+// given access by hand (no renewal date) and admins keep their access.
+async function forgetUnknownCustomers(stripe) {
+  const { rows: users } = await pool.query('SELECT id, email, stripe_customer_id FROM users WHERE stripe_customer_id IS NOT NULL');
+  const forgotten = [];
+  for (const user of users) {
+    let missing = false;
+    try {
+      const customer = await stripe.customers.retrieve(user.stripe_customer_id);
+      missing = Boolean(customer.deleted);
+    } catch (err) {
+      if (err.code !== 'resource_missing') throw err;
+      missing = true;
+    }
+    if (!missing) continue;
+    await pool.query(
+      `UPDATE users
+         SET plan_status = CASE WHEN plan_renews_at IS NOT NULL AND NOT is_admin THEN 'incomplete' ELSE plan_status END,
+             stripe_customer_id = NULL, plan_renews_at = NULL, plan_cancels_at = NULL, plan_interval = NULL
+       WHERE id = $1`,
+      [user.id]
+    );
+    forgotten.push(user.email);
+  }
+  if (forgotten.length) {
+    console.log(`  forgot ${forgotten.length} customer id(s) from another Stripe mode: ${forgotten.join(', ')}`);
+  } else {
+    console.log(`  ok       all ${users.length} stored customer ids exist in this account`);
+  }
+}
+
 async function main() {
   const key = process.env.STRIPE_SECRET_KEY || '';
   if (!/^sk_(test|live)_/.test(key) && !/^rk_(test|live)_/.test(key)) {
@@ -140,10 +178,15 @@ async function main() {
   await syncPortal(stripe, pricesByProduct);
   console.log('\nWebhook:');
   await syncWebhook(stripe);
+  console.log('\nCustomers:');
+  await forgetUnknownCustomers(stripe);
   console.log('\nDone. The app picks up new prices within 5 minutes (or restart it). No .env price ids are needed.');
 }
 
-main().catch((err) => {
-  console.error(`\nStripe setup failed: ${err.message}`);
-  process.exit(1);
-});
+main()
+  .then(() => pool.end())
+  .catch(async (err) => {
+    console.error(`\nStripe setup failed: ${err.message}`);
+    await pool.end().catch(() => {});
+    process.exit(1);
+  });

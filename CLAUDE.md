@@ -28,6 +28,11 @@ server.
   instance would double-publish due posts and double-run media cleanup. Don't change that without moving the
   scheduler out of the app process first. `scripts/deploy.sh` is the deploy sequence (pull, install, migrate,
   pm2 reload) — run it manually on the VPS; there's still no CI/CD, and none should be added unless asked.
+- Database backups: `lib/backup.js` runs `pg_dump` (custom format) nightly at 03:30 from scheduler.js, keeps the
+  last 7 in `backups/` (git-ignored; `BACKUP_DIR` overrides) and, when `S3_BUCKET` is set, uploads each under the
+  bucket's `backups/` prefix (kept 30 days; never served by `/uploads`). `npm run backup` takes one on demand. Restore:
+  stop the app, `pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" <file>.dump`. The admin overview flags
+  missing or stale backups.
 - `.env` values (DB creds, session secret, OAuth app IDs/secrets) are entered by the user directly. Don't invent
   or insert real secrets — use placeholders in `.env.example` and let the user fill in `.env`/`.env.test`.
 - Traffic/SEO analytics (referrers, top pages, trends) runs as a separate self-hosted Umami instance, not part

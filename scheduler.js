@@ -5,6 +5,7 @@ import { copyMedia, mediaUrl } from './lib/storage.js';
 import { isEntitled, billingConfigured } from './lib/billing.js';
 import { reconcileSubscriptions } from './lib/billingSync.js';
 import { markSchedulerStarted, markSchedulerTick } from './lib/schedulerHeartbeat.js';
+import { runBackup } from './lib/backup.js';
 import { cleanupOldMedia } from './lib/mediaCleanup.js';
 import { cleanupOldActivityLogs, logProductEvent } from './lib/activityLog.js';
 import { logger } from './lib/logger.js';
@@ -304,6 +305,13 @@ export function startScheduler() {
         }
       })
       .catch((err) => logger.error({ err }, 'stored platform data refresh error'));
+  });
+
+  // Nightly database backup (lib/backup.js): to the server disk, and the bucket if configured.
+  cron.schedule('30 3 * * *', () => {
+    runBackup()
+      .then((result) => logger.info(result, 'database backup'))
+      .catch((err) => logger.error({ err }, 'database backup failed'));
   });
 
   // Nightly billing safety net: corrects any account whose plan drifted from Stripe because a
