@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/theme-init.js?v=<%= assetVersion %>"></script>
+<meta name="color-scheme" content="light dark">
+<title>Admin - Overview - Postfalcon</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css?v=<%= assetVersion %>">
+</head>
+<body>
+<div class="app-shell">
+  <%- include('partials/sidebar', { active: 'admin-overview', email }) %>
+
+  <main class="app-main">
+    <div class="page-header">
+      <h1>Admin &mdash; Overview</h1>
+      <button type="button" id="overview-refresh" class="btn-secondary">Refresh</button>
+    </div>
+
+    <div id="overview-loading" class="loading"><span class="spinner"></span> Loading&hellip;</div>
+
+    <div id="overview-content" hidden>
+      <section class="admin-section">
+        <h2>Setup</h2>
+        <p class="hint">Settings to fix before (or after) launch. Red is broken now; amber is a test or temporary setting.</p>
+        <ul id="setup-checks" class="admin-checks"></ul>
+        <h3 class="admin-subhead">Platforms</h3>
+        <div id="setup-platforms" class="admin-chips"></div>
+      </section>
+
+      <section class="admin-section">
+        <h2>Scheduler</h2>
+        <ul id="scheduler-status" class="admin-checks"></ul>
+      </section>
+
+      <section class="admin-section">
+        <h2>Publishing &mdash; last 24 hours</h2>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Platform</th><th class="nowrap">Published</th><th class="nowrap">Failed</th></tr></thead>
+            <tbody id="publishing-by-platform"></tbody>
+          </table>
+        </div>
+        <h3 class="admin-subhead">Recent failures</h3>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th class="nowrap">Time</th><th class="nowrap">Platform</th><th>Account</th><th>Customer</th><th>Reason</th></tr></thead>
+            <tbody id="publishing-failures"></tbody>
+          </table>
+        </div>
+        <h3 class="admin-subhead">Accounts needing reconnect</h3>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th class="nowrap">Since</th><th class="nowrap">Platform</th><th>Account</th><th>Customer</th><th>Reason</th></tr></thead>
+            <tbody id="publishing-reconnect"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="admin-section">
+        <h2>Business</h2>
+        <div class="an-tiles" id="business-tiles"></div>
+        <p class="hint" id="business-note"></p>
+      </section>
+
+      <section class="admin-section">
+        <h2>Storage</h2>
+        <div class="an-tiles" id="storage-tiles"></div>
+        <p class="hint" id="storage-note"></p>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="/csrf.js?v=<%= assetVersion %>"></script>
+<script src="/common.js?v=<%= assetVersion %>"></script>
+<script src="/admin-overview.js?v=<%= assetVersion %>"></script>
+</body>
+</html>

@@ -219,6 +219,12 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   fetched from Stripe (`currentSubscription`), never the event's copy, since events arrive out of order; account
   deletion cancels running subscriptions first; and scheduler.js fails (rather than publishes) due posts of a
   non-entitled user. `plan_cancels_at` (migration 024) is set while a cancelled subscription runs to period end.
+  Admin pages (`requireAdmin`, linked from the sidebar's admin-only section): `/admin/overview` (setup warnings —
+  test-mode/sandbox settings left on, missing config — scheduler heartbeat via `lib/schedulerHeartbeat.js` plus
+  overdue posts, publishing failures and reconnects, business numbers incl. an MRR estimate from
+  `users.plan_interval` (migration 025), storage use; all from `lib/adminStatus.js`, never returning secret values),
+  `/admin/customers` (lookup + give/remove free access for logins without a Stripe subscription), and
+  `/admin/activity` (logs + Billing).
   `lib/billingSync.js` holds `applySubscription`/`applyCurrent` (used by the webhook) and `reconcileSubscriptions`,
   run nightly by scheduler.js and on demand from the admin page's Billing section — it only touches customers who
   have a Stripe subscription and skips admins, so hand-set review/test logins survive it. `STRIPE_REQUIRE_TERMS=true`

@@ -5739,6 +5739,122 @@ a.toast {
   color: var(--color-text-muted);
 }
 
+/* Admin Overview / Customers (views/admin-overview.ejs, admin-customers.ejs). Colours come from
+   the --status-* tokens, which already have light and dark values. */
+.admin-subhead {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: 0.95rem;
+}
+
+.admin-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.admin-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.admin-check p {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.admin-check-badge {
+  flex: none;
+  min-width: 3.2em;
+  text-align: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid;
+}
+
+.admin-check-error { border-color: var(--status-failed-border); }
+.admin-check-error .admin-check-badge {
+  background: var(--status-failed-bg);
+  color: var(--status-failed-text);
+  border-color: var(--status-failed-border);
+}
+
+.admin-check-warn { border-color: var(--status-posting-border); }
+.admin-check-warn .admin-check-badge {
+  background: var(--status-posting-bg);
+  color: var(--status-posting-text);
+  border-color: var(--status-posting-border);
+}
+
+.admin-check-ok .admin-check-badge {
+  background: var(--status-posted-bg);
+  color: var(--status-posted-text);
+  border-color: var(--status-posted-border);
+}
+
+.admin-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.admin-chip {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  border: 1px solid;
+}
+
+.admin-chip.is-on {
+  background: var(--status-posted-bg);
+  color: var(--status-posted-text);
+  border-color: var(--status-posted-border);
+}
+
+.admin-chip.is-off {
+  background: var(--status-draft-bg);
+  color: var(--status-draft-text);
+  border-color: var(--status-draft-border);
+}
+
+.admin-bad {
+  color: var(--status-failed-text);
+  font-weight: 600;
+}
+
+.admin-row-link {
+  cursor: pointer;
+}
+
+.admin-row-link:hover td {
+  background: var(--status-scheduled-bg);
+}
+
+.admin-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+}
+
+.admin-facts dt {
+  color: var(--color-text-muted);
+}
+
+.admin-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }

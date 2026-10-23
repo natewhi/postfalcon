@@ -4,6 +4,7 @@ import { pool } from './db/pool.js';
 import { copyMedia, mediaUrl } from './lib/storage.js';
 import { isEntitled, billingConfigured } from './lib/billing.js';
 import { reconcileSubscriptions } from './lib/billingSync.js';
+import { markSchedulerStarted, markSchedulerTick } from './lib/schedulerHeartbeat.js';
 import { cleanupOldMedia } from './lib/mediaCleanup.js';
 import { cleanupOldActivityLogs, logProductEvent } from './lib/activityLog.js';
 import { logger } from './lib/logger.js';
@@ -255,8 +256,14 @@ export async function refreshStoredPlatformData() {
 }
 
 export function startScheduler() {
+  markSchedulerStarted();
   cron.schedule('* * * * *', () => {
-    processDuePosts().catch((err) => logger.error({ err }, 'scheduler error'));
+    processDuePosts()
+      .then(() => markSchedulerTick())
+      .catch((err) => {
+        markSchedulerTick(err);
+        logger.error({ err }, 'scheduler error');
+      });
   });
 
   cron.schedule('0 3 * * *', () => {

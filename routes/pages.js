@@ -121,6 +121,16 @@ router.get('/settings', requirePageAuth, (req, res) => {
   });
 });
 
+router.get('/admin', requireAdmin, (req, res) => res.redirect('/admin/overview'));
+
+router.get('/admin/overview', requireAdmin, (req, res) => {
+  res.render('admin-overview', { email: req.user.email });
+});
+
+router.get('/admin/customers', requireAdmin, (req, res) => {
+  res.render('admin-customers', { email: req.user.email });
+});
+
 router.get('/admin/activity', requireAdmin, (req, res) => {
   res.render('admin-activity', { email: req.user.email });
 });

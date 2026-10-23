@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/theme-init.js?v=<%= assetVersion %>"></script>
+<meta name="color-scheme" content="light dark">
+<title>Admin - Customers - Postfalcon</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css?v=<%= assetVersion %>">
+</head>
+<body>
+<div class="app-shell">
+  <%- include('partials/sidebar', { active: 'admin-customers', email }) %>
+
+  <main class="app-main">
+    <div class="page-header">
+      <h1>Admin &mdash; Customers</h1>
+    </div>
+
+    <section class="admin-section">
+      <h2>Find a customer</h2>
+      <form id="customer-search" class="admin-filter-bar">
+        <div class="admin-filter-field">
+          <label for="customer-q">Email</label>
+          <input type="text" id="customer-q" name="q" placeholder="contains…" autocomplete="off">
+        </div>
+        <button type="submit">Search</button>
+      </form>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Email</th><th class="nowrap">Plan</th><th class="nowrap">Status</th><th class="nowrap">Signed up</th></tr></thead>
+          <tbody id="customer-results"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-section" id="customer-detail" hidden>
+      <h2 id="customer-title"></h2>
+      <dl class="admin-facts" id="customer-facts"></dl>
+
+      <h3 class="admin-subhead">Access</h3>
+      <p class="hint" id="customer-access-note"></p>
+      <div class="admin-filter-bar">
+        <div class="admin-filter-field">
+          <label for="customer-access-plan">Plan</label>
+          <select id="customer-access-plan">
+            <option value="standard">Standard</option>
+            <option value="team">Team</option>
+            <option value="pro" selected>Pro</option>
+          </select>
+        </div>
+        <button type="button" id="customer-grant">Give free access</button>
+        <button type="button" id="customer-revoke" class="btn-secondary">Remove access</button>
+      </div>
+
+      <h3 class="admin-subhead">Connected accounts</h3>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th class="nowrap">Platform</th><th>Name</th><th class="nowrap">Connected</th><th>Status</th></tr></thead>
+          <tbody id="customer-accounts"></tbody>
+        </table>
+      </div>
+
+      <h3 class="admin-subhead">Recent posts</h3>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th class="nowrap">Updated</th><th class="nowrap">Platform</th><th class="nowrap">Status</th><th>Text</th><th>Error</th></tr></thead>
+          <tbody id="customer-posts"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="/csrf.js?v=<%= assetVersion %>"></script>
+<script src="/common.js?v=<%= assetVersion %>"></script>
+<script src="/admin-customers.js?v=<%= assetVersion %>"></script>
+</body>
+</html>

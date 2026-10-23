@@ -166,3 +166,109 @@ describe('admin sidebar link', () => {
     expect(res.text).not.toContain('href="/admin/activity"');
   });
 });
+
+describe('admin overview', () => {
+  async function adminClient(email) {
+    const client = await signupAndLogin(email);
+    await makeAdmin(email);
+    return client;
+  }
+
+  it('serves the overview and customers pages to admins only', async () => {
+    const admin = await adminClient('admin-pages@example.com');
+    expect((await admin.get('/admin/overview')).status).toBe(200);
+    expect((await admin.get('/admin/customers')).status).toBe(200);
+    const other = await signupAndLogin('not-admin-pages@example.com');
+    expect((await other.get('/admin/overview')).status).toBe(404);
+    expect((await other.get('/api/admin/overview')).status).toBe(404);
+  });
+
+  it('reports setup, scheduler, publishing, business and storage without leaking secrets', async () => {
+    const admin = await adminClient('admin-overview@example.com');
+    const payer = await signupAndLogin('overview-payer@example.com');
+    await pool.query(
+      `UPDATE users SET stripe_customer_id = 'cus_ov', plan = 'team', plan_status = 'active', plan_interval = 'yearly',
+         plan_renews_at = now() + interval '300 days' WHERE email = 'overview-payer@example.com'`
+    );
+    const { rows: acc } = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, needs_reconnect_at, reconnect_reason)
+       SELECT id, 'mastodon', '@ov', 'ov-1', 'secret-token', now(), 'token revoked' FROM users WHERE email = 'overview-payer@example.com'
+       RETURNING id, user_id`
+    );
+    await pool.query(
+      `INSERT INTO posts (user_id, social_account_id, content, status, error_message)
+       VALUES ($1, $2, 'broke', 'failed', 'Mastodon said no')`,
+      [acc[0].user_id, acc[0].id]
+    );
+    expect(payer).toBeTruthy();
+
+    const res = await admin.get('/api/admin/overview');
+    expect(res.status).toBe(200);
+    const { setup, scheduler, publishing, business, storage } = res.body;
+
+    expect(Array.isArray(setup.checks)).toBe(true);
+    expect(setup.platforms.find((p) => p.name === 'Mastodon').configured).toBe(true);
+    expect(scheduler).toMatchObject({ overduePosts: 0 });
+    expect(publishing.recentFailures[0]).toMatchObject({ platform: 'mastodon', error_message: 'Mastodon said no' });
+    expect(publishing.needsReconnect[0]).toMatchObject({ display_name: '@ov', reconnect_reason: 'token revoked' });
+    expect(business.paying).toBe(1);
+    expect(business.mrrUsd).toBe(32.5); // Team yearly $390 / 12
+    expect(storage.local).toBeTruthy();
+    expect(JSON.stringify(res.body)).not.toContain('secret-token');
+  });
+
+  it('flags overdue posts the scheduler has not sent', async () => {
+    const admin = await adminClient('admin-overdue@example.com');
+    const { rows: acc } = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       SELECT id, 'mastodon', '@late', 'late-1', 't' FROM users WHERE email = 'admin-overdue@example.com' RETURNING id, user_id`
+    );
+    await pool.query(
+      `INSERT INTO posts (user_id, social_account_id, content, status, scheduled_for)
+       VALUES ($1, $2, 'late', 'scheduled', now() - interval '20 minutes')`,
+      [acc[0].user_id, acc[0].id]
+    );
+    const res = await admin.get('/api/admin/overview');
+    expect(res.body.scheduler.overduePosts).toBe(1);
+  });
+});
+
+describe('admin customers', () => {
+  it('finds a customer and shows their details', async () => {
+    const email = 'admin-cust@example.com';
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+    await signupAndLogin('findme@example.com');
+
+    const list = await admin.get('/api/admin/users').query({ q: 'findme' });
+    expect(list.body).toHaveLength(1);
+    const detail = await admin.get(`/api/admin/users/${list.body[0].id}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.user.email).toBe('findme@example.com');
+    expect(detail.body.accounts).toEqual([]);
+    expect((await admin.get('/api/admin/users/999999')).status).toBe(404);
+  });
+
+  it('gives and removes free access for a login with no subscription', async () => {
+    const email = 'admin-access@example.com';
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+    await signupAndLogin('reviewer@example.com');
+    const { rows } = await pool.query("SELECT id FROM users WHERE email = 'reviewer@example.com'");
+
+    const granted = await admin.post(`/api/admin/users/${rows[0].id}/access`).send({ grant: true, plan: 'team' });
+    expect(granted.status).toBe(200);
+    expect(granted.body).toMatchObject({ plan: 'team', plan_status: 'active' });
+
+    const revoked = await admin.post(`/api/admin/users/${rows[0].id}/access`).send({ grant: false });
+    expect(revoked.body.plan_status).toBe('canceled');
+
+    expect((await admin.post(`/api/admin/users/${rows[0].id}/access`).send({ grant: 'yes' })).status).toBe(400);
+  });
+
+  it('is admin-only', async () => {
+    const other = await signupAndLogin('not-admin-cust@example.com');
+    expect((await other.get('/api/admin/users')).status).toBe(404);
+    expect((await other.post('/api/admin/users/1/access').send({ grant: true })).status).toBe(404);
+  });
+});

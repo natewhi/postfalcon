@@ -1,0 +1,137 @@
+// Admin Customers: search by email, view one customer, and give or remove free access
+// (routes/admin.js /api/admin/users*).
+
+let currentUserId = null;
+
+function when(value) {
+  return value ? new Date(value).toLocaleString() : '—';
+}
+
+function day(value) {
+  return value ? new Date(value).toLocaleDateString() : '—';
+}
+
+function emptyRow(columns, text) {
+  return `<tr><td colspan="${columns}" class="empty">${escapeHtml(text)}</td></tr>`;
+}
+
+async function search(q) {
+  const body = document.getElementById('customer-results');
+  body.innerHTML = emptyRow(4, 'Searching…');
+  try {
+    const users = await apiJson(`/api/admin/users?q=${encodeURIComponent(q)}`);
+    body.innerHTML = users.length
+      ? users
+          .map(
+            (u) =>
+              `<tr class="admin-row-link" data-user-id="${u.id}"><td>${escapeHtml(u.email)}${u.is_admin ? ' (admin)' : ''}</td><td class="nowrap">${escapeHtml(
+                u.plan
+              )}</td><td class="nowrap">${escapeHtml(u.plan_status)}</td><td class="nowrap">${day(u.created_at)}</td></tr>`
+          )
+          .join('')
+      : emptyRow(4, 'No customers match.');
+  } catch (err) {
+    body.innerHTML = emptyRow(4, 'Search failed.');
+    showToast(err.message);
+  }
+}
+
+function fact(label, value) {
+  return `<dt>${escapeHtml(label)}</dt><dd>${value}</dd>`;
+}
+
+async function showCustomer(id) {
+  currentUserId = id;
+  const section = document.getElementById('customer-detail');
+  try {
+    const { user, accounts, recentPosts, postCounts } = await apiJson(`/api/admin/users/${id}`);
+    document.getElementById('customer-title').textContent = user.email;
+    const counts = Object.entries(postCounts).map(([s, n]) => `${n} ${s}`).join(', ') || 'none';
+    document.getElementById('customer-facts').innerHTML = [
+      fact('Plan', `${escapeHtml(user.plan)}${user.plan_interval ? ` (${escapeHtml(user.plan_interval)})` : ''}`),
+      fact('Status', escapeHtml(user.plan_status)),
+      fact('Renews / trial ends', day(user.plan_renews_at)),
+      fact('Cancels', day(user.plan_cancels_at)),
+      fact(
+        'Stripe',
+        user.stripeDashboardUrl
+          ? `<a href="${escapeHtml(user.stripeDashboardUrl)}" target="_blank" rel="noopener">${escapeHtml(user.stripe_customer_id)} ↗</a>`
+          : 'No Stripe customer'
+      ),
+      fact('Signed up', when(user.created_at)),
+      fact('Email verified', user.email_verified_at ? day(user.email_verified_at) : 'No'),
+      fact('Login', user.google_login ? 'Google' : 'Email & password'),
+      fact('Posts', escapeHtml(counts)),
+    ].join('');
+
+    document.getElementById('customer-access-note').textContent = user.stripe_customer_id
+      ? 'If this customer has a Stripe subscription, change their plan in Stripe instead — these buttons are refused for them.'
+      : 'For review and test logins: gives the chosen plan without a Stripe subscription, or removes it.';
+
+    document.getElementById('customer-accounts').innerHTML = accounts.length
+      ? accounts
+          .map(
+            (a) =>
+              `<tr><td class="nowrap">${escapeHtml(a.platform)}</td><td>${escapeHtml(a.display_name || '')}</td><td class="nowrap">${day(
+                a.created_at
+              )}</td><td>${a.needs_reconnect_at ? `<span class="admin-bad">Needs reconnect</span> ${escapeHtml(a.reconnect_reason || '')}` : 'OK'}</td></tr>`
+          )
+          .join('')
+      : emptyRow(4, 'No connected accounts.');
+
+    document.getElementById('customer-posts').innerHTML = recentPosts.length
+      ? recentPosts
+          .map(
+            (p) =>
+              `<tr><td class="nowrap">${when(p.updated_at)}</td><td class="nowrap">${escapeHtml(p.platform)}</td><td class="nowrap${
+                p.status === 'failed' ? ' admin-bad' : ''
+              }">${escapeHtml(p.status)}</td><td>${escapeHtml(p.content)}</td><td>${escapeHtml((p.error_message || '').slice(0, 200))}</td></tr>`
+          )
+          .join('')
+      : emptyRow(5, 'No posts.');
+
+    section.hidden = false;
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
+async function setAccess(grant) {
+  if (!currentUserId) return;
+  const plan = document.getElementById('customer-access-plan').value;
+  const email = document.getElementById('customer-title').textContent;
+  const ok = await confirmDialog(
+    grant
+      ? `Give ${email} free ${plan} access, without a subscription?`
+      : `Remove ${email}'s access? They won't be able to publish until they subscribe.`,
+    { confirmText: grant ? 'Give access' : 'Remove access' }
+  );
+  if (!ok) return;
+  try {
+    await apiJson(`/api/admin/users/${currentUserId}/access`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grant, plan }),
+    });
+    showToast(grant ? 'Access given.' : 'Access removed.', 'success');
+    showCustomer(currentUserId);
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
+document.getElementById('customer-search').addEventListener('submit', (e) => {
+  e.preventDefault();
+  search(document.getElementById('customer-q').value.trim());
+});
+
+document.getElementById('customer-results').addEventListener('click', (e) => {
+  const row = e.target.closest('[data-user-id]');
+  if (row) showCustomer(Number(row.dataset.userId));
+});
+
+document.getElementById('customer-grant').addEventListener('click', () => setAccess(true));
+document.getElementById('customer-revoke').addEventListener('click', () => setAccess(false));
+
+search('');
