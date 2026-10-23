@@ -297,3 +297,62 @@ describe('admin overview backups check', () => {
     }
   });
 });
+
+describe('admin platform switches', () => {
+  async function adminClient(email) {
+    const client = await signupAndLogin(email);
+    await makeAdmin(email);
+    return client;
+  }
+
+  it('lists platforms with their defaults (LinkedIn and X off, Mastodon on), without the twitter placeholder', async () => {
+    const admin = await adminClient('admin-plat-list@example.com');
+    const res = await admin.get('/api/admin/platforms');
+    expect(res.status).toBe(200);
+    const byId = Object.fromEntries(res.body.map((p) => [p.id, p]));
+    expect(byId.mastodon).toMatchObject({ built: true, enabled: true, credentialsSet: true });
+    expect(byId.linkedin.enabled).toBe(false);
+    expect(byId.x.enabled).toBe(false);
+    expect(byId.reddit.built).toBe(false);
+    expect(byId.twitter).toBeUndefined();
+  });
+
+  it('switching a platform off hides it everywhere and blocks connecting; reset restores it', async () => {
+    const admin = await adminClient('admin-plat-off@example.com');
+    try {
+      const off = await admin.post('/api/admin/platforms/mastodon').send({ enabled: false });
+      expect(off.body).toEqual({ id: 'mastodon', enabled: false });
+
+      expect((await admin.get('/api/mastodon/connect').query({ instance: 'mastodon.social' })).status).toBe(404);
+      const landing = await request(app).get('/');
+      expect(landing.text).not.toContain('Instagram, Mastodon, YouTube');
+      expect(landing.text).toContain('Instagram, YouTube');
+      const list = await admin.get('/api/admin/platforms');
+      expect(list.body.find((p) => p.id === 'mastodon').switchedAt).toBeTruthy();
+    } finally {
+      const reset = await admin.post('/api/admin/platforms/mastodon').send({ reset: true });
+      expect(reset.body.enabled).toBe(true);
+    }
+    expect((await request(app).get('/')).text).toContain('Instagram, Mastodon, YouTube');
+  });
+
+  it('turns an unlisted platform on, and refuses to turn on one that is not built', async () => {
+    const admin = await adminClient('admin-plat-on@example.com');
+    try {
+      expect((await admin.post('/api/admin/platforms/x').send({ enabled: true })).body.enabled).toBe(true);
+      expect((await request(app).get('/')).text).toContain(', and X');
+    } finally {
+      await admin.post('/api/admin/platforms/x').send({ reset: true });
+    }
+    expect((await admin.post('/api/admin/platforms/reddit').send({ enabled: true })).status).toBe(400);
+    expect((await admin.post('/api/admin/platforms/nope').send({ enabled: true })).status).toBe(404);
+    expect((await admin.post('/api/admin/platforms/x').send({ enabled: 'yes' })).status).toBe(400);
+  });
+
+  it('is admin-only', async () => {
+    const other = await signupAndLogin('not-admin-plat@example.com');
+    expect((await other.get('/api/admin/platforms')).status).toBe(404);
+    expect((await other.post('/api/admin/platforms/x').send({ enabled: true })).status).toBe(404);
+    expect((await other.get('/admin/platforms')).status).toBe(404);
+  });
+});

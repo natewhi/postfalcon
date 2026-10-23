@@ -50,10 +50,10 @@ function renderSetup(setup) {
   }
   list.innerHTML = setup.checks.map((c) => checkItem(c.level, c.title, c.detail)).join('');
   document.getElementById('setup-platforms').innerHTML = setup.platforms
-    .map(
-      (p) =>
-        `<span class="admin-chip ${p.configured ? 'is-on' : 'is-off'}">${p.configured ? '✓' : '✕'} ${escapeHtml(p.name)}</span>`
-    )
+    .map((p) => {
+      const note = !p.enabled ? ' (off)' : !p.configured ? ' (no credentials)' : '';
+      return `<span class="admin-chip ${p.enabled && p.configured ? 'is-on' : 'is-off'}">${p.enabled ? '✓' : '✕'} ${escapeHtml(p.name)}${note}</span>`;
+    })
     .join('');
 }
 

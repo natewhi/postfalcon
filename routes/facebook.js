@@ -6,6 +6,7 @@ import { sanitizeUrl } from '../lib/url.js';
 import { logProductEvent } from '../lib/activityLog.js';
 import { logger } from '../lib/logger.js';
 import { limitsForPlan } from '../lib/billing.js';
+import { isPlatformEnabled } from '../lib/platforms.js';
 
 const router = Router();
 const GRAPH_VERSION = 'v19.0';
@@ -134,16 +135,23 @@ router.get(
       return true;
     }
 
+    // Facebook and Instagram share this flow but can be switched on/off separately (admin
+    // Platforms page): only connect the ones that are on.
+    const facebookOn = isPlatformEnabled('facebook');
+    const instagramOn = isPlatformEnabled('instagram');
     for (const page of pages) {
-      if (!reserveSlot('facebook', page.id)) continue;
-      await upsertSocialAccount({
-        userId: req.user.id,
-        platform: 'facebook',
-        displayName: page.name,
-        externalAccountId: page.id,
-        accessToken: page.access_token,
-        avatarUrl: page.picture?.data?.url,
-      });
+      if (facebookOn) {
+        if (!reserveSlot('facebook', page.id)) continue;
+        await upsertSocialAccount({
+          userId: req.user.id,
+          platform: 'facebook',
+          displayName: page.name,
+          externalAccountId: page.id,
+          accessToken: page.access_token,
+          avatarUrl: page.picture?.data?.url,
+        });
+      }
+      if (!instagramOn) continue;
 
       const igRes = await fetch(
         `https://graph.facebook.com/${GRAPH_VERSION}/${page.id}?fields=instagram_business_account&access_token=${encodeURIComponent(page.access_token)}`

@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import app from '../app.js';
+import { savePlatformSetting, clearPlatformSetting } from '../lib/platformSettings.js';
 import { pool } from '../db/pool.js';
 
 function jsonResponse(body, status = 200) {
@@ -15,9 +16,16 @@ async function loginNewUser() {
   return client;
 }
 
-beforeAll(() => {
+// LinkedIn is unlisted (off) by default, which blocks its connect routes; switch it on for these
+// tests the same way the admin Platforms page would.
+beforeAll(async () => {
   process.env.LINKEDIN_CLIENT_ID = 'lid';
   process.env.LINKEDIN_CLIENT_SECRET = 'lsecret';
+  await savePlatformSetting('linkedin', true, null);
+});
+
+afterAll(async () => {
+  await clearPlatformSetting('linkedin');
 });
 
 describe('linkedin oauth', () => {

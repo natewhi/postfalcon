@@ -5,7 +5,7 @@
 <script src="/theme-init.js?v=<%= assetVersion %>"></script>
 <meta name="color-scheme" content="light dark">
 <title>Postfalcon — Schedule your social posts in one place</title>
-<meta name="description" content="Postfalcon lines up your posts for Mastodon, Bluesky, Instagram, Facebook, Threads, Telegram, YouTube, TikTok and Pinterest on one calendar, then publishes them on time. Open source, self-hostable, with an API and MCP server for AI agents.">
+<meta name="description" content="Postfalcon lines up your posts for <%= platformNames %> on one calendar, then publishes them on time. Open source, self-hostable, with an API and MCP server for AI agents.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/style.css?v=<%= assetVersion %>">
 </head>
@@ -33,8 +33,7 @@
           <span class="home-mark">by agent.<svg class="home-mark-line" viewBox="0 0 320 22" preserveAspectRatio="none" aria-hidden="true"><path d="M5 14C70 5 150 5 210 10s70 6 105 1" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/></svg></span>
         </h1>
         <p class="home-hero-lead">
-          Line up posts for Mastodon, Bluesky, Instagram, Facebook, Threads, Telegram, YouTube,
-          TikTok, and Pinterest on one calendar &mdash; and let Postfalcon publish them
+          Line up posts for <%= platformNames %> on one calendar &mdash; and let Postfalcon publish them
           on time.
         </p>
         <div class="home-hero-actions">
@@ -320,7 +319,7 @@
         <div class="home-faq-list">
           <details>
             <summary>Which platforms work today?</summary>
-            <p>Mastodon, Bluesky, Facebook, Instagram, Threads, Telegram, YouTube, TikTok, and Pinterest. X (formerly Twitter) is left out on purpose &mdash; its API isn&rsquo;t free.</p>
+            <p><%= platformNames %>.<% if (!livePlatforms.some((p) => p.id === 'x')) { %> X (formerly Twitter) isn&rsquo;t included yet &mdash; its API isn&rsquo;t free.<% } %></p>
           </details>
           <details>
             <summary>Is my data safe?</summary>

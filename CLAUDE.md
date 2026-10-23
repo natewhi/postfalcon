@@ -230,8 +230,14 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   test-mode/sandbox settings left on, missing config — scheduler heartbeat via `lib/schedulerHeartbeat.js` plus
   overdue posts, publishing failures and reconnects, business numbers incl. an MRR estimate from
   `users.plan_interval` (migration 025), storage use; all from `lib/adminStatus.js`, never returning secret values),
-  `/admin/customers` (lookup + give/remove free access for logins without a Stripe subscription), and
-  `/admin/activity` (logs + Billing).
+  `/admin/customers` (lookup + give/remove free access for logins without a Stripe subscription),
+  `/admin/platforms` (switch each built platform on/off — `platform_settings`, migration 027, loaded into
+  lib/platforms.js by `lib/platformSettings.js`; a platform with no saved switch uses the registry default,
+  i.e. on unless `unlisted`), and `/admin/activity` (logs + Billing). Off means: dropped from
+  `connectablePlatforms()`/`livePlatforms()` (Accounts page, landing — whose platform lists are generated, not
+  hardcoded), connect routes 404 via `platformGate()` in app.js, and `isPlatformPaused()` fails its due posts
+  in scheduler.js and skips its metrics. Use `isPlatformEnabled()` for "is it offered", not `unlisted`. Tests
+  that need an unlisted platform's connect routes switch it on with `savePlatformSetting()` and clear it after.
   `lib/billingSync.js` holds `applySubscription`/`applyCurrent` (used by the webhook) and `reconcileSubscriptions`,
   run nightly by scheduler.js and on demand from the admin page's Billing section — it only touches customers who
   have a Stripe subscription and skips admins, so hand-set review/test logins survive it. `STRIPE_REQUIRE_TERMS=true`

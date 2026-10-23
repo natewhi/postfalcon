@@ -300,6 +300,26 @@ describe('scheduler', () => {
     await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
   });
 
+  it('pauses posts to a platform switched off on the admin Platforms page', async () => {
+    const { savePlatformSetting, clearPlatformSetting } = await import('../lib/platformSettings.js');
+    const userId = await createUser('paused-platform@example.com');
+    const accountId = await createMastodonAccount(userId);
+    const postId = await createScheduledPost(userId, accountId, 'waiting for mastodon');
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await savePlatformSetting('mastodon', false, null);
+    try {
+      await processDuePosts();
+    } finally {
+      await clearPlatformSetting('mastodon');
+    }
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    const { rows } = await pool.query('SELECT status, error_message FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('failed');
+    expect(rows[0].error_message).toMatch(/Mastodon is temporarily unavailable/);
+  });
+
   it("doesn't publish (or repeat) a post once its owner's subscription has ended", async () => {
     const userId = await createUser('lapsed@example.com');
     await pool.query("UPDATE users SET plan_status = 'canceled' WHERE id = $1", [userId]);

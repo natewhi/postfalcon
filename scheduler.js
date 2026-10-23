@@ -6,10 +6,11 @@ import { isEntitled, billingConfigured } from './lib/billing.js';
 import { reconcileSubscriptions } from './lib/billingSync.js';
 import { markSchedulerStarted, markSchedulerTick } from './lib/schedulerHeartbeat.js';
 import { runBackup } from './lib/backup.js';
+import { ensurePlatformSettingsLoaded } from './lib/platformSettings.js';
 import { cleanupOldMedia } from './lib/mediaCleanup.js';
 import { cleanupOldActivityLogs, logProductEvent } from './lib/activityLog.js';
 import { logger } from './lib/logger.js';
-import { getAdapter, PLATFORM_IDS } from './lib/platforms.js';
+import { getAdapter, PLATFORM_IDS, PLATFORMS, isPlatformPaused } from './lib/platforms.js';
 import { deliverWebhooks } from './lib/webhooks.js';
 import { looksLikeAuthFailure, markNeedsReconnect, clearNeedsReconnect } from './lib/reconnect.js';
 
@@ -88,6 +89,8 @@ async function sendPost(post) {
 }
 
 export async function processDuePosts() {
+  // The admin platform switches (paused platforms) must be known before deciding what to send.
+  await ensurePlatformSettingsLoaded();
   const { rows: due } = await pool.query(`
     SELECT posts.*, social_accounts.platform, social_accounts.access_token, social_accounts.refresh_token,
            social_accounts.token_expires_at, social_accounts.metadata, social_accounts.external_account_id,
@@ -121,6 +124,14 @@ export async function processDuePosts() {
       await pool.query(`UPDATE posts SET status = 'failed', error_message = $2 WHERE id = $1`, [
         post.id,
         'Not published: your Postfalcon trial or subscription has ended. Reactivate at /pricing, then retry this post.',
+      ]);
+      continue;
+    }
+    // A platform switched off on the admin Platforms page doesn't publish either.
+    if (isPlatformPaused(post.platform)) {
+      await pool.query(`UPDATE posts SET status = 'failed', error_message = $2 WHERE id = $1`, [
+        post.id,
+        `Not published: ${PLATFORMS[post.platform]?.label ?? post.platform} is temporarily unavailable on Postfalcon. Retry this post once it's back.`,
       ]);
       continue;
     }
@@ -202,6 +213,7 @@ async function storePostMetrics(post) {
 }
 
 export async function refreshPostMetrics() {
+  await ensurePlatformSettingsLoaded();
   const { rows: posts } = await pool.query(`
     SELECT posts.id, posts.platform_post_id, posts.social_account_id,
            social_accounts.platform, social_accounts.access_token, social_accounts.refresh_token,
@@ -215,7 +227,8 @@ export async function refreshPostMetrics() {
 
   let refreshed = 0;
   for (const post of posts) {
-    if (!getAdapter(post.platform)?.fetchMetrics) continue;
+    // Paused platforms skip this too: no API calls (which X, for one, charges for).
+    if (!getAdapter(post.platform)?.fetchMetrics || isPlatformPaused(post.platform)) continue;
     try {
       if (await storePostMetrics(post)) refreshed++;
     } catch (err) {

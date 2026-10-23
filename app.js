@@ -32,6 +32,8 @@ import metaCallbacksRouter from './routes/metaCallbacks.js';
 import pinterestRouter from './routes/pinterest.js';
 import linkedinRouter from './routes/linkedin.js';
 import xRouter from './routes/x.js';
+import { isPlatformEnabled } from './lib/platforms.js';
+import { ensurePlatformSettingsLoaded } from './lib/platformSettings.js';
 import pagesRouter from './routes/pages.js';
 import blogRouter from './routes/blog.js';
 import { isBlogEnabled } from './lib/blog.js';
@@ -97,6 +99,25 @@ app.use(
   })
 );
 app.use(pinoHttp({ logger }));
+
+// The admin's platform on/off switches (lib/platformSettings.js) must be in memory before any
+// page or connect route decides what to offer. Loaded once; a failure is retried next request.
+app.use((req, res, next) => {
+  ensurePlatformSettingsLoaded().then(() => next(), next);
+});
+
+// Blocks a platform's connect routes while it's switched off (admin Platforms page), so a
+// saved or typed connect URL can't bypass the switch. Open if any of `ids` is enabled.
+function platformGate(...ids) {
+  return (req, res, next) => {
+    if (ids.some(isPlatformEnabled)) return next();
+    const message = "This platform isn't available right now.";
+    res.status(404).format({
+      json: () => res.json({ error: 'platform_unavailable', message }),
+      default: () => res.type('text').send(message),
+    });
+  };
+}
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: isProduction ? '7d' : '5m' }));
 // Uploaded media that isn't on local disk: streamed from the S3 bucket when S3_BUCKET is set
 // (lib/storage.js), otherwise falls through to the 404 handler as before.
@@ -213,16 +234,16 @@ app.use('/mcp', mcpRouter);
 app.use('/api', csrfProtection);
 app.use('/api/users', usersRouter);
 app.use('/api/auth', authRouter);
-app.use('/api/mastodon', requireAuth, mastodonRouter);
-app.use('/api/facebook', requireAuth, facebookRouter);
-app.use('/api/telegram', requireAuth, telegramRouter);
-app.use('/api/youtube', requireAuth, youtubeRouter);
-app.use('/api/tiktok', requireAuth, tiktokRouter);
-app.use('/api/bluesky', requireAuth, blueskyRouter);
-app.use('/api/threads', requireAuth, threadsRouter);
-app.use('/api/pinterest', requireAuth, pinterestRouter);
-app.use('/api/linkedin', requireAuth, linkedinRouter);
-app.use('/api/x', requireAuth, xRouter);
+app.use('/api/mastodon', requireAuth, platformGate('mastodon'), mastodonRouter);
+app.use('/api/facebook', requireAuth, platformGate('facebook', 'instagram'), facebookRouter);
+app.use('/api/telegram', requireAuth, platformGate('telegram'), telegramRouter);
+app.use('/api/youtube', requireAuth, platformGate('youtube'), youtubeRouter);
+app.use('/api/tiktok', requireAuth, platformGate('tiktok'), tiktokRouter);
+app.use('/api/bluesky', requireAuth, platformGate('bluesky'), blueskyRouter);
+app.use('/api/threads', requireAuth, platformGate('threads'), threadsRouter);
+app.use('/api/pinterest', requireAuth, platformGate('pinterest'), pinterestRouter);
+app.use('/api/linkedin', requireAuth, platformGate('linkedin'), linkedinRouter);
+app.use('/api/x', requireAuth, platformGate('x'), xRouter);
 app.use('/api/billing', requireAuth, billingRouter);
 app.use('/api/v1/social-accounts', requireAuth, apiLimiter, socialAccountsRouter);
 app.use('/api/v1/posts', requireAuth, apiLimiter, postsRouter);

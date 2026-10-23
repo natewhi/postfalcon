@@ -7,6 +7,8 @@ import { billingConfigured, PAID_PLAN_IDS, subscriptionsFor, hasRunningSubscript
 import { reconcileSubscriptions } from '../lib/billingSync.js';
 import { setupChecks, schedulerStatus, publishingHealth, businessMetrics, storageStatus } from '../lib/adminStatus.js';
 import { logProductEvent } from '../lib/activityLog.js';
+import { PLATFORMS, PLATFORM_IDS, PLATFORM_CREDENTIAL_ENV, isPlatformEnabled } from '../lib/platforms.js';
+import { savePlatformSetting, clearPlatformSetting } from '../lib/platformSettings.js';
 
 const router = Router();
 
@@ -15,6 +17,12 @@ const accessSchema = z.object({
   grant: z.boolean(),
   plan: z.enum(PAID_PLAN_IDS).default('pro'),
 });
+
+// POST /platforms/:id: switch a platform on or off, or `reset` it to its registry default.
+const platformSwitchSchema = z.union([z.object({ enabled: z.boolean() }), z.object({ reset: z.literal(true) })]);
+
+// The old 'twitter' id is only a test placeholder (lib/platforms.js); keep it out of the admin list.
+const ADMIN_PLATFORM_IDS = PLATFORM_IDS.filter((id) => id !== 'twitter');
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
@@ -153,6 +161,66 @@ router.get(
       })
     );
     res.json(Object.fromEntries(entries));
+  })
+);
+
+// Every platform with its on/off state, whether its app credentials are set, and how many
+// accounts and scheduled posts would be affected by switching it off.
+router.get(
+  '/platforms',
+  asyncHandler(async (req, res) => {
+    const [{ rows: saved }, { rows: accounts }, { rows: scheduled }] = await Promise.all([
+      pool.query('SELECT platform, enabled, updated_at FROM platform_settings'),
+      pool.query('SELECT platform, COUNT(*)::int AS n FROM social_accounts GROUP BY platform'),
+      pool.query(
+        `SELECT sa.platform, COUNT(*)::int AS n FROM posts p JOIN social_accounts sa ON sa.id = p.social_account_id
+         WHERE p.status = 'scheduled' GROUP BY sa.platform`
+      ),
+    ]);
+    const savedBy = Object.fromEntries(saved.map((r) => [r.platform, r]));
+    const accountsBy = Object.fromEntries(accounts.map((r) => [r.platform, r.n]));
+    const scheduledBy = Object.fromEntries(scheduled.map((r) => [r.platform, r.n]));
+    res.json(
+      ADMIN_PLATFORM_IDS.map((id) => {
+        const entry = PLATFORMS[id];
+        const envKey = PLATFORM_CREDENTIAL_ENV[id];
+        const envValue = envKey ? process.env[envKey] : null;
+        return {
+          id,
+          label: entry.label,
+          built: entry.status === 'live',
+          enabled: isPlatformEnabled(id),
+          defaultEnabled: entry.status === 'live' && !entry.unlisted,
+          switchedAt: savedBy[id]?.updated_at ?? null,
+          sharesConnectWith: id === 'instagram' ? 'facebook' : id === 'facebook' ? 'instagram' : null,
+          credentialsNeeded: envKey,
+          credentialsSet: envKey === null || Boolean(envValue && !envValue.includes('change-me')),
+          connectedAccounts: accountsBy[id] ?? 0,
+          scheduledPosts: scheduledBy[id] ?? 0,
+        };
+      })
+    );
+  })
+);
+
+router.post(
+  '/platforms/:id',
+  validate(platformSwitchSchema),
+  asyncHandler(async (req, res) => {
+    const id = req.params.id;
+    if (!ADMIN_PLATFORM_IDS.includes(id)) return res.status(404).json({ error: 'not found' });
+    if ('reset' in req.body) {
+      await clearPlatformSetting(id);
+    } else {
+      if (req.body.enabled && PLATFORMS[id].status !== 'live') {
+        return res.status(400).json({ error: 'not_built', message: `${PLATFORMS[id].label} isn't built yet, so it can't be switched on.` });
+      }
+      await savePlatformSetting(id, req.body.enabled, req.user.id);
+    }
+    await logProductEvent(req.user.id, 'platform_switched', { platform: id, ...req.body }).catch((err) =>
+      req.log.error({ err }, 'failed to record product event')
+    );
+    res.json({ id, enabled: isPlatformEnabled(id) });
   })
 );
 

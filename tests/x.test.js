@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import app from '../app.js';
 import { pool } from '../db/pool.js';
 import { connectablePlatforms, livePlatforms } from '../lib/platforms.js';
+import { savePlatformSetting, clearPlatformSetting } from '../lib/platformSettings.js';
 
 function jsonResponse(body, status = 200) {
   return { ok: status >= 200 && status < 300, status, json: async () => body, text: async () => JSON.stringify(body) };
@@ -29,7 +30,26 @@ describe('x platform', () => {
 });
 
 describe('x oauth', () => {
+  // Off by default (unlisted), which blocks the connect routes: switch it on as the admin
+  // Platforms page would.
+  beforeAll(async () => {
+    await savePlatformSetting('x', true, null);
+  });
+  afterAll(async () => {
+    await clearPlatformSetting('x');
+  });
   afterEach(() => vi.unstubAllGlobals());
+
+  it('is blocked while switched off', async () => {
+    await savePlatformSetting('x', false, null);
+    try {
+      const client = await loginNewUser();
+      const res = await client.get('/api/x/connect');
+      expect(res.status).toBe(404);
+    } finally {
+      await savePlatformSetting('x', true, null);
+    }
+  });
 
   it('requires authentication', async () => {
     const res = await request(app).get('/api/x/connect');

@@ -55,7 +55,11 @@ router.get('/reset-password', (req, res) => {
 
 router.get('/', (req, res) => {
   if (req.isAuthenticated()) return res.redirect('/dashboard');
-  res.render('landing', { livePlatforms: livePlatforms(), plans: PLANS, loggedIn: false });
+  const platforms = livePlatforms();
+  // "Mastodon, Bluesky, …, and Pinterest", from whatever is switched on (admin Platforms page).
+  const names = platforms.map((p) => p.label);
+  const platformNames = names.length > 1 ? `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}` : names.join('');
+  res.render('landing', { livePlatforms: platforms, platformNames, plans: PLANS, loggedIn: false });
 });
 
 router.get('/api-docs', (req, res) => {
@@ -125,6 +129,10 @@ router.get('/admin', requireAdmin, (req, res) => res.redirect('/admin/overview')
 
 router.get('/admin/overview', requireAdmin, (req, res) => {
   res.render('admin-overview', { email: req.user.email });
+});
+
+router.get('/admin/platforms', requireAdmin, (req, res) => {
+  res.render('admin-platforms', { email: req.user.email });
 });
 
 router.get('/admin/customers', requireAdmin, (req, res) => {
