@@ -12,6 +12,9 @@
     <a href="/analytics" class="nav-link<%= active === 'analytics' ? ' active' : '' %>">Analytics</a>
     <a href="/accounts" class="nav-link<%= active === 'accounts' ? ' active' : '' %>">Accounts</a>
     <a href="/settings" class="nav-link<%= active === 'settings' ? ' active' : '' %>">Settings</a>
+    <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
+    <a href="/admin/activity" class="nav-link<%= active === 'admin' ? ' active' : '' %>">Admin</a>
+    <% } %>
   </nav>
 
   <div class="sidebar-accounts">

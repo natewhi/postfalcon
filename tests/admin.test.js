@@ -149,3 +149,20 @@ describe('admin billing view', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('admin sidebar link', () => {
+  it('shows the Admin link to an admin', async () => {
+    const email = 'admin-link@example.com';
+    const client = await signupAndLogin(email);
+    await makeAdmin(email);
+    const res = await client.get('/settings');
+    expect(res.text).toContain('href="/admin/activity"');
+  });
+
+  it('hides it from everyone else', async () => {
+    const client = await signupAndLogin('no-admin-link@example.com');
+    const res = await client.get('/settings');
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain('href="/admin/activity"');
+  });
+});

@@ -133,6 +133,12 @@ app.use(
 );
 app.use(passport.initialize());
 app.use(passport.session());
+// Lets views/partials/sidebar.ejs show the Admin link to admins only. Purely a convenience:
+// /admin/* and /api/admin/* enforce requireAdmin themselves (404 for everyone else).
+app.use((req, res, next) => {
+  res.locals.isAdmin = Boolean(req.user?.is_admin);
+  next();
+});
 app.use(cookieParser());
 
 // No getSessionIdentifier: Passport (lib/passport.js's SessionManager) regenerates the session
