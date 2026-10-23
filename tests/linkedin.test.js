@@ -16,19 +16,22 @@ async function loginNewUser() {
   return client;
 }
 
-// LinkedIn is unlisted (off) by default, which blocks its connect routes; switch it on for these
-// tests the same way the admin Platforms page would.
-beforeAll(async () => {
+beforeAll(() => {
   process.env.LINKEDIN_CLIENT_ID = 'lid';
   process.env.LINKEDIN_CLIENT_SECRET = 'lsecret';
-  await savePlatformSetting('linkedin', true, null);
-});
-
-afterAll(async () => {
-  await clearPlatformSetting('linkedin');
 });
 
 describe('linkedin oauth', () => {
+  // LinkedIn is unlisted (off) by default, which blocks its connect routes; switch it on for these
+  // tests the same way the admin Platforms page would. Inside the describe so the cleanup runs
+  // before tests/setup.js's file-level afterAll closes the database pool.
+  beforeAll(async () => {
+    await savePlatformSetting('linkedin', true, null);
+  });
+  afterAll(async () => {
+    await clearPlatformSetting('linkedin');
+  });
+
   afterEach(() => vi.unstubAllGlobals());
 
   it('requires authentication', async () => {
