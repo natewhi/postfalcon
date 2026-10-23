@@ -88,6 +88,13 @@ async function sendPost(post) {
   return null;
 }
 
+// A due post that isn't attempted at all (lapsed plan, platform switched off): marked failed
+// with the reason, and reported to the user's post.failed webhooks like any other failure.
+async function failWithoutSending(post, message) {
+  await pool.query(`UPDATE posts SET status = 'failed', error_message = $2 WHERE id = $1`, [post.id, message]);
+  deliverWebhooks(post.user_id, 'post.failed', { post_id: post.id, platform: post.platform, error: message }).catch(() => {});
+}
+
 export async function processDuePosts() {
   // The admin platform switches (paused platforms) must be known before deciding what to send.
   await ensurePlatformSettingsLoaded();
@@ -121,18 +128,18 @@ export async function processDuePosts() {
     // subscription lapsed fail here instead of going out for free, and a recurring one stops
     // cloning itself. The user can retry them once they've reactivated.
     if (!isEntitled({ plan_status: post.user_plan_status })) {
-      await pool.query(`UPDATE posts SET status = 'failed', error_message = $2 WHERE id = $1`, [
-        post.id,
-        'Not published: your Postfalcon trial or subscription has ended. Reactivate at /pricing, then retry this post.',
-      ]);
+      await failWithoutSending(
+        post,
+        'Not published: your Postfalcon trial or subscription has ended. Reactivate at /pricing, then retry this post.'
+      );
       continue;
     }
     // A platform switched off on the admin Platforms page doesn't publish either.
     if (isPlatformPaused(post.platform)) {
-      await pool.query(`UPDATE posts SET status = 'failed', error_message = $2 WHERE id = $1`, [
-        post.id,
-        `Not published: ${PLATFORMS[post.platform]?.label ?? post.platform} is temporarily unavailable on Postfalcon. Retry this post once it's back.`,
-      ]);
+      await failWithoutSending(
+        post,
+        `Not published: ${PLATFORMS[post.platform]?.label ?? post.platform} is temporarily unavailable on Postfalcon. Retry this post once it's back.`
+      );
       continue;
     }
     await pool.query(`UPDATE posts SET status = 'posting' WHERE id = $1`, [post.id]);

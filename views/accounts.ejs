@@ -36,6 +36,14 @@
     <section>
       <h2>Connect a platform</h2>
 
+      <%
+        // These four blocks are hand-built (not from `platforms`), so each checks its own switch
+        // from the admin Platforms page.
+        const isOn = (id) => enabledIds.includes(id);
+        const fbOn = isOn('facebook');
+        const igOn = isOn('instagram');
+      %>
+      <% if (isOn('mastodon')) { %>
       <div class="connect-option" id="connect-mastodon">
         <h3>Mastodon</h3>
         <p class="hint">Enter your instance domain to connect via OAuth.</p>
@@ -44,13 +52,23 @@
           <button type="submit">Connect Mastodon</button>
         </form>
       </div>
+      <% } %>
 
+      <% if (fbOn || igOn) { %>
       <div class="connect-option" id="connect-facebook">
-        <h3>Facebook &amp; Instagram</h3>
-        <p class="hint">Connects any Facebook Pages you manage, and their linked Instagram business accounts.</p>
-        <a href="/api/facebook/connect" class="btn-link">Connect Facebook / Instagram</a>
+        <h3><%= fbOn && igOn ? 'Facebook & Instagram' : fbOn ? 'Facebook' : 'Instagram' %></h3>
+        <p class="hint">
+          <%= fbOn && igOn
+            ? 'Connects any Facebook Pages you manage, and their linked Instagram business accounts.'
+            : fbOn
+              ? 'Connects any Facebook Pages you manage.'
+              : 'Connects the Instagram business accounts linked to Facebook Pages you manage (you log in with Facebook).' %>
+        </p>
+        <a href="/api/facebook/connect" class="btn-link">Connect <%= fbOn && igOn ? 'Facebook / Instagram' : fbOn ? 'Facebook' : 'Instagram' %></a>
       </div>
+      <% } %>
 
+      <% if (isOn('telegram')) { %>
       <div class="connect-option" id="connect-telegram">
         <h3>Telegram</h3>
         <p class="hint">
@@ -63,7 +81,9 @@
           <button type="submit">Connect Telegram</button>
         </form>
       </div>
+      <% } %>
 
+      <% if (isOn('bluesky')) { %>
       <div class="connect-option" id="connect-bluesky">
         <h3>Bluesky</h3>
         <p class="hint">
@@ -77,6 +97,7 @@
           <button type="submit">Connect Bluesky</button>
         </form>
       </div>
+      <% } %>
 
       <% platforms.filter((p) => p.connect === 'oauth' && p.connectPath && p.id !== 'facebook').forEach((p) => { %>
       <div class="connect-option" id="connect-<%= p.id %>">

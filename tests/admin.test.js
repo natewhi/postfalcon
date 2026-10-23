@@ -324,6 +324,10 @@ describe('admin platform switches', () => {
       expect(off.body).toEqual({ id: 'mastodon', enabled: false });
 
       expect((await admin.get('/api/mastodon/connect').query({ instance: 'mastodon.social' })).status).toBe(404);
+      // The Accounts page's hand-built Mastodon block goes too, not just the generated ones.
+      const accountsPage = await admin.get('/accounts');
+      expect(accountsPage.text).not.toContain('id="connect-mastodon"');
+      expect(accountsPage.text).toContain('id="connect-bluesky"');
       const landing = await request(app).get('/');
       expect(landing.text).not.toContain('Instagram, Mastodon, YouTube');
       expect(landing.text).toContain('Instagram, YouTube');
@@ -334,6 +338,25 @@ describe('admin platform switches', () => {
       expect(reset.body.enabled).toBe(true);
     }
     expect((await request(app).get('/')).text).toContain('Instagram, Mastodon, YouTube');
+  });
+
+  it('keeps the shared Facebook connect for whichever of Facebook/Instagram is still on', async () => {
+    const admin = await adminClient('admin-plat-ig@example.com');
+    try {
+      await admin.post('/api/admin/platforms/instagram').send({ enabled: false });
+      let page = await admin.get('/accounts');
+      expect(page.text).toContain('Connect Facebook</a>');
+      expect(page.text).not.toContain('Connect Facebook / Instagram');
+
+      await admin.post('/api/admin/platforms/facebook').send({ enabled: false });
+      page = await admin.get('/accounts');
+      expect(page.text).not.toContain('id="connect-facebook"');
+      expect((await admin.get('/api/facebook/connect')).status).toBe(404);
+    } finally {
+      await admin.post('/api/admin/platforms/instagram').send({ reset: true });
+      await admin.post('/api/admin/platforms/facebook').send({ reset: true });
+    }
+    expect((await admin.get('/accounts')).text).toContain('Connect Facebook / Instagram');
   });
 
   it('turns an unlisted platform on, and refuses to turn on one that is not built', async () => {

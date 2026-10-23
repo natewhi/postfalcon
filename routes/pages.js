@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requirePageAuth, requireAdmin } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { logPageVisit } from '../lib/activityLog.js';
-import { connectablePlatforms, livePlatforms } from '../lib/platforms.js';
+import { connectablePlatforms, livePlatforms, PLATFORM_IDS, isPlatformEnabled } from '../lib/platforms.js';
 import { PLANS, isEntitled } from '../lib/billing.js';
 import { listPosts, isBlogEnabled } from '../lib/blog.js';
 
@@ -111,6 +111,9 @@ router.get('/accounts', requirePageAuth, (req, res) => {
     emailVerified: Boolean(req.user.email_verified_at),
     planBanner: planBanner(req.user),
     platforms: connectablePlatforms(),
+    // For the page's hand-built connect blocks (Mastodon, Facebook/Instagram, Telegram, Bluesky),
+    // which aren't driven by `platforms`: each shows only while its platform is switched on.
+    enabledIds: PLATFORM_IDS.filter(isPlatformEnabled),
   });
 });
 
