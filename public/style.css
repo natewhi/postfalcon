@@ -2511,6 +2511,21 @@ body.dark-canvas .auth-card {
   color: #fff;
 }
 
+/* The composer's quick-pick schedule buttons (In 1 hour / Tomorrow morning / Next Monday). */
+.mock-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mock-quick span {
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid #2e313c;
+  font-size: 0.66rem;
+  color: #8b8f9b;
+}
+
 .mock-datetime {
   display: flex;
   align-items: center;

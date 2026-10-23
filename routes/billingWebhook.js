@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
-import { getStripe, planForPrice, subscriptionsFor, currentSubscription } from '../lib/billing.js';
-import { logProductEvent } from '../lib/activityLog.js';
+import { getStripe } from '../lib/billing.js';
+import { applyCurrent } from '../lib/billingSync.js';
 import { logger } from '../lib/logger.js';
 
 // Mounted in app.js with express.raw() and BEFORE express.json()/csrfProtection: Stripe
@@ -9,61 +9,10 @@ import { logger } from '../lib/logger.js';
 // a session or CSRF token.
 const router = Router();
 
-// Maps a Stripe subscription's status onto our narrower plan_status enum. past_due (a renewal
-// payment failed, Stripe is still retrying) keeps access; unpaid (every retry failed) doesn't.
-function resolveStatus(stripeStatus) {
-  if (stripeStatus === 'trialing') return 'trialing';
-  if (stripeStatus === 'past_due') return 'past_due';
-  if (stripeStatus === 'active') return 'active';
-  if (stripeStatus === 'incomplete' || stripeStatus === 'incomplete_expired') return 'incomplete';
-  return 'canceled';
-}
-
-async function applySubscription(userId, customerId, subscription) {
-  const item = subscription.items?.data?.[0];
-  const plan = planForPrice(item?.price); // null if the Price isn't one of ours
-  const status = resolveStatus(subscription.status);
-  // Stripe API versions from 2025-03-31 moved current_period_end from the subscription onto
-  // each item, and webhook payloads follow the endpoint's API version, so read either.
-  const periodEnd = subscription.current_period_end ?? item?.current_period_end;
-  const renewsAt = periodEnd ? new Date(periodEnd * 1000) : null;
-  // A subscription cancelled "at the end of the billing period" stays active until then.
-  let cancelsAt = null;
-  if (status !== 'canceled') {
-    if (subscription.cancel_at) cancelsAt = new Date(subscription.cancel_at * 1000);
-    else if (subscription.cancel_at_period_end) cancelsAt = renewsAt;
-  }
-
-  // There's no free plan: keep the last-known `plan` when the price can't be resolved, and
-  // let plan_status ('canceled' / 'incomplete') drive the lockout via lib/billing.js isEntitled.
-  await pool.query(
-    `UPDATE users
-       SET stripe_customer_id = COALESCE(stripe_customer_id, $1),
-           plan = COALESCE($2, plan),
-           plan_status = $3,
-           plan_renews_at = $4,
-           plan_cancels_at = $5
-     WHERE id = $6`,
-    [customerId, plan, status, renewsAt, cancelsAt, userId]
-  );
-
-  await logProductEvent(userId, 'plan_changed', { plan: plan ?? 'unchanged', status }).catch((err) =>
-    logger.error({ err }, 'failed to record plan_changed event')
-  );
-}
-
 async function resolveUserId(subscription, session) {
   if (session?.client_reference_id) return Number(session.client_reference_id);
   const { rows } = await pool.query('SELECT id FROM users WHERE stripe_customer_id = $1', [subscription.customer]);
   return rows[0]?.id ?? null;
-}
-
-// Applies the customer's current subscription (lib/billing.js currentSubscription), read fresh
-// from Stripe, rather than `eventSubscription` — the copy inside the event, which may be stale
-// or belong to an older subscription. Falls back to it only if Stripe lists none.
-async function applyCurrent(userId, customerId, eventSubscription) {
-  const current = currentSubscription(await subscriptionsFor(customerId)) ?? eventSubscription;
-  await applySubscription(userId, customerId, current);
 }
 
 async function handleEvent(event) {

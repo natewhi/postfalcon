@@ -2,7 +2,8 @@ import cron from 'node-cron';
 import path from 'node:path';
 import { pool } from './db/pool.js';
 import { copyMedia, mediaUrl } from './lib/storage.js';
-import { isEntitled } from './lib/billing.js';
+import { isEntitled, billingConfigured } from './lib/billing.js';
+import { reconcileSubscriptions } from './lib/billingSync.js';
 import { cleanupOldMedia } from './lib/mediaCleanup.js';
 import { cleanupOldActivityLogs, logProductEvent } from './lib/activityLog.js';
 import { logger } from './lib/logger.js';
@@ -298,7 +299,18 @@ export function startScheduler() {
       .catch((err) => logger.error({ err }, 'stored platform data refresh error'));
   });
 
+  // Nightly billing safety net: corrects any account whose plan drifted from Stripe because a
+  // webhook was missed (lib/billingSync.js). Skipped entirely when billing isn't configured.
+  cron.schedule('45 4 * * *', () => {
+    if (!billingConfigured()) return;
+    reconcileSubscriptions()
+      .then(({ checked, corrected, failed }) => {
+        logger.info({ checked, corrected, failed }, 'billing reconciliation');
+      })
+      .catch((err) => logger.error({ err }, 'billing reconciliation error'));
+  });
+
   logger.info(
-    'Scheduler started (runs every minute); media cleanup, activity log cleanup, post metrics refresh, and stored platform data refresh run on their own schedules.'
+    'Scheduler started (runs every minute); media cleanup, activity log cleanup, post metrics refresh, stored platform data refresh and billing reconciliation run on their own schedules.'
   );
 }

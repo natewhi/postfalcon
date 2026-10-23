@@ -101,6 +101,20 @@ router.post(
     // The trial is for first-time subscribers, monthly or yearly alike (a yearly plan's first
     // charge is just as deferred).
     const trial = trialOk ? { subscription_data: { trial_period_days: TRIAL_DAYS } } : {};
+    // A required "I agree to the Terms" tick on the payment page: evidence if a charge is ever
+    // disputed. Stripe refuses it unless a Terms of Service URL is saved in the account's public
+    // business details, which a sandbox can't hold, hence the opt-in (set it once live).
+    const terms =
+      process.env.STRIPE_REQUIRE_TERMS === 'true'
+        ? {
+            consent_collection: { terms_of_service: 'required' },
+            custom_text: {
+              terms_of_service_acceptance: {
+                message: `I agree to the [Terms of Service](${process.env.BASE_URL}/terms), including that my plan renews automatically until I cancel.`,
+              },
+            },
+          }
+        : {};
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
@@ -111,6 +125,7 @@ router.post(
       // converts automatically when the trial ends.
       payment_method_collection: 'always',
       ...trial,
+      ...terms,
       success_url: `${process.env.BASE_URL}/settings?checkout=success`,
       cancel_url: `${process.env.BASE_URL}/pricing?checkout=cancelled`,
     });

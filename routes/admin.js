@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { billingConfigured } from '../lib/billing.js';
+import { reconcileSubscriptions } from '../lib/billingSync.js';
 
 const router = Router();
 
@@ -92,6 +94,35 @@ router.get(
       ],
       orderBy: 'pe.created_at DESC',
     });
+  })
+);
+
+// Every account's billing state as Postfalcon holds it (the webhook-maintained copy of Stripe).
+router.get(
+  '/billing',
+  asyncHandler(async (req, res) => {
+    const { email, status } = req.query;
+    await paginatedQuery(req, res, {
+      select: `id, email, plan, plan_status, plan_renews_at, plan_cancels_at, stripe_customer_id, is_admin, created_at`,
+      from: 'users',
+      conditions: [
+        ['email ILIKE ?', email ? `%${email}%` : undefined],
+        ['plan_status = ?', status],
+      ],
+      orderBy: 'created_at DESC',
+    });
+  })
+);
+
+// Runs the nightly billing reconciliation now: re-reads every subscriber from Stripe and
+// corrects any account that has drifted. Returns how many were checked/corrected.
+router.post(
+  '/billing/reconcile',
+  asyncHandler(async (req, res) => {
+    if (!billingConfigured()) {
+      return res.status(503).json({ error: 'billing_unavailable', message: 'Billing is not configured on this server.' });
+    }
+    res.json(await reconcileSubscriptions());
   })
 );
 

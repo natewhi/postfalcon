@@ -82,7 +82,44 @@ function createAdminSection({ apiPath, formId, bodyId, prevId, nextId, statusId,
   });
 
   load();
+  return { reload: load };
 }
+
+function formatDay(value) {
+  return value ? new Date(value).toLocaleDateString() : '';
+}
+
+const billingSection = createAdminSection({
+  apiPath: '/api/admin/billing',
+  formId: 'billing-filter',
+  bodyId: 'billing-body',
+  prevId: 'billing-prev',
+  nextId: 'billing-next',
+  statusId: 'billing-status-text',
+  columns: [
+    { render: (r) => (r.is_admin ? `${r.email} (admin)` : r.email) },
+    { key: 'plan', nowrap: true },
+    { key: 'plan_status', nowrap: true },
+    { render: (r) => formatDay(r.plan_renews_at), nowrap: true },
+    { render: (r) => formatDay(r.plan_cancels_at), nowrap: true },
+    { render: (r) => r.stripe_customer_id || '—', nowrap: true },
+  ],
+});
+
+const reconcileBtn = document.getElementById('billing-reconcile');
+reconcileBtn.addEventListener(
+  'click',
+  withLoading(reconcileBtn, 'Checking…', async () => {
+    try {
+      const { checked, corrected, failed } = await apiJson('/api/admin/billing/reconcile', { method: 'POST' });
+      const summary = `Checked ${checked} subscriber${checked === 1 ? '' : 's'} against Stripe: ${corrected} corrected${failed ? `, ${failed} failed (see logs)` : ''}.`;
+      showToast(summary, failed ? 'warning' : 'success');
+      billingSection.reload();
+    } catch (err) {
+      showToast(err.message);
+    }
+  })
+);
 
 createAdminSection({
   apiPath: '/api/admin/auth-events',

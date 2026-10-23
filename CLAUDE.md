@@ -218,7 +218,11 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   subscription (409, plan changes go through the portal); the webhook applies the customer's *current* subscription
   fetched from Stripe (`currentSubscription`), never the event's copy, since events arrive out of order; account
   deletion cancels running subscriptions first; and scheduler.js fails (rather than publishes) due posts of a
-  non-entitled user. `plan_cancels_at` (migration 024) is set while a cancelled subscription runs to period end;
+  non-entitled user. `plan_cancels_at` (migration 024) is set while a cancelled subscription runs to period end.
+  `lib/billingSync.js` holds `applySubscription`/`applyCurrent` (used by the webhook) and `reconcileSubscriptions`,
+  run nightly by scheduler.js and on demand from the admin page's Billing section — it only touches customers who
+  have a Stripe subscription and skips admins, so hand-set review/test logins survive it. `STRIPE_REQUIRE_TERMS=true`
+  adds a required Terms tick to Checkout (live only: Stripe needs a Terms URL in business details first);
   `users.plan`/`plan_status`/`plan_renews_at` are the app's read-fast copy of Stripe state, written only by
   `routes/billingWebhook.js`. There is no free plan — new rows default to `plan='standard'`,
   `plan_status='incomplete'` (migration 023 — not entitled until Stripe Checkout completes and the webhook sets

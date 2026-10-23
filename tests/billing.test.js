@@ -494,3 +494,83 @@ describe('deleting an account with a subscription', () => {
     expect(rows).toHaveLength(1);
   });
 });
+
+describe('nightly billing reconciliation', () => {
+  it('corrects an account that drifted from Stripe, leaves the rest alone, and is a no-op on re-run', async () => {
+    const { reconcileSubscriptions } = await import('../lib/billingSync.js');
+    const drifted = await loginNewUser();
+    const handSet = await loginNewUser();
+    const admin = await loginNewUser();
+    // Missed webhook: Stripe has them active on Team, Postfalcon still thinks they're trialing Standard.
+    await pool.query(
+      "UPDATE users SET stripe_customer_id = 'cus_drift', plan = 'standard', plan_status = 'trialing' WHERE id = $1",
+      [drifted.userId]
+    );
+    // A review login: abandoned Checkout (customer, no subscription), set active by hand.
+    await pool.query("UPDATE users SET stripe_customer_id = 'cus_review', plan_status = 'active' WHERE id = $1", [
+      handSet.userId,
+    ]);
+    await pool.query("UPDATE users SET stripe_customer_id = 'cus_admin', plan_status = 'active', is_admin = true WHERE id = $1", [
+      admin.userId,
+    ]);
+
+    const periodEnd = Math.floor(Date.now() / 1000) + 30 * 86400;
+    const subscriptionsByCustomer = {
+      cus_drift: [
+        { id: 'sub_drift', status: 'active', created: 1, items: { data: [{ price: { id: 'price_team_dummy' }, current_period_end: periodEnd }] } },
+      ],
+      cus_review: [],
+      cus_admin: [{ id: 'sub_admin', status: 'canceled', created: 1, items: { data: [] } }],
+    };
+    stripeMock.subscriptions.list.mockImplementation(async ({ customer }) => ({ data: subscriptionsByCustomer[customer] ?? [] }));
+
+    try {
+      const first = await reconcileSubscriptions();
+      expect(first.corrected).toBe(1);
+      expect(first.failed).toBe(0);
+
+      const { rows } = await pool.query('SELECT id, plan, plan_status FROM users WHERE id = ANY($1) ORDER BY id', [
+        [drifted.userId, handSet.userId, admin.userId],
+      ]);
+      const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
+      expect(byId[drifted.userId]).toMatchObject({ plan: 'team', plan_status: 'active' });
+      expect(byId[handSet.userId].plan_status).toBe('active'); // no subscription: untouched
+      expect(byId[admin.userId].plan_status).toBe('active'); // admins skipped
+
+      const second = await reconcileSubscriptions();
+      expect(second.corrected).toBe(0);
+    } finally {
+      stripeMock.subscriptions.list.mockImplementation(async () => ({ data: [] }));
+    }
+  });
+
+  it("keeps going when one customer's Stripe lookup fails", async () => {
+    const { reconcileSubscriptions } = await import('../lib/billingSync.js');
+    const a = await loginNewUser();
+    await pool.query("UPDATE users SET stripe_customer_id = 'cus_flaky' WHERE id = $1", [a.userId]);
+    stripeMock.subscriptions.list.mockRejectedValueOnce(new Error('Stripe timeout'));
+    const result = await reconcileSubscriptions();
+    expect(result.failed).toBe(1);
+  });
+});
+
+describe('checkout terms agreement', () => {
+  it('requires ticking the Terms when STRIPE_REQUIRE_TERMS is on', async () => {
+    process.env.STRIPE_REQUIRE_TERMS = 'true';
+    try {
+      const { client } = await loginNewUser();
+      await client.post('/api/billing/checkout').send({ plan: 'standard' }).expect(200);
+      const call = stripeMock.checkout.sessions.create.mock.calls.at(-1)[0];
+      expect(call.consent_collection).toEqual({ terms_of_service: 'required' });
+      expect(call.custom_text.terms_of_service_acceptance.message).toMatch(/\/terms\)/);
+    } finally {
+      delete process.env.STRIPE_REQUIRE_TERMS;
+    }
+  });
+
+  it('leaves it off by default (sandbox accounts cannot hold a Terms URL)', async () => {
+    const { client } = await loginNewUser();
+    await client.post('/api/billing/checkout').send({ plan: 'standard' }).expect(200);
+    expect(stripeMock.checkout.sessions.create.mock.calls.at(-1)[0].consent_collection).toBeUndefined();
+  });
+});

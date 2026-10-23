@@ -128,3 +128,24 @@ describe('admin activity endpoints', () => {
     expect(res.body.rows[0].metadata.status).toBe('draft');
   });
 });
+
+describe('admin billing view', () => {
+  it("lists accounts' billing state, filterable by status", async () => {
+    const email = 'admin-billing@example.com';
+    const client = await signupAndLogin(email);
+    await makeAdmin(email);
+    await signupAndLogin('payer@example.com');
+    await pool.query("UPDATE users SET plan = 'pro', plan_status = 'past_due' WHERE email = 'payer@example.com'");
+
+    const res = await client.get('/api/admin/billing').query({ status: 'past_due' });
+    expect(res.status).toBe(200);
+    expect(res.body.rows).toHaveLength(1);
+    expect(res.body.rows[0]).toMatchObject({ email: 'payer@example.com', plan: 'pro', plan_status: 'past_due' });
+  });
+
+  it('is admin-only', async () => {
+    const client = await signupAndLogin('not-admin-billing@example.com');
+    const res = await client.get('/api/admin/billing');
+    expect(res.status).toBe(404);
+  });
+});

@@ -18,6 +18,43 @@
     </div>
 
     <section class="admin-section">
+      <h2>Billing</h2>
+      <p class="hint">Each account's plan as Postfalcon holds it. The billing check re-reads every subscriber from Stripe and corrects any that disagree (it also runs nightly). Accounts with no Stripe subscription, like a review login set to active by hand, are left alone.</p>
+      <form id="billing-filter" class="admin-filter-bar">
+        <div class="admin-filter-field">
+          <label for="billing-email">Email</label>
+          <input type="text" id="billing-email" name="email" placeholder="contains…">
+        </div>
+        <div class="admin-filter-field">
+          <label for="billing-status">Status</label>
+          <select id="billing-status" name="status">
+            <option value="">All</option>
+            <option>trialing</option>
+            <option>active</option>
+            <option>past_due</option>
+            <option>canceled</option>
+            <option>incomplete</option>
+          </select>
+        </div>
+        <button type="submit">Filter</button>
+        <button type="button" id="billing-reconcile" class="btn-secondary">Run billing check now</button>
+      </form>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr><th>Email</th><th class="nowrap">Plan</th><th class="nowrap">Status</th><th class="nowrap">Renews / trial ends</th><th class="nowrap">Cancels</th><th class="nowrap">Stripe customer</th></tr>
+          </thead>
+          <tbody id="billing-body"></tbody>
+        </table>
+      </div>
+      <div class="admin-pager">
+        <button type="button" id="billing-prev">&larr; Prev</button>
+        <span id="billing-status-text"></span>
+        <button type="button" id="billing-next">Next &rarr;</button>
+      </div>
+    </section>
+
+    <section class="admin-section">
       <h2>Auth events</h2>
       <form id="auth-events-filter" class="admin-filter-bar">
         <div class="admin-filter-field">
