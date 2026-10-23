@@ -237,12 +237,13 @@ const PLATFORM_META = {
   pinterest: { label: 'P', color: '#E60023' },
   reddit: { label: 'R', color: '#FF4500' },
   twitter: { label: 'X', color: '#111111' },
+  x: { label: 'X', color: '#111111' },
   linkedin: { label: 'in', color: '#0A66C2' },
 };
 
 const PLATFORM_GLYPHS = new Set([
   'facebook', 'instagram', 'mastodon', 'telegram', 'youtube', 'tiktok', 'twitter', 'linkedin',
-  'bluesky', 'threads', 'pinterest',
+  'bluesky', 'threads', 'pinterest', 'x',
 ]);
 
 // Contents of a platform badge: the real brand mark when we have one, else the text label.

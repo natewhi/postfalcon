@@ -2,12 +2,14 @@
 
 Social media post scheduler. Node.js/Express backend, Postgres, EJS server-rendered views, vanilla JS on the
 frontend (no framework, no bundler). Users connect social accounts (live: Mastodon, Bluesky, Facebook, Instagram,
-Threads, Telegram, YouTube, TikTok, Pinterest; LinkedIn's adapter is built but `unlisted` — not offered
-anywhere until a LinkedIn developer app exists; hidden stubs, no adapter yet: Reddit, Google Business
-Profile — see `lib/platforms.js`). Deliberately out of scope: messaging apps (WhatsApp, WeChat, Messenger) —
-Postfalcon schedules social *posts*, not chat messages, and none of them have a public feed to publish to. Twitter/X
-is excluded too, but for a different reason: its posting API is paid. Users compose posts as drafts or schedule
-them, and a per-minute cron job publishes due posts.
+Threads, Telegram, YouTube, TikTok, Pinterest; built but `unlisted` — not offered anywhere yet: LinkedIn (until a
+LinkedIn developer app exists) and X under the id `x` (`lib/platforms/x.js` + `routes/x.js`, OAuth 2.0 PKCE, text +
+up to 4 images; unlisted until there's an X app on a paid API plan, since X charges for posting). The old `twitter`
+id is a separate never-offered placeholder the test suite uses as its generic stub — don't repurpose it. Hidden stubs,
+no adapter yet: Reddit, Google Business Profile — see `lib/platforms.js`). Deliberately out of scope: messaging apps
+(WhatsApp, WeChat, Messenger) — Postfalcon schedules social *posts*, not chat messages, and none of them have a
+public feed to publish to. Users compose posts as drafts or schedule them, and a per-minute cron job publishes due
+posts.
 A post can target several channels at once (cross-posting) and can recur (daily/weekly/monthly). There is no
 free tier: every account is on a paid plan (Standard / Team / Pro, Stripe) starting with a 7-day trial, and
 each plan carries `limits` (channel count) plus `capabilities` (webhooks, priority support, …). Team/Pro can

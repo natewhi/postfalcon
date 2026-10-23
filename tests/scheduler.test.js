@@ -849,6 +849,72 @@ describe('scheduler', () => {
     expect(rows[0]).toEqual({ access_token: 'new-token', refresh_token: 'rt-1' });
   });
 
+  describe('X', () => {
+    async function xAccount(email, { expired = false } = {}) {
+      const userId = await createUser(email);
+      const { rows } = await pool.query(
+        `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, refresh_token, token_expires_at)
+         VALUES ($1, 'x', '@alice', '123', 'xat', 'xrt', now() + $2::interval) RETURNING id`,
+        [userId, expired ? '-1 hour' : '1 hour']
+      );
+      return { userId, accountId: rows[0].id };
+    }
+
+    it('posts text with an uploaded image, renewing an expired token first', async () => {
+      process.env.X_CLIENT_ID = 'xid';
+      process.env.X_CLIENT_SECRET = 'xsecret';
+      const { userId, accountId } = await xAccount('x-sched@example.com', { expired: true });
+      const filename = `test-${crypto.randomUUID()}.jpg`;
+      await fs.writeFile(path.join(uploadDir, filename), 'fake-image-bytes');
+      const postId = await createScheduledPost(userId, accountId, 'hello X');
+      await createPostMedia(postId, { url: `${process.env.BASE_URL}/uploads/${filename}` });
+
+      let tweet;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url, options) => {
+          const u = String(url);
+          if (u === 'https://api.x.com/2/oauth2/token') {
+            expect(String(options.body)).toContain('grant_type=refresh_token');
+            return jsonResponse({ access_token: 'new-xat', refresh_token: 'new-xrt', expires_in: 7200 });
+          }
+          if (u === 'https://api.x.com/2/media/upload') {
+            expect(options.headers.Authorization).toBe('Bearer new-xat');
+            return jsonResponse({ data: { id: 'media-1' } });
+          }
+          if (u === 'https://api.x.com/2/tweets') {
+            tweet = JSON.parse(options.body);
+            return jsonResponse({ data: { id: 'tweet-1', text: 'hello X' } }, 201);
+          }
+          throw new Error(`unexpected fetch: ${u}`);
+        })
+      );
+
+      await processDuePosts();
+
+      expect(tweet).toEqual({ text: 'hello X', media: { media_ids: ['media-1'] } });
+      const { rows } = await pool.query('SELECT status, platform_post_id FROM posts WHERE id = $1', [postId]);
+      expect(rows[0]).toEqual({ status: 'posted', platform_post_id: 'tweet-1' });
+      const { rows: acc } = await pool.query('SELECT access_token, refresh_token FROM social_accounts WHERE id = $1', [accountId]);
+      // X refresh tokens are single-use: the rotated one must be kept.
+      expect(acc[0]).toEqual({ access_token: 'new-xat', refresh_token: 'new-xrt' });
+      await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
+    });
+
+    it('fails a post with a video, which X posting does not support yet', async () => {
+      const { userId, accountId } = await xAccount('x-video@example.com');
+      const postId = await createScheduledPost(userId, accountId, 'a clip');
+      await createPostMedia(postId, { url: 'http://example.test/uploads/clip.mp4', mediaType: 'video' });
+      vi.stubGlobal('fetch', vi.fn());
+
+      await processDuePosts();
+
+      const { rows } = await pool.query('SELECT status, error_message FROM posts WHERE id = $1', [postId]);
+      expect(rows[0].status).toBe('failed');
+      expect(rows[0].error_message).toMatch(/video posting is not supported/);
+    });
+  });
+
   it('publishes a due TikTok video and polls until complete', async () => {
     const userId = await createUser('tk-sched@example.com');
     const accountId = await createVideoAccount(userId, 'tiktok');

@@ -1,4 +1,4 @@
-const PLATFORM_DISPLAY_OVERRIDES = { tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn', twitter: 'X' };
+const PLATFORM_DISPLAY_OVERRIDES = { tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn', twitter: 'X', x: 'X' };
 function platformDisplayName(platform) {
   if (!platform) return 'Unknown';
   return PLATFORM_DISPLAY_OVERRIDES[platform] || platform.charAt(0).toUpperCase() + platform.slice(1);
@@ -149,6 +149,7 @@ let accountsCache = [];
 
 const PLATFORM_CHAR_LIMITS = {
   twitter: 280,
+  x: 280,
   mastodon: 500,
   threads: 500,
   bluesky: 300,
