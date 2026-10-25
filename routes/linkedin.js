@@ -40,6 +40,12 @@ router.get(
   '/callback',
   asyncHandler(async (req, res) => {
     const { code, state } = req.query;
+    // The user pressed Cancel on LinkedIn's consent screen (error=user_cancelled_authorize):
+    // nothing to store, just take them back where they started.
+    if (req.query.error && state && state === req.session.linkedinOAuthState) {
+      delete req.session.linkedinOAuthState;
+      return res.redirect('/accounts');
+    }
     if (!code || !state || state !== req.session.linkedinOAuthState) {
       return res.status(400).send('Invalid or expired OAuth state. Please try connecting again.');
     }

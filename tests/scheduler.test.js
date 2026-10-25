@@ -716,18 +716,32 @@ describe('scheduler', () => {
        VALUES ($1, 'linkedin', 'Alice', 'li-123', 'valid-token') RETURNING id`,
       [userId]
     );
-    const postId = await createScheduledPost(userId, res.rows[0].id, 'a LinkedIn update');
+    const postId = await createScheduledPost(userId, res.rows[0].id, 'a LinkedIn update (beta) #launch');
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url, options) => {
-        expect(String(url)).toBe('https://api.linkedin.com/rest/posts');
-        expect(JSON.parse(options.body).author).toBe('urn:li:person:li-123');
-        return { ok: true, status: 201, headers: { get: (h) => (h === 'x-restli-id' ? 'urn:li:share:999' : null) } };
-      })
-    );
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 201,
+      headers: { get: (h) => (h === 'x-restli-id' ? 'urn:li:share:999' : null) },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
 
     await processDuePosts();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://api.linkedin.com/rest/posts');
+    expect(options.headers).toMatchObject({
+      Authorization: 'Bearer valid-token',
+      'LinkedIn-Version': expect.stringMatching(/^\d{6}$/),
+      'X-Restli-Protocol-Version': '2.0.0',
+    });
+    expect(JSON.parse(options.body)).toMatchObject({
+      author: 'urn:li:person:li-123',
+      // Little-text-format markup escaped, hashtag left intact.
+      commentary: 'a LinkedIn update \\(beta\\) #launch',
+      visibility: 'PUBLIC',
+      lifecycleState: 'PUBLISHED',
+    });
 
     const { rows } = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
     expect(rows[0].status).toBe('posted');
