@@ -222,8 +222,10 @@ document.getElementById('invite-form').addEventListener('submit', async (e) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ note: noteInput.value.trim() || undefined }),
     });
-    document.getElementById('invite-url').value = invite.url;
+    const urlInput = document.getElementById('invite-url');
+    urlInput.value = invite.url;
     document.getElementById('invite-created').hidden = false;
+    urlInput.select();
     noteInput.value = '';
     loadSignups();
   } catch (err) {

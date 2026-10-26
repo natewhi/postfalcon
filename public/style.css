@@ -1,3 +1,8 @@
+/* The hidden attribute always wins over a component's own display rule (flex rows, cards). */
+[hidden] {
+  display: none !important;
+}
+
 :root {
   color-scheme: light dark;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -5737,10 +5742,25 @@ a.toast {
   padding: var(--space-3) var(--space-4);
 }
 
+/* A row of controls inside a section that's already a card: no second box around it. */
+.admin-filter-bar.is-plain {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
 .admin-filter-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+
+.admin-filter-field.is-wide {
+  flex: 1 1 320px;
+}
+
+.admin-filter-field.is-wide input {
+  width: 100%;
 }
 
 .admin-filter-field label {
@@ -5807,6 +5827,24 @@ a.toast {
 .admin-subhead {
   margin: var(--space-4) 0 var(--space-2);
   font-size: 0.95rem;
+}
+
+/* A subsection of an admin card (Customers: Access, Admin, Invite links): a rule above it,
+   then heading, one-line explanation and its controls, tightly grouped. */
+.admin-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.admin-group .admin-subhead {
+  margin: 0;
+}
+
+.admin-group .hint {
+  margin: 0;
 }
 
 .admin-checks {

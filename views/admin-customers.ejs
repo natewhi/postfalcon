@@ -37,7 +37,7 @@
     <section class="admin-section">
       <h2>Sign-ups</h2>
       <p class="hint">Who can create an account on this server. The first account on a fresh install is always allowed.</p>
-      <form id="signup-mode-form" class="admin-filter-bar">
+      <form id="signup-mode-form" class="admin-filter-bar is-plain">
         <div class="admin-filter-field">
           <label for="signup-mode">New accounts</label>
           <select id="signup-mode" name="mode" disabled>
@@ -49,27 +49,29 @@
         <button type="submit">Save</button>
       </form>
 
-      <h3 class="admin-subhead">Invite links</h3>
-      <p class="hint">Each link creates one account and expires after 14 days. Copy it when it's created &mdash; it isn't shown again.</p>
-      <form id="invite-form" class="admin-filter-bar">
-        <div class="admin-filter-field">
-          <label for="invite-note">Note (optional)</label>
-          <input type="text" id="invite-note" name="note" maxlength="200" placeholder="who it's for" autocomplete="off">
+      <div class="admin-group">
+        <h3 class="admin-subhead">Invite links</h3>
+        <p class="hint">Each link creates one account and expires after 14 days. Copy it when it's created &mdash; it isn't shown again.</p>
+        <form id="invite-form" class="admin-filter-bar is-plain">
+          <div class="admin-filter-field">
+            <label for="invite-note">Note (optional)</label>
+            <input type="text" id="invite-note" name="note" maxlength="200" placeholder="who it's for" autocomplete="off">
+          </div>
+          <button type="submit">Create invite link</button>
+        </form>
+        <div id="invite-created" class="admin-filter-bar" hidden>
+          <div class="admin-filter-field is-wide">
+            <label for="invite-url">New invite link &mdash; copy it now</label>
+            <input type="text" id="invite-url" readonly>
+          </div>
+          <button type="button" id="invite-copy">Copy</button>
         </div>
-        <button type="submit">Create invite link</button>
-      </form>
-      <div id="invite-created" class="admin-filter-bar" hidden>
-        <div class="admin-filter-field">
-          <label for="invite-url">New invite link</label>
-          <input type="text" id="invite-url" readonly>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Note</th><th class="nowrap">Created</th><th class="nowrap">Expires</th><th>Status</th><th></th></tr></thead>
+            <tbody id="invite-rows"></tbody>
+          </table>
         </div>
-        <button type="button" id="invite-copy" class="btn-secondary">Copy</button>
-      </div>
-      <div class="admin-table-wrap">
-        <table class="admin-table">
-          <thead><tr><th>Note</th><th class="nowrap">Created</th><th class="nowrap">Expires</th><th>Status</th><th></th></tr></thead>
-          <tbody id="invite-rows"></tbody>
-        </table>
       </div>
     </section>
 
@@ -79,42 +81,50 @@
 
       <%# Self-hosted mode has no plans to give: every account already has full access. %>
       <% if (billingEnabled) { %>
-      <h3 class="admin-subhead">Access</h3>
-      <p class="hint" id="customer-access-note"></p>
-      <div class="admin-filter-bar">
-        <div class="admin-filter-field">
-          <label for="customer-access-plan">Plan</label>
-          <select id="customer-access-plan">
-            <option value="standard">Standard</option>
-            <option value="team">Team</option>
-            <option value="pro" selected>Pro</option>
-          </select>
+      <div class="admin-group">
+        <h3 class="admin-subhead">Access</h3>
+        <p class="hint" id="customer-access-note"></p>
+        <div class="admin-filter-bar is-plain">
+          <div class="admin-filter-field">
+            <label for="customer-access-plan">Plan</label>
+            <select id="customer-access-plan">
+              <option value="standard">Standard</option>
+              <option value="team">Team</option>
+              <option value="pro" selected>Pro</option>
+            </select>
+          </div>
+          <button type="button" id="customer-grant">Give free access</button>
+          <button type="button" id="customer-revoke" class="btn-secondary">Remove access</button>
         </div>
-        <button type="button" id="customer-grant">Give free access</button>
-        <button type="button" id="customer-revoke" class="btn-secondary">Remove access</button>
       </div>
       <% } %>
 
-      <h3 class="admin-subhead">Admin</h3>
-      <p class="hint" id="customer-admin-note"></p>
-      <div class="admin-filter-bar">
-        <button type="button" id="customer-admin-toggle" class="btn-secondary"></button>
+      <div class="admin-group">
+        <h3 class="admin-subhead">Admin</h3>
+        <p class="hint" id="customer-admin-note"></p>
+        <div class="admin-filter-bar is-plain">
+          <button type="button" id="customer-admin-toggle" class="btn-secondary"></button>
+        </div>
       </div>
 
-      <h3 class="admin-subhead">Connected accounts</h3>
-      <div class="admin-table-wrap">
-        <table class="admin-table">
-          <thead><tr><th class="nowrap">Platform</th><th>Name</th><th class="nowrap">Connected</th><th>Status</th></tr></thead>
-          <tbody id="customer-accounts"></tbody>
-        </table>
+      <div class="admin-group">
+        <h3 class="admin-subhead">Connected accounts</h3>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th class="nowrap">Platform</th><th>Name</th><th class="nowrap">Connected</th><th>Status</th></tr></thead>
+            <tbody id="customer-accounts"></tbody>
+          </table>
+        </div>
       </div>
 
-      <h3 class="admin-subhead">Recent posts</h3>
-      <div class="admin-table-wrap">
-        <table class="admin-table">
-          <thead><tr><th class="nowrap">Updated</th><th class="nowrap">Platform</th><th class="nowrap">Status</th><th>Text</th><th>Error</th></tr></thead>
-          <tbody id="customer-posts"></tbody>
-        </table>
+      <div class="admin-group">
+        <h3 class="admin-subhead">Recent posts</h3>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th class="nowrap">Updated</th><th class="nowrap">Platform</th><th class="nowrap">Status</th><th>Text</th><th>Error</th></tr></thead>
+            <tbody id="customer-posts"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>
