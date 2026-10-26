@@ -180,9 +180,45 @@ npm run migrate
 npm run dev
 ```
 
-Tests run against a real PostgreSQL test database. Create one, put its `DATABASE_URL`,
-`SESSION_SECRET` and `BASE_URL` in `.env.test`, then run `npm test`. [`CLAUDE.md`](CLAUDE.md)
-describes the architecture and the conventions the code follows.
+[`CLAUDE.md`](CLAUDE.md) describes the architecture and the conventions the code follows.
+
+### Running the tests
+
+The tests ([Vitest](https://vitest.dev) + Supertest) run against a **real PostgreSQL
+database**, not mocks, so they need one of their own. Every test empties its tables, so never
+point it at a database you care about.
+
+1. Create an empty test database, once:
+
+   ```bash
+   createdb postfalcon_test          # or: psql -c 'CREATE DATABASE postfalcon_test'
+   ```
+
+2. Create `.env.test` in the project root (it's git-ignored):
+
+   ```
+   DATABASE_URL=postgresql://postgres:password@localhost:5432/postfalcon_test
+   SESSION_SECRET=any-test-secret
+   BASE_URL=http://localhost:3000
+   ```
+
+   Nothing else is needed. The suite fills in placeholder keys for every social platform, runs
+   with no Stripe key (self-hosted mode; billing tests set their own), and creates the tables
+   itself by running the migrations.
+
+3. Run them:
+
+   ```bash
+   npm test                                   # everything (about a minute)
+   npx vitest run tests/pinterest.test.js     # one file
+   npx vitest run -t "board picker"           # tests whose name matches
+   npx vitest                                 # watch mode: re-runs on save
+   ```
+
+No test talks to a real social platform, Stripe or an SMTP server: outgoing HTTP calls are
+stubbed in each test and email is mocked. Test files run one at a time because they share the
+database. There's one file per route file (`routes/x.js` → `tests/x.test.js`), plus
+`tests/scheduler.test.js` for publishing; [`tests/setup.js`](tests/setup.js) is the shared setup.
 
 ## License
 
