@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import app from '../app.js';
 import { pool } from '../db/pool.js';
@@ -945,5 +945,134 @@ describe('admin alerts', () => {
     const other = await signupAndLogin('not-admin-alerts@example.com');
     expect((await other.post('/api/admin/alerts/check')).status).toBe(404);
     expect((await other.get('/api/admin/alerts')).status).toBe(404);
+  });
+});
+
+describe('admin version', () => {
+  afterEach(async () => {
+    const { clearUpdateCache } = await import('../lib/version.js');
+    clearUpdateCache();
+    delete process.env.APP_COMMIT;
+    delete process.env.UPDATE_CHECK;
+    vi.unstubAllGlobals();
+  });
+
+  async function adminClient(email) {
+    const client = await signupAndLogin(email);
+    await makeAdmin(email);
+    return client;
+  }
+
+  it("reports how far behind the project's GitHub main this server is, and that migrations are applied", async () => {
+    process.env.APP_COMMIT = 'a'.repeat(40);
+    const fetchMock = vi.fn(async (url) => {
+      const u = String(url);
+      if (u === 'https://api.github.com/repos/natewhi/postfalcon/commits/main') {
+        return { ok: true, status: 200, json: async () => ({ sha: 'b'.repeat(40), commit: { committer: { date: '2026-10-26T00:00:00Z' } } }) };
+      }
+      if (u === `https://api.github.com/repos/natewhi/postfalcon/compare/${'a'.repeat(40)}...${'b'.repeat(40)}`) {
+        return { ok: true, status: 200, json: async () => ({ ahead_by: 3 }) };
+      }
+      throw new Error(`unexpected fetch: ${u}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const admin = await adminClient('admin-version@example.com');
+
+    const res = await admin.get('/api/admin/version');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      commit: 'a'.repeat(40),
+      pendingMigrations: [],
+      upstream: { repo: 'natewhi/postfalcon', latestCommit: 'b'.repeat(40), behindBy: 3 },
+    });
+    // Cached: a second look doesn't ask GitHub again.
+    await admin.get('/api/admin/version');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('says up to date when running the latest commit, and copes with GitHub being unreachable or the check being off', async () => {
+    process.env.APP_COMMIT = 'c'.repeat(40);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ sha: 'c'.repeat(40), commit: { committer: { date: null } } }) }))
+    );
+    const admin = await adminClient('admin-version2@example.com');
+    expect((await admin.get('/api/admin/version')).body.upstream.behindBy).toBe(0);
+
+    const { clearUpdateCache } = await import('../lib/version.js');
+    clearUpdateCache();
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404, json: async () => ({}) })));
+    expect((await admin.get('/api/admin/version')).body.upstream.error).toMatch(/404/);
+
+    clearUpdateCache();
+    process.env.UPDATE_CHECK = 'false';
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    expect((await admin.get('/api/admin/version')).body.upstream).toEqual({ disabled: true });
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    const other = await signupAndLogin('not-admin-version@example.com');
+    expect((await other.get('/api/admin/version')).status).toBe(404);
+  });
+});
+
+describe('admin failed posts across customers', () => {
+  async function failedPost(userId, accountId, ago, status = 'failed') {
+    const { rows } = await pool.query(
+      `INSERT INTO posts (user_id, social_account_id, content, status, scheduled_for, error_message, updated_at)
+       VALUES ($1, $2, 'x', $3, now() - $4::interval, 'it broke', now() - $4::interval) RETURNING id`,
+      [userId, accountId, status, ago]
+    );
+    return Number(rows[0].id);
+  }
+
+  async function customerWith(platform, email) {
+    await signupAndLogin(email);
+    const { rows: user } = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    const { rows: acc } = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, metadata)
+       VALUES ($1, $2, 'acct', $3, 'tok', '{"instance":"example.social"}') RETURNING id`,
+      [user[0].id, platform, `ext-${email}`]
+    );
+    return { userId: user[0].id, accountId: acc[0].id };
+  }
+
+  it('lists failures from every customer by window and platform, and retries them in one go', async () => {
+    const email = 'admin-failed@example.com';
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+    const a = await customerWith('mastodon', 'fail-a@example.com');
+    const b = await customerWith('bluesky', 'fail-b@example.com');
+    const recentA = await failedPost(a.userId, a.accountId, '10 minutes');
+    const recentB = await failedPost(b.userId, b.accountId, '20 minutes');
+    const yesterdayA = await failedPost(a.userId, a.accountId, '30 hours');
+    const tooOld = await failedPost(a.userId, a.accountId, '10 days');
+    const notFailed = await failedPost(a.userId, a.accountId, '5 minutes', 'posted');
+
+    const day = await admin.get('/api/admin/failed-posts');
+    expect(day.body.map((p) => Number(p.id))).toEqual([recentA, recentB]);
+    expect(day.body[0]).toMatchObject({ platform: 'mastodon', email: 'fail-a@example.com', error_message: 'it broke' });
+    const week = await admin.get('/api/admin/failed-posts').query({ hours: '168' });
+    expect(week.body.map((p) => Number(p.id))).toEqual([recentA, recentB, yesterdayA]);
+    const bluesky = await admin.get('/api/admin/failed-posts').query({ platform: 'bluesky' });
+    expect(bluesky.body.map((p) => Number(p.id))).toEqual([recentB]);
+    expect((await admin.get('/api/admin/failed-posts').query({ hours: '5' })).status).toBe(400);
+
+    const retry = await admin.post('/api/admin/failed-posts/retry').send({ ids: [recentA, recentB, tooOld, notFailed] });
+    expect(retry.body.retried.sort()).toEqual([recentA, recentB].sort());
+    const { rows } = await pool.query('SELECT id, status FROM posts WHERE id = ANY($1) ORDER BY id', [[recentA, recentB, tooOld, notFailed]]);
+    expect(Object.fromEntries(rows.map((r) => [Number(r.id), r.status]))).toEqual({
+      [recentA]: 'scheduled',
+      [recentB]: 'scheduled',
+      [tooOld]: 'failed',
+      [notFailed]: 'posted',
+    });
+    expect((await admin.post('/api/admin/failed-posts/retry').send({ ids: [] })).status).toBe(400);
+  });
+
+  it('is admin-only', async () => {
+    const other = await signupAndLogin('not-admin-failed@example.com');
+    expect((await other.get('/api/admin/failed-posts')).status).toBe(404);
+    expect((await other.post('/api/admin/failed-posts/retry').send({ ids: [1] })).status).toBe(404);
   });
 });

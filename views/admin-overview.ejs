@@ -86,10 +86,26 @@
             <tbody id="publishing-by-platform"></tbody>
           </table>
         </div>
-        <h3 class="admin-subhead">Recent failures</h3>
+        <h3 class="admin-subhead">Failed posts</h3>
+        <p class="hint">Every customer's. After an outage (a platform down for a while), retry them all at once: each goes out on the next scheduler run, and one still failing for its own reason just fails again.</p>
+        <form id="failed-filter" class="admin-filter-bar is-plain">
+          <div class="admin-filter-field">
+            <label for="failed-hours">In the last</label>
+            <select id="failed-hours">
+              <option value="1">hour</option>
+              <option value="24" selected>24 hours</option>
+              <option value="168">7 days</option>
+            </select>
+          </div>
+          <div class="admin-filter-field">
+            <label for="failed-platform">Platform</label>
+            <select id="failed-platform"><option value="">All</option></select>
+          </div>
+          <button type="button" id="failed-retry-all" disabled>Retry all shown</button>
+        </form>
         <div class="admin-table-wrap">
           <table class="admin-table">
-            <thead><tr><th class="nowrap">Time</th><th class="nowrap">Platform</th><th>Account</th><th>Customer</th><th>Reason</th></tr></thead>
+            <thead><tr><th class="nowrap">Time</th><th class="nowrap">Platform</th><th>Account</th><th>Customer</th><th>Reason</th><th></th></tr></thead>
             <tbody id="publishing-failures"></tbody>
           </table>
         </div>
@@ -100,6 +116,11 @@
             <tbody id="publishing-reconnect"></tbody>
           </table>
         </div>
+      </section>
+
+      <section class="admin-section">
+        <h2>Version</h2>
+        <ul id="version-status" class="admin-checks"></ul>
       </section>
 
       <section class="admin-section">

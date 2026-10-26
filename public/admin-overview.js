@@ -95,16 +95,6 @@ function renderPublishing(p) {
         'Nothing published or failed in the last 24 hours.'
       );
   if (err) return;
-  document.getElementById('publishing-failures').innerHTML = rowsOrEmpty(
-    p.recentFailures.map(
-      (f) =>
-        `<tr><td class="nowrap">${when(f.updated_at)}</td><td class="nowrap">${escapeHtml(f.platform)}</td><td>${escapeHtml(
-          f.display_name || ''
-        )}</td><td>${escapeHtml(f.email)}</td><td>${escapeHtml((f.error_message || '').slice(0, 300))}</td></tr>`
-    ),
-    5,
-    'No failures.'
-  );
   document.getElementById('publishing-reconnect').innerHTML = rowsOrEmpty(
     p.needsReconnect.map(
       (a) =>
@@ -191,6 +181,108 @@ alertsBtn.addEventListener(
   })
 );
 
+// Failed posts across customers (GET /api/admin/failed-posts), retried one at a time or all shown.
+let failedPostIds = [];
+
+async function loadFailedPosts() {
+  const body = document.getElementById('publishing-failures');
+  const params = new URLSearchParams({ hours: document.getElementById('failed-hours').value });
+  const platform = document.getElementById('failed-platform').value;
+  if (platform) params.set('platform', platform);
+  try {
+    const posts = await apiJson(`/api/admin/failed-posts?${params}`);
+    failedPostIds = posts.map((f) => f.id);
+    const retryAll = document.getElementById('failed-retry-all');
+    retryAll.disabled = posts.length === 0;
+    retryAll.textContent = posts.length ? `Retry all ${posts.length} shown` : 'Retry all shown';
+    body.innerHTML = rowsOrEmpty(
+      posts.map(
+        (f) =>
+          `<tr><td class="nowrap">${when(f.updated_at)}</td><td class="nowrap">${escapeHtml(f.platform)}</td><td>${escapeHtml(
+            f.display_name || ''
+          )}</td><td>${escapeHtml(f.email)}</td><td>${escapeHtml((f.error_message || '').slice(0, 300))}</td><td class="nowrap"><button type="button" class="btn-secondary" data-retry-post="${
+            f.id
+          }">Retry</button></td></tr>`
+      ),
+      6,
+      'No failed posts in this window.'
+    );
+  } catch (err) {
+    body.innerHTML = `<tr><td colspan="6" class="empty">Couldn't load failed posts: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function retryPosts(ids, confirmMessage) {
+  if (confirmMessage && !(await confirmDialog(confirmMessage, { confirmText: 'Retry' }))) return;
+  try {
+    const { retried } = await apiJson('/api/admin/failed-posts/retry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    showToast(`${retried.length} post${retried.length === 1 ? '' : 's'} queued again; they go out within a minute.`, 'success');
+    loadFailedPosts();
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
+const failedPlatform = document.getElementById('failed-platform');
+failedPlatform.innerHTML += Object.keys(PLATFORM_META)
+  .filter((id) => id !== 'twitter')
+  .map((id) => `<option value="${escapeHtml(id)}">${escapeHtml(id)}</option>`)
+  .join('');
+document.getElementById('failed-hours').addEventListener('change', loadFailedPosts);
+failedPlatform.addEventListener('change', loadFailedPosts);
+document.getElementById('failed-retry-all').addEventListener('click', () =>
+  retryPosts(
+    failedPostIds,
+    `Retry all ${failedPostIds.length} failed posts shown? They go out on the next scheduler run, for every customer they belong to.`
+  )
+);
+document.getElementById('publishing-failures').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-retry-post]');
+  if (btn) retryPosts([Number(btn.dataset.retryPost)]);
+});
+
+// Version (lib/version.js): running commit vs the project's GitHub main, and migrations.
+function shortCommit(sha) {
+  return sha ? sha.slice(0, 7) : 'unknown';
+}
+
+async function loadVersion() {
+  const list = document.getElementById('version-status');
+  try {
+    const v = await apiJson('/api/admin/version');
+    const items = [];
+    const up = v.upstream;
+    if (up.disabled) {
+      items.push(checkItem('ok', `Running ${shortCommit(v.commit)}`, 'Update check is off (UPDATE_CHECK=false).'));
+    } else if (up.error) {
+      items.push(checkItem('warn', `Running ${shortCommit(v.commit)}`, `Couldn't check ${up.repo} for updates: ${up.error}.`));
+    } else if (up.behindBy === 0) {
+      items.push(checkItem('ok', `Up to date (${shortCommit(v.commit)})`, `Same as ${up.repo} main.`));
+    } else {
+      const behind = up.behindBy ? `${up.behindBy} commit${up.behindBy === 1 ? '' : 's'} behind` : 'Not the latest version';
+      items.push(
+        checkItem(
+          'warn',
+          `${behind}: running ${shortCommit(v.commit)}, latest is ${shortCommit(up.latestCommit)} (${when(up.latestDate)})`,
+          'To update: git pull, then docker compose up -d --build (Docker) or scripts/deploy.sh (pm2). See README → Updating.'
+        )
+      );
+    }
+    items.push(
+      v.pendingMigrations.length
+        ? checkItem('error', 'Database changes not applied', `${v.pendingMigrations.join(', ')}. Run npm run migrate, then restart.`)
+        : checkItem('ok', 'Database is up to date', 'Every migration is applied.')
+    );
+    list.innerHTML = items.join('');
+  } catch (err) {
+    list.innerHTML = checkItem('warn', "Couldn't read the version", err.message);
+  }
+}
+
 // Backups: every kept file with a download link, and a backup on demand (routes/admin.js).
 async function loadBackups() {
   const body = document.getElementById('backup-rows');
@@ -256,6 +348,8 @@ testEmailForm.addEventListener(
 async function loadOverview() {
   loadBackups();
   loadAlerts();
+  loadFailedPosts();
+  loadVersion();
   try {
     const data = await apiJson('/api/admin/overview');
     renderSetup(data.setup);

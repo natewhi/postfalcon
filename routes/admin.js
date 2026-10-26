@@ -18,6 +18,7 @@ import { listLocalBackups, runBackup, backupDir } from '../lib/backup.js';
 import { s3Enabled } from '../lib/storage.js';
 import { listServerErrors } from '../lib/errorLog.js';
 import { checkAlerts, activeAlerts } from '../lib/alerts.js';
+import { versionStatus } from '../lib/version.js';
 import {
   SIGNUP_MODES,
   getSignupMode,
@@ -49,6 +50,14 @@ const adminRoleSchema = z.object({ admin: z.boolean() });
 // POST /users/:id/suspend, POST /email/test.
 const suspendSchema = z.object({ suspended: z.boolean() });
 const testEmailSchema = z.object({ to: z.string().trim().toLowerCase().email().optional() });
+
+// GET /failed-posts and POST /failed-posts/retry: failed posts across every customer.
+const FAILED_POST_WINDOWS = { '1': 1, '24': 24, '168': 168 };
+const failedPostsQuerySchema = z.object({
+  hours: z.enum(Object.keys(FAILED_POST_WINDOWS)).default('24'),
+  platform: z.string().max(40).optional(),
+});
+const retrySchema = z.object({ ids: z.array(z.number().int().positive()).min(1).max(500) });
 
 // POST /signups: who may create an account. POST /invites: a one-time signup link.
 const signupModeSchema = z.object({ mode: z.enum(SIGNUP_MODES) });
@@ -657,6 +666,55 @@ router.post(
   asyncHandler(async (req, res) => {
     const result = await checkAlerts();
     res.json({ ...result, alerts: await activeAlerts() });
+  })
+);
+
+// Overview -> Version (lib/version.js): the running commit, how far behind GitHub it is, and
+// any migrations not applied.
+router.get(
+  '/version',
+  asyncHandler(async (req, res) => {
+    res.json(await versionStatus());
+  })
+);
+
+// Overview -> Failed posts: every customer's failures in a window, optionally one platform, so
+// that after an outage (a platform down for an hour) they can all be retried at once. Retrying
+// is what a customer's own retry does: back to 'scheduled', so the next scheduler run sends it
+// (a post still failing for its own reasons simply fails again). A week at most, since media of
+// failed posts is cleaned up after MEDIA_RETENTION_DAYS.
+router.get(
+  '/failed-posts',
+  asyncHandler(async (req, res) => {
+    const parsed = failedPostsQuerySchema.safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ error: 'validation_failed', details: parsed.error.flatten() });
+    const { hours, platform } = parsed.data;
+    const { rows } = await pool.query(
+      `SELECT p.id, p.updated_at, p.content, p.error_message, sa.platform, sa.display_name, u.email
+       FROM posts p JOIN social_accounts sa ON sa.id = p.social_account_id JOIN users u ON u.id = p.user_id
+       WHERE p.status = 'failed' AND p.updated_at > now() - make_interval(hours => $1)
+         AND ($2::text IS NULL OR sa.platform = $2)
+       ORDER BY p.updated_at DESC LIMIT 500`,
+      [FAILED_POST_WINDOWS[hours], platform || null]
+    );
+    res.json(rows.map((r) => ({ ...r, content: r.content.slice(0, 140) })));
+  })
+);
+
+router.post(
+  '/failed-posts/retry',
+  validate(retrySchema),
+  asyncHandler(async (req, res) => {
+    const { rows } = await pool.query(
+      `UPDATE posts SET status = 'scheduled'
+       WHERE id = ANY($1) AND status = 'failed' AND updated_at > now() - interval '7 days'
+       RETURNING id`,
+      [req.body.ids]
+    );
+    await logProductEvent(req.user.id, 'admin_posts_retried', { count: rows.length }).catch((err) =>
+      req.log.error({ err }, 'failed to record product event')
+    );
+    res.json({ retried: rows.map((r) => Number(r.id)) });
   })
 );
 

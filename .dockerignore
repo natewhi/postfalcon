@@ -1,5 +1,10 @@
 node_modules
-.git
+# .git stays out, except the few small files that name the current commit (lib/version.js
+# reads them for Admin -> Overview -> Version).
+.git/*
+!.git/HEAD
+!.git/refs
+!.git/packed-refs
 .env
 .env.*
 public/vendor
