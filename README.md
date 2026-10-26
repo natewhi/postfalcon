@@ -28,13 +28,22 @@ included), and a domain or subdomain whose DNS points at the server, with ports 
 Caddy, included, gets the HTTPS certificate on its own. Running it takes about 100 MB of memory
 at rest; a 1 GB server is enough, 2 GB is comfortable while it builds the image.
 
+If the server doesn't have Docker yet, install it and let your user run it:
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER      # then log out and back in
+```
+
+Then get Postfalcon:
+
 ```bash
 git clone https://github.com/natewhi/postfalcon.git
 cd postfalcon
 cp .env.example .env
 ```
 
-Edit `.env` and fill in the **REQUIRED** section:
+Edit `.env` (e.g. `nano .env`) and fill in the **REQUIRED** section:
 
 | Setting             | What to put                                                    |
 | ------------------- | -------------------------------------------------------------- |
@@ -43,17 +52,22 @@ Edit `.env` and fill in the **REQUIRED** section:
 | `SESSION_SECRET`    | a random string: run `openssl rand -hex 32` and paste it       |
 | `POSTGRES_PASSWORD` | another random string, for the bundled database                |
 
-Then start it:
+Then start it (the first start builds the image, which takes a few minutes):
 
 ```bash
 docker compose up -d
+docker compose ps        # db, app and caddy running; app shows "healthy" after ~30 seconds
 ```
 
-Open your `BASE_URL` and sign up. **The first account becomes the admin.** Do this straight
-away, before anyone else can reach the server.
+Open your `BASE_URL`: you'll see the log in page. Choose **Sign up**. **The first account
+becomes the admin**, so do this straight away, before anyone else can reach the server.
 
-To try it on your own computer first, set `DOMAIN=localhost` and `BASE_URL=https://localhost`.
-Your browser will warn about the local certificate; that's expected.
+**Trying it out without a domain**, on your own computer or a machine on your network: use
+`localhost` or the machine's IP address for both, e.g. `DOMAIN=192.168.1.20` and
+`BASE_URL=https://192.168.1.20`. Your browser will warn about the certificate; that's expected,
+choose to continue. Most social platforms only accept a real public `https://` domain for their
+login callbacks, so on a test setup like this only Mastodon, Bluesky and Telegram can be
+connected.
 
 ### Updating
 
@@ -65,14 +79,19 @@ docker compose up -d --build
 Database changes are applied automatically when the app starts. Admin → Overview → **Version**
 shows how many commits behind GitHub your server is, and whether every database change is applied.
 
+Your data (database, uploaded media, backups, certificates) lives in Docker volumes, not in the
+`postfalcon` folder, so updating, rebuilding or `docker compose down` never touches it.
+`docker compose down -v` **does** delete the volumes; don't use it unless you mean to start over.
+
 ### Logs, backups and restoring
 
-- Logs: `docker compose logs -f app`
+- Logs: `docker compose logs -f app`. Every request is logged; set `LOG_LEVEL=warn` in `.env`
+  to see only problems. Errors are also listed in Admin → Activity → Server errors.
 - Backups run every night at 03:30 (server time) into the `backups` volume; the last 7 are
   kept. Set the `S3_*` settings to copy each one to a bucket as well. Admin → Overview tells
-  you if they stop.
-- Take one now: `docker compose exec app npm run backup`
-- Restore one:
+  you if they stop, and lists them with **Back up now**, **Download** and **Delete**.
+- Keep a copy somewhere other than the server: download one now and then, or set up a bucket.
+- Restore one (or follow "How to restore a backup" on Overview):
 
   ```bash
   docker compose exec app ls backups                        # pick a file
@@ -82,6 +101,16 @@ shows how many commits behind GitHub your server is, and whether every database 
     -U postfalcon -d postfalcon < restore.dump
   docker compose start app
   ```
+
+### Troubleshooting
+
+| What you see | What to do |
+| --- | --- |
+| `permission denied while trying to connect to the docker API` | Your user isn't in the `docker` group yet: `sudo usermod -aG docker $USER`, then log out and back in. |
+| The browser shows **502 Bad Gateway** | Caddy is up but the app isn't. `docker compose logs app --tail 50` says why; a missing `.env` setting is named there. |
+| The app stops with `Missing required settings in .env` | Fill in that setting (see the table above), then `docker compose up -d`. |
+| A certificate error for a real domain | Its DNS must point at this server and ports 80 and 443 must be reachable from the internet; `docker compose logs caddy` shows what Let's Encrypt said. |
+| Changes to `.env` don't take effect | Run `docker compose up -d` again; it recreates the app with the new settings. |
 
 ---
 
@@ -118,8 +147,8 @@ Everything below is done from the app, in the **Admin** section of the sidebar.
 3. **Admin → Platforms**: switch platforms on or off. Open **How to set up** under each one to
    see where to create its developer app, the callback URL to register, and which `.env` keys
    it needs. A platform only appears to users once its keys are set.
-4. **Admin → Settings**: the site's name, and whether `/` shows the public landing page or
-   goes straight to log in. Log in is the default for a self-hosted server.
+4. **Admin → Settings**: the site's name and logo, and whether `/` shows the public landing
+   page or goes straight to log in. Log in is the default for a self-hosted server.
 5. **Email** (optional, recommended): fill in `SMTP_*` in `.env` so verification and
    password-reset emails are actually sent. Any SMTP provider works.
    Then use **Send test email** on Overview to check it works.

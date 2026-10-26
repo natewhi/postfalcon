@@ -41,7 +41,11 @@ server.
 - Self-hosters install with `docker compose up -d` (Dockerfile + docker-compose.yml: app + Postgres 16 + Caddy via
   `deploy/Caddyfile.docker`; the app container runs pending migrations then `index.js`, one container only) or the
   non-Docker steps in README.md, which is the public install/operator guide — keep it in step with features that change
-  setup. postfalcon.co itself stays on the pm2 + scripts/deploy.sh setup below.
+  setup. postfalcon.co itself stays on the pm2 + scripts/deploy.sh setup below. Verified end to end on a fresh Ubuntu
+  VM (devbox01) on 2026-10-26; two things that test caught must stay: Caddyfile.docker's `default_sni {$DOMAIN}`
+  (browsers send no SNI to an IP address, so without it HTTPS by IP fails) and the Dockerfile's `chmod -R a+rX /app`
+  after `COPY` (the app runs as `node`; files copied with private 600 modes otherwise crash it with EACCES). The
+  pg_dump client in the image (postgresql16-client) must match the compose Postgres major version.
 - `.env` values (DB creds, session secret, OAuth app IDs/secrets) are entered by the user directly. Don't invent
   or insert real secrets — use placeholders in `.env.example` and let the user fill in `.env`/`.env.test`.
 - Traffic/SEO analytics (referrers, top pages, trends) runs as a separate self-hosted Umami instance, not part
