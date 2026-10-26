@@ -101,7 +101,7 @@ export async function processDuePosts() {
   const { rows: due } = await pool.query(`
     SELECT posts.*, social_accounts.platform, social_accounts.access_token, social_accounts.refresh_token,
            social_accounts.token_expires_at, social_accounts.metadata, social_accounts.external_account_id,
-           users.plan_status AS user_plan_status
+           users.plan_status AS user_plan_status, users.suspended_at AS user_suspended_at
     FROM posts
     JOIN social_accounts ON social_accounts.id = posts.social_account_id
     JOIN users ON users.id = posts.user_id
@@ -124,6 +124,11 @@ export async function processDuePosts() {
   }
 
   for (const post of due) {
+    // An admin suspended the account (Admin -> Customers): nothing of theirs goes out.
+    if (post.user_suspended_at) {
+      await failWithoutSending(post, 'Not published: this account is suspended. Contact the site admin.');
+      continue;
+    }
     // Publishing is what a plan pays for. Posts queued (or recurring) before a trial or
     // subscription lapsed fail here instead of going out for free, and a recurring one stops
     // cloning itself. The user can retry them once they've reactivated.

@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -9,7 +10,12 @@ import { setupChecks, schedulerStatus, publishingHealth, businessMetrics, storag
 import { logProductEvent } from '../lib/activityLog.js';
 import { PLATFORMS, PLATFORM_IDS, PLATFORM_CREDENTIAL_ENV, PLATFORM_SETUP, isPlatformEnabled } from '../lib/platforms.js';
 import { savePlatformSetting, clearPlatformSetting } from '../lib/platformSettings.js';
-import { envConfigured } from '../lib/config.js';
+import { envConfigured, smtpConfigured } from '../lib/config.js';
+import { createToken } from '../lib/tokens.js';
+import { sendMail, sendTestMail } from '../lib/mailer.js';
+import { deleteUserAccount, BillingUnavailableError } from '../lib/accounts.js';
+import { listLocalBackups, runBackup, backupDir } from '../lib/backup.js';
+import { s3Enabled } from '../lib/storage.js';
 import {
   SIGNUP_MODES,
   getSignupMode,
@@ -37,6 +43,10 @@ const accessSchema = z.object({
 
 // POST /users/:id/admin: make someone an admin, or take it away.
 const adminRoleSchema = z.object({ admin: z.boolean() });
+
+// POST /users/:id/suspend, POST /email/test.
+const suspendSchema = z.object({ suspended: z.boolean() });
+const testEmailSchema = z.object({ to: z.string().trim().toLowerCase().email().optional() });
 
 // POST /signups: who may create an account. POST /invites: a one-time signup link.
 const signupModeSchema = z.object({ mode: z.enum(SIGNUP_MODES) });
@@ -277,7 +287,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
     const { rows } = await pool.query(
-      `SELECT id, email, plan, plan_status, is_admin, created_at FROM users
+      `SELECT id, email, plan, plan_status, is_admin, suspended_at, created_at FROM users
        WHERE ($1 = '' OR email ILIKE '%' || $1 || '%')
        ORDER BY created_at DESC LIMIT 25`,
       [q]
@@ -299,14 +309,14 @@ router.get(
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid id' });
     const { rows } = await pool.query(
-      `SELECT id, email, created_at, email_verified_at, google_id IS NOT NULL AS google_login, is_admin,
+      `SELECT id, email, created_at, email_verified_at, google_id IS NOT NULL AS google_login, is_admin, suspended_at,
               plan, plan_status, plan_interval, plan_renews_at, plan_cancels_at, stripe_customer_id
        FROM users WHERE id = $1`,
       [id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'not found' });
     const user = rows[0];
-    const [accounts, posts, counts] = await Promise.all([
+    const [accounts, posts, counts, apiToken] = await Promise.all([
       pool.query(
         `SELECT id, platform, display_name, needs_reconnect_at, reconnect_reason, created_at
          FROM social_accounts WHERE user_id = $1 ORDER BY created_at`,
@@ -319,12 +329,14 @@ router.get(
         [id]
       ),
       pool.query(`SELECT status, COUNT(*)::int AS n FROM posts WHERE user_id = $1 GROUP BY status`, [id]),
+      pool.query('SELECT created_at, last_used_at FROM api_tokens WHERE user_id = $1', [id]),
     ]);
     res.json({
       user: { ...user, stripeDashboardUrl: stripeDashboardUrl(user.stripe_customer_id) },
       accounts: accounts.rows,
       recentPosts: posts.rows.map((p) => ({ ...p, content: p.content.slice(0, 140) })),
       postCounts: Object.fromEntries(counts.rows.map((r) => [r.status, r.n])),
+      apiToken: apiToken.rows[0] ?? null,
     });
   })
 );
@@ -430,6 +442,190 @@ router.post(
       req.log.error({ err }, 'failed to record product event')
     );
     res.json(await settingsResponse());
+  })
+);
+
+// Account actions for support, so none of them needs SQL or the user's own inbox: a password
+// reset link to hand over (no SMTP on this server, or "the email never came"), verification,
+// suspension, deleting the account, and revoking a leaked API token. Admins can't be suspended
+// or deleted here (remove their admin rights first), and nobody can do either to themselves.
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+async function findUser(req, res) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'invalid id' });
+    return null;
+  }
+  const { rows } = await pool.query(
+    'SELECT id, email, is_admin, email_verified_at, suspended_at FROM users WHERE id = $1',
+    [id]
+  );
+  if (rows.length === 0) {
+    res.status(404).json({ error: 'not found' });
+    return null;
+  }
+  return { ...rows[0], id: Number(rows[0].id) };
+}
+
+// pg returns BIGINT ids as strings, hence Number() on both sides.
+function refuseSelfOrAdmin(req, res, user, action) {
+  if (user.id === Number(req.user.id)) {
+    res.status(409).json({ error: 'own_account', message: `You can't ${action} your own account from here.` });
+    return true;
+  }
+  if (user.is_admin) {
+    res.status(409).json({ error: 'is_admin', message: `Remove their admin rights before you ${action} this account.` });
+    return true;
+  }
+  return false;
+}
+
+function logAdminAction(req, userId, event, details = {}) {
+  return logProductEvent(userId, event, { ...details, by: req.user.id }).catch((err) =>
+    req.log.error({ err }, 'failed to record product event')
+  );
+}
+
+router.post(
+  '/users/:id/password-reset-link',
+  asyncHandler(async (req, res) => {
+    const user = await findUser(req, res);
+    if (!user) return;
+    // A day rather than the emailed link's hour: it goes through the admin first.
+    const token = await createToken(user.id, 'password_reset', ONE_DAY_MS);
+    await logAdminAction(req, user.id, 'admin_password_reset_link');
+    res.status(201).json({
+      url: `${process.env.BASE_URL}/reset-password?token=${token}`,
+      expires_at: new Date(Date.now() + ONE_DAY_MS),
+    });
+  })
+);
+
+router.post(
+  '/users/:id/verification-email',
+  asyncHandler(async (req, res) => {
+    const user = await findUser(req, res);
+    if (!user) return;
+    if (user.email_verified_at) {
+      return res.status(409).json({ error: 'already_verified', message: 'This email is already verified.' });
+    }
+    const token = await createToken(user.id, 'email_verification', ONE_DAY_MS);
+    const verifyUrl = `${process.env.BASE_URL}/api/auth/verify-email?token=${token}`;
+    await sendMail({ to: user.email, subject: 'Verify your Postfalcon email', text: `Verify your email: ${verifyUrl}` });
+    // emailConfigured false = it was only logged; the page says so rather than claiming "sent".
+    res.json({ emailConfigured: smtpConfigured() });
+  })
+);
+
+router.post(
+  '/users/:id/verify-email',
+  asyncHandler(async (req, res) => {
+    const user = await findUser(req, res);
+    if (!user) return;
+    const { rows } = await pool.query(
+      'UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1 RETURNING email_verified_at',
+      [user.id]
+    );
+    await logAdminAction(req, user.id, 'admin_email_verified');
+    res.json({ email_verified_at: rows[0].email_verified_at });
+  })
+);
+
+router.post(
+  '/users/:id/suspend',
+  validate(suspendSchema),
+  asyncHandler(async (req, res) => {
+    const user = await findUser(req, res);
+    if (!user) return;
+    if (req.body.suspended && refuseSelfOrAdmin(req, res, user, 'suspend')) return;
+    const { rows } = await pool.query(
+      req.body.suspended
+        ? 'UPDATE users SET suspended_at = COALESCE(suspended_at, now()) WHERE id = $1 RETURNING suspended_at'
+        : 'UPDATE users SET suspended_at = NULL WHERE id = $1 RETURNING suspended_at',
+      [user.id]
+    );
+    await logAdminAction(req, user.id, req.body.suspended ? 'admin_suspended' : 'admin_unsuspended');
+    res.json({ suspended_at: rows[0].suspended_at });
+  })
+);
+
+router.delete(
+  '/users/:id',
+  asyncHandler(async (req, res) => {
+    const user = await findUser(req, res);
+    if (!user) return;
+    if (refuseSelfOrAdmin(req, res, user, 'delete')) return;
+    try {
+      // Recorded against the admin, since the deleted account's own rows go with it.
+      await deleteUserAccount(user.id, {
+        log: req.log,
+        beforeDelete: (email) => logAdminAction(req, req.user.id, 'admin_deleted_account', { email, userId: user.id }),
+      });
+    } catch (err) {
+      if (!(err instanceof BillingUnavailableError)) throw err;
+      return res.status(503).json({ error: 'billing_unavailable', message: `${err.message} Try again in a few minutes.` });
+    }
+    res.status(204).end();
+  })
+);
+
+router.delete(
+  '/users/:id/api-token',
+  asyncHandler(async (req, res) => {
+    const user = await findUser(req, res);
+    if (!user) return;
+    const { rowCount } = await pool.query('DELETE FROM api_tokens WHERE user_id = $1', [user.id]);
+    if (rowCount === 0) return res.status(404).json({ error: 'not found', message: 'This customer has no API token.' });
+    await logAdminAction(req, user.id, 'admin_api_token_revoked');
+    res.status(204).end();
+  })
+);
+
+// Overview -> Email: sends a real message and reports the SMTP server's answer.
+router.post(
+  '/email/test',
+  validate(testEmailSchema),
+  asyncHandler(async (req, res) => {
+    const to = req.body.to || req.user.email;
+    try {
+      res.json({ ok: true, ...(await sendTestMail(to)) });
+    } catch (err) {
+      req.log.warn({ err }, 'test email failed');
+      res.status(502).json({ ok: false, error: 'email_failed', message: err.message });
+    }
+  })
+);
+
+// Overview -> Backups: the kept database backups, one on demand, and downloading one.
+router.get(
+  '/backups',
+  asyncHandler(async (req, res) => {
+    res.json({ dir: backupDir(), copiedToBucket: s3Enabled(), backups: await listLocalBackups() });
+  })
+);
+
+router.post(
+  '/backups',
+  asyncHandler(async (req, res) => {
+    try {
+      const result = await runBackup();
+      await logAdminAction(req, req.user.id, 'admin_backup_run', { name: result.name });
+      res.status(201).json(result);
+    } catch (err) {
+      req.log.error({ err }, 'database backup failed');
+      res.status(500).json({ error: 'backup_failed', message: err.message });
+    }
+  })
+);
+
+router.get(
+  '/backups/:name',
+  asyncHandler(async (req, res) => {
+    // Only a file the listing knows about: no paths, nothing outside the backup directory.
+    const backup = (await listLocalBackups()).find((b) => b.name === req.params.name);
+    if (!backup) return res.status(404).json({ error: 'not found' });
+    res.download(path.join(backupDir(), backup.name), backup.name);
   })
 );
 

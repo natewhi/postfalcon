@@ -155,7 +155,70 @@ function renderStorage(s) {
     : 'No bucket configured: media lives on the server disk.';
 }
 
+// Backups: every kept file with a download link, and a backup on demand (routes/admin.js).
+async function loadBackups() {
+  const body = document.getElementById('backup-rows');
+  try {
+    const { dir, copiedToBucket, backups } = await apiJson('/api/admin/backups');
+    document.getElementById('backup-dir').textContent = dir;
+    document.getElementById('backups-note').textContent = `Nightly at 03:30 (server time); the last 7 are kept in ${dir}${
+      copiedToBucket ? ' and copied to the bucket' : ' on this server only — set S3_BUCKET to keep copies off it too'
+    }.`;
+    body.innerHTML = rowsOrEmpty(
+      backups.map(
+        (b) =>
+          `<tr><td><code>${escapeHtml(b.name)}</code></td><td class="nowrap">${escapeHtml(when(b.at))} (${escapeHtml(
+            ago(b.at)
+          )})</td><td class="nowrap">${escapeHtml(bytes(b.bytes))}</td><td class="nowrap"><a href="/api/admin/backups/${encodeURIComponent(
+            b.name
+          )}" download>Download</a></td></tr>`
+      ),
+      4,
+      'No backups yet. Take one now.'
+    );
+  } catch (err) {
+    body.innerHTML = `<tr><td colspan="4" class="empty">Couldn't list backups: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+const backupBtn = document.getElementById('backup-now');
+backupBtn.addEventListener(
+  'click',
+  withLoading(backupBtn, 'Backing up…', async () => {
+    try {
+      const result = await apiJson('/api/admin/backups', { method: 'POST' });
+      showToast(`Backed up (${bytes(result.bytes)})${result.uploaded ? ', and copied to the bucket' : ''}.`, 'success');
+      loadBackups();
+    } catch (err) {
+      showToast(`Backup failed: ${err.message}`);
+    }
+  })
+);
+
+// Email: a real test message, with the mail server's reply shown as-is.
+const testEmailForm = document.getElementById('test-email-form');
+testEmailForm.addEventListener(
+  'submit',
+  withLoading(testEmailForm.querySelector('button'), 'Sending…', async (e) => {
+    e.preventDefault();
+    const result = document.getElementById('test-email-result');
+    const to = document.getElementById('test-email-to').value.trim();
+    result.textContent = '';
+    try {
+      const sent = await apiJson('/api/admin/email/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(to ? { to } : {}),
+      });
+      result.textContent = `Sent from ${sent.from} to ${sent.to}. The mail server said: ${sent.response || 'OK'}. Check that inbox (and its spam folder).`;
+    } catch (err) {
+      result.textContent = `Not sent: ${err.message}`;
+    }
+  })
+);
+
 async function loadOverview() {
+  loadBackups();
   try {
     const data = await apiJson('/api/admin/overview');
     renderSetup(data.setup);

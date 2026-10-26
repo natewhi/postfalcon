@@ -28,7 +28,10 @@ for (const key of [
   process.env[key] ||= `test-${key.toLowerCase()}`;
 }
 
-vi.mock('../lib/mailer.js', () => ({ sendMail: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('../lib/mailer.js', () => ({
+  sendMail: vi.fn().mockResolvedValue(undefined),
+  sendTestMail: vi.fn(async (to) => ({ from: 'test@example.com', to, response: '250 OK (mocked)' })),
+}));
 
 const { pool } = await import('../db/pool.js');
 const { migrate } = await import('../db/migrate.js');

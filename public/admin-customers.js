@@ -25,7 +25,7 @@ async function search(q) {
       ? users
           .map(
             (u) =>
-              `<tr class="admin-row-link" data-user-id="${u.id}"><td>${escapeHtml(u.email)}${u.is_admin ? ' (admin)' : ''}</td><td class="nowrap">${escapeHtml(
+              `<tr class="admin-row-link" data-user-id="${u.id}"><td>${escapeHtml(u.email)}${u.is_admin ? ' (admin)' : ''}${u.suspended_at ? ' <span class="admin-bad">(suspended)</span>' : ''}</td><td class="nowrap">${escapeHtml(
                 u.plan
               )}</td><td class="nowrap">${escapeHtml(u.plan_status)}</td><td class="nowrap">${day(u.created_at)}</td></tr>`
           )
@@ -45,7 +45,8 @@ async function showCustomer(id) {
   currentUserId = id;
   const section = document.getElementById('customer-detail');
   try {
-    const { user, accounts, recentPosts, postCounts } = await apiJson(`/api/admin/users/${id}`);
+    const { user, accounts, recentPosts, postCounts, apiToken } = await apiJson(`/api/admin/users/${id}`);
+    renderAccountActions(user, apiToken);
     document.getElementById('customer-title').textContent = user.email;
     const counts = Object.entries(postCounts).map(([s, n]) => `${n} ${s}`).join(', ') || 'none';
     document.getElementById('customer-facts').innerHTML = [
@@ -104,6 +105,125 @@ async function showCustomer(id) {
     showToast(err.message);
   }
 }
+
+// Account and API token sections of the customer panel (routes/admin.js account actions).
+let currentUser = null;
+
+function renderAccountActions(user, apiToken) {
+  currentUser = user;
+  const status = [];
+  status.push(user.suspended_at ? `Suspended since ${day(user.suspended_at)}: can't sign in, nothing of theirs publishes.` : 'Active.');
+  status.push(user.email_verified_at ? 'Email verified.' : 'Email not verified yet.');
+  document.getElementById('customer-account-status').textContent = status.join(' ');
+  document.getElementById('customer-resend-verification').hidden = Boolean(user.email_verified_at);
+  document.getElementById('customer-mark-verified').hidden = Boolean(user.email_verified_at);
+  document.getElementById('customer-suspend').textContent = user.suspended_at ? 'Unsuspend' : 'Suspend';
+  document.getElementById('customer-reset-created').hidden = true;
+
+  document.getElementById('customer-token-status').textContent = apiToken
+    ? `Has an API token, created ${day(apiToken.created_at)}, last used ${apiToken.last_used_at ? when(apiToken.last_used_at) : 'never'}. Revoke it if it may have leaked; they can make a new one in Settings.`
+    : 'No API token.';
+  document.getElementById('customer-token-revoke').hidden = !apiToken;
+}
+
+// Runs an account action, then reloads the panel (or, for a deletion, closes it).
+async function accountAction({ confirm, confirmText, request, success, after }) {
+  if (!currentUser) return;
+  if (confirm && !(await confirmDialog(confirm, { confirmText }))) return;
+  try {
+    const result = await apiJson(`/api/admin/users/${currentUser.id}${request.path}`, {
+      method: request.method,
+      headers: { 'Content-Type': 'application/json' },
+      body: request.body ? JSON.stringify(request.body) : undefined,
+    });
+    if (success) showToast(typeof success === 'function' ? success(result) : success, 'success');
+    if (after) after(result);
+    else showCustomer(currentUser.id);
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
+document.getElementById('customer-reset-link').addEventListener('click', () =>
+  accountAction({
+    request: { path: '/password-reset-link', method: 'POST' },
+    after: ({ url }) => {
+      const input = document.getElementById('customer-reset-url');
+      input.value = url;
+      document.getElementById('customer-reset-created').hidden = false;
+      input.select();
+    },
+  })
+);
+
+document.getElementById('customer-reset-copy').addEventListener('click', () => {
+  const input = document.getElementById('customer-reset-url');
+  navigator.clipboard
+    .writeText(input.value)
+    .then(() => showToast('Link copied.', 'success'))
+    .catch(() => {
+      input.select();
+      showToast('Select the link and copy it with Ctrl+C.', 'warning');
+    });
+});
+
+document.getElementById('customer-resend-verification').addEventListener('click', () =>
+  accountAction({
+    request: { path: '/verification-email', method: 'POST' },
+    success: ({ emailConfigured }) =>
+      emailConfigured
+        ? `Verification email sent to ${currentUser.email}.`
+        : "Email isn't set up on this server, so it was only logged. Use Mark email verified instead.",
+  })
+);
+
+document.getElementById('customer-mark-verified').addEventListener('click', () =>
+  accountAction({
+    confirm: `Mark ${currentUser?.email}'s email as verified without them clicking a link?`,
+    confirmText: 'Mark verified',
+    request: { path: '/verify-email', method: 'POST' },
+    success: 'Email marked as verified.',
+  })
+);
+
+document.getElementById('customer-suspend').addEventListener('click', () => {
+  const suspend = !currentUser?.suspended_at;
+  accountAction({
+    confirm: suspend
+      ? `Suspend ${currentUser.email}? They're signed out at once, can't sign in or use their API token, and their scheduled posts fail instead of publishing. Nothing is deleted.`
+      : `Unsuspend ${currentUser.email}? They can sign in again; posts that failed while suspended stay failed until retried.`,
+    confirmText: suspend ? 'Suspend' : 'Unsuspend',
+    request: { path: '/suspend', method: 'POST', body: { suspended: suspend } },
+    success: suspend ? 'Account suspended.' : 'Account unsuspended.',
+  });
+});
+
+document.getElementById('customer-delete').addEventListener('click', () =>
+  accountAction({
+    confirm: `Delete ${currentUser?.email} permanently? Their connected accounts, posts and media go too${
+      currentUser?.stripe_customer_id ? ', and their Stripe subscription is cancelled' : ''
+    }. This can't be undone.`,
+    confirmText: 'Delete account',
+    request: { path: '', method: 'DELETE' },
+    success: 'Account deleted.',
+    after: () => {
+      document.getElementById('customer-detail').hidden = true;
+      currentUserId = null;
+      currentUser = null;
+      const q = document.getElementById('customer-q').value.trim();
+      search(q);
+    },
+  })
+);
+
+document.getElementById('customer-token-revoke').addEventListener('click', () =>
+  accountAction({
+    confirm: `Revoke ${currentUser?.email}'s API token? Anything using it (scripts, AI agents) stops working until they make a new one.`,
+    confirmText: 'Revoke',
+    request: { path: '/api-token', method: 'DELETE' },
+    success: 'API token revoked.',
+  })
+);
 
 async function toggleAdmin() {
   if (!currentUserId) return;

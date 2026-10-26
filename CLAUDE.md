@@ -258,7 +258,12 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   is made admin on `pro`/`active` by a trigger, migration 028, which tests/setup.js disables for the suite; plus
   the Sign-ups section: open / invite-only / closed and one-time 14-day invite links, `lib/signups.js` +
   migration 029 — both account-creating paths, POST /api/users and a first Google sign-in, go through
-  `signupGate()` + `createUserThroughGate()`, and the first account on an empty instance is always allowed),
+  `signupGate()` + `createUserThroughGate()`, and the first account on an empty instance is always allowed; and per
+  customer: password-reset link to hand over, resend/mark email verification, suspend (`users.suspended_at`,
+  migration 030 — enforced in lib/passport.js login + deserializeUser, Bearer auth, Google sign-in and scheduler.js),
+  delete (lib/accounts.js `deleteUserAccount()`, shared with the user's own delete-account), revoke API token. Admins
+  can't suspend/delete themselves or another admin. Overview also has Backups (list, back up now, download, restore
+  steps) and Email (`sendTestMail()` in lib/mailer.js — add new mailer exports to tests/setup.js's mock too),
   `/admin/platforms` (switch each built platform on/off — `platform_settings`, migration 027, loaded into
   lib/platforms.js by `lib/platformSettings.js`; a platform with no saved switch uses the registry default,
   i.e. on unless `unlisted`), and `/admin/activity` (logs + Billing). Off means: dropped from

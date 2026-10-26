@@ -14,7 +14,7 @@ async function authenticateBearerToken(req) {
             users.stripe_customer_id, users.plan, users.plan_status, users.plan_renews_at, users.plan_cancels_at
      FROM api_tokens
      JOIN users ON users.id = api_tokens.user_id
-     WHERE api_tokens.token_hash = $1`,
+     WHERE api_tokens.token_hash = $1 AND users.suspended_at IS NULL`,
     [tokenHash]
   );
   if (result.rows.length === 0) return null;

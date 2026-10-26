@@ -606,3 +606,182 @@ describe('platform setup on a new server', () => {
     expect(livePlatforms().map((p) => p.id)).toContain('youtube');
   });
 });
+
+describe('admin account actions', () => {
+  // An admin, plus a customer (logged in, with a session of their own) to act on.
+  async function adminAndCustomer(tag) {
+    const adminEmail = `admin-${tag}@example.com`;
+    const admin = await signupAndLogin(adminEmail);
+    await makeAdmin(adminEmail);
+    const customerEmail = `cust-${tag}@example.com`;
+    const customer = await signupAndLogin(customerEmail);
+    const { rows } = await pool.query('SELECT id FROM users WHERE email = $1', [customerEmail]);
+    return { admin, customer, customerEmail, customerId: Number(rows[0].id) };
+  }
+
+  it('makes a one-time password reset link that works for the customer', async () => {
+    const { admin, customerEmail, customerId } = await adminAndCustomer('reset');
+    const res = await admin.post(`/api/admin/users/${customerId}/password-reset-link`);
+    expect(res.status).toBe(201);
+    expect(res.body.url.startsWith(`${process.env.BASE_URL}/reset-password?token=`)).toBe(true);
+    const token = new URL(res.body.url).searchParams.get('token');
+
+    const reset = await request(app).post('/api/auth/reset-password').send({ token, password: 'brand-new-pass' });
+    expect(reset.status).toBeLessThan(300);
+    const login = await request(app).post('/api/auth/login').send({ email: customerEmail, password: 'brand-new-pass' });
+    expect(login.status).toBe(200);
+    // Single use.
+    expect((await request(app).post('/api/auth/reset-password').send({ token, password: 'another-pass' })).status).toBe(400);
+  });
+
+  it('resends the verification email, or marks the email verified', async () => {
+    const { sendMail } = await import('../lib/mailer.js');
+    const { admin, customerEmail, customerId } = await adminAndCustomer('verify');
+    sendMail.mockClear();
+
+    const resend = await admin.post(`/api/admin/users/${customerId}/verification-email`);
+    expect(resend.status).toBe(200);
+    expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ to: customerEmail }));
+
+    const marked = await admin.post(`/api/admin/users/${customerId}/verify-email`);
+    expect(marked.body.email_verified_at).toBeTruthy();
+    expect((await admin.post(`/api/admin/users/${customerId}/verification-email`)).status).toBe(409);
+  });
+
+  it('suspends an account: no sign-in, no session, no API token, no publishing; unsuspend restores it', async () => {
+    const { admin, customer, customerEmail, customerId } = await adminAndCustomer('suspend');
+    const { body: tokenBody } = await customer.post('/api/auth/api-token');
+    const bearer = { Authorization: `Bearer ${tokenBody.token}` };
+    const { rows: acc } = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, metadata)
+       VALUES ($1, 'mastodon', '@s@example.social', 'ext-s', 'tok', '{"instance":"example.social"}') RETURNING id`,
+      [customerId]
+    );
+    const { rows: post } = await pool.query(
+      `INSERT INTO posts (user_id, social_account_id, content, status, scheduled_for)
+       VALUES ($1, $2, 'queued', 'scheduled', now() - interval '1 minute') RETURNING id`,
+      [customerId, acc[0].id]
+    );
+
+    const res = await admin.post(`/api/admin/users/${customerId}/suspend`).send({ suspended: true });
+    expect(res.body.suspended_at).toBeTruthy();
+
+    expect((await customer.get('/api/auth/me')).status).toBe(401);
+    const login = await request(app).post('/api/auth/login').send({ email: customerEmail, password: 'password123' });
+    expect(login.status).toBe(401);
+    expect(login.body.error).toMatch(/suspended/);
+    expect((await request(app).get('/api/v1/posts').set(bearer)).status).toBe(401);
+
+    const { processDuePosts } = await import('../scheduler.js');
+    await processDuePosts();
+    const { rows: after } = await pool.query('SELECT status, error_message FROM posts WHERE id = $1', [post[0].id]);
+    expect(after[0]).toMatchObject({ status: 'failed' });
+    expect(after[0].error_message).toMatch(/suspended/);
+
+    await admin.post(`/api/admin/users/${customerId}/suspend`).send({ suspended: false });
+    expect((await request(app).get('/api/v1/posts').set(bearer)).status).toBe(200);
+    const again = await request(app).post('/api/auth/login').send({ email: customerEmail, password: 'password123' });
+    expect(again.status).toBe(200);
+  });
+
+  it('deletes an account and everything in it', async () => {
+    const { admin, customer, customerId } = await adminAndCustomer('delete');
+    const res = await admin.delete(`/api/admin/users/${customerId}`);
+    expect(res.status).toBe(204);
+    const { rows } = await pool.query('SELECT 1 FROM users WHERE id = $1', [customerId]);
+    expect(rows).toHaveLength(0);
+    expect((await customer.get('/api/auth/me')).status).toBe(401);
+    expect((await admin.delete(`/api/admin/users/${customerId}`)).status).toBe(404);
+  });
+
+  it("won't suspend or delete yourself or another admin", async () => {
+    const { admin, customerId } = await adminAndCustomer('guard');
+    const { rows: me } = await pool.query("SELECT id FROM users WHERE email = 'admin-guard@example.com'");
+    expect((await admin.post(`/api/admin/users/${me[0].id}/suspend`).send({ suspended: true })).status).toBe(409);
+    expect((await admin.delete(`/api/admin/users/${me[0].id}`)).status).toBe(409);
+
+    await pool.query('UPDATE users SET is_admin = true WHERE id = $1', [customerId]);
+    const res = await admin.post(`/api/admin/users/${customerId}/suspend`).send({ suspended: true });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('is_admin');
+    expect((await admin.delete(`/api/admin/users/${customerId}`)).status).toBe(409);
+  });
+
+  it("revokes a customer's API token and shows it in their details", async () => {
+    const { admin, customer, customerId } = await adminAndCustomer('token');
+    const { body } = await customer.post('/api/auth/api-token');
+    expect((await admin.get(`/api/admin/users/${customerId}`)).body.apiToken).toMatchObject({ last_used_at: null });
+
+    expect((await admin.delete(`/api/admin/users/${customerId}/api-token`)).status).toBe(204);
+    expect((await request(app).get('/api/v1/posts').set({ Authorization: `Bearer ${body.token}` })).status).toBe(401);
+    expect((await admin.get(`/api/admin/users/${customerId}`)).body.apiToken).toBeNull();
+    expect((await admin.delete(`/api/admin/users/${customerId}/api-token`)).status).toBe(404);
+  });
+
+  it('is admin-only', async () => {
+    const { customer, customerId } = await adminAndCustomer('only');
+    expect((await customer.post(`/api/admin/users/${customerId}/password-reset-link`)).status).toBe(404);
+    expect((await customer.post(`/api/admin/users/${customerId}/suspend`).send({ suspended: true })).status).toBe(404);
+    expect((await customer.delete(`/api/admin/users/${customerId}`)).status).toBe(404);
+    expect((await customer.post('/api/admin/email/test').send({})).status).toBe(404);
+    expect((await customer.get('/api/admin/backups')).status).toBe(404);
+  });
+});
+
+describe('admin email test', () => {
+  it("sends to the admin by default and reports the server's answer, or why it failed", async () => {
+    const { sendTestMail } = await import('../lib/mailer.js');
+    const email = 'admin-mailtest@example.com';
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+
+    const ok = await admin.post('/api/admin/email/test').send({});
+    expect(ok.body).toMatchObject({ ok: true, to: email, response: '250 OK (mocked)' });
+    expect((await admin.post('/api/admin/email/test').send({ to: 'other@example.com' })).body.to).toBe('other@example.com');
+
+    sendTestMail.mockRejectedValueOnce(new Error('550 domain not verified'));
+    const failed = await admin.post('/api/admin/email/test').send({});
+    expect(failed.status).toBe(502);
+    expect(failed.body.message).toBe('550 domain not verified');
+    expect((await admin.post('/api/admin/email/test').send({ to: 'not-an-email' })).status).toBe(400);
+  });
+});
+
+describe('admin backups', () => {
+  it('lists backups and downloads one, but nothing outside the backup folder', async () => {
+    const fs = await import('node:fs/promises');
+    const os = await import('node:os');
+    const path = await import('node:path');
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pf-backups-'));
+    process.env.BACKUP_DIR = dir;
+    try {
+      const email = 'admin-backups@example.com';
+      const admin = await signupAndLogin(email);
+      await makeAdmin(email);
+      await fs.writeFile(path.join(dir, 'postfalcon-2026-01-01.dump'), 'dump-bytes');
+      await fs.writeFile(path.join(dir, 'secret.txt'), 'not a backup');
+
+      const list = await admin.get('/api/admin/backups');
+      expect(list.body.backups.map((b) => b.name)).toEqual(['postfalcon-2026-01-01.dump']);
+      expect(list.body.dir).toBe(dir);
+
+      const download = await admin
+        .get('/api/admin/backups/postfalcon-2026-01-01.dump')
+        .buffer(true)
+        .parse((res, done) => {
+          let data = '';
+          res.on('data', (chunk) => (data += chunk));
+          res.on('end', () => done(null, data));
+        });
+      expect(download.status).toBe(200);
+      expect(download.headers['content-disposition']).toContain('postfalcon-2026-01-01.dump');
+      expect(download.body).toBe('dump-bytes');
+
+      expect((await admin.get('/api/admin/backups/secret.txt')).status).toBe(404);
+      expect((await admin.get('/api/admin/backups/..%2F..%2Fetc%2Fpasswd')).status).toBe(404);
+    } finally {
+      delete process.env.BACKUP_DIR;
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+});

@@ -35,6 +35,41 @@
       </section>
 
       <section class="admin-section">
+        <h2>Backups</h2>
+        <p class="hint" id="backups-note">Nightly at 03:30 (server time); the last 7 are kept.</p>
+        <div class="admin-filter-bar is-plain">
+          <button type="button" id="backup-now">Back up now</button>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>File</th><th class="nowrap">Taken</th><th class="nowrap">Size</th><th></th></tr></thead>
+            <tbody id="backup-rows"></tbody>
+          </table>
+        </div>
+        <details class="platform-setup">
+          <summary>How to restore a backup</summary>
+          <p>Download the file (or use it where it is, in <code id="backup-dir"></code>), stop the app, then run:</p>
+          <p><code>pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" &lt;file&gt;.dump</code></p>
+          <p>With Docker: <code>docker compose stop app</code>, then
+            <code>docker compose exec -T db pg_restore --clean --if-exists --no-owner -U postfalcon -d postfalcon &lt; &lt;file&gt;.dump</code>,
+            then <code>docker compose start app</code>. Everything since the backup was taken is replaced.</p>
+        </details>
+      </section>
+
+      <section class="admin-section">
+        <h2>Email</h2>
+        <p class="hint">Sends a real test message and shows what the mail server answered, so a wrong From address or unverified domain shows up here instead of as emails that never arrive.</p>
+        <form id="test-email-form" class="admin-filter-bar is-plain">
+          <div class="admin-filter-field">
+            <label for="test-email-to">Send to</label>
+            <input type="email" id="test-email-to" placeholder="your email" autocomplete="off">
+          </div>
+          <button type="submit">Send test email</button>
+        </form>
+        <p class="hint" id="test-email-result"></p>
+      </section>
+
+      <section class="admin-section">
         <h2>Publishing &mdash; last 24 hours</h2>
         <div class="admin-table-wrap">
           <table class="admin-table">

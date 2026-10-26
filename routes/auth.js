@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
-import path from 'node:path';
 import { z } from 'zod';
 import passport from '../lib/passport.js';
 import { pool } from '../db/pool.js';
@@ -11,10 +10,9 @@ import { authLimiter } from '../middleware/rateLimit.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendMail } from '../lib/mailer.js';
 import { createToken, consumeToken, hashToken } from '../lib/tokens.js';
-import { deleteMedia } from '../lib/storage.js';
 import { logAuthEvent } from '../lib/activityLog.js';
-import { billingConfigured, cancelRunningSubscriptions } from '../lib/billing.js';
 import { signupGate, createUserThroughGate } from '../lib/signups.js';
+import { deleteUserAccount, BillingUnavailableError } from '../lib/accounts.js';
 
 const router = Router();
 
@@ -130,11 +128,11 @@ router.get(
     // Match an existing account by google_id first, then fall back to matching by email —
     // that links this Google sign-in to a pre-existing password account instead of creating a
     // duplicate — and only create a new row if neither matched.
-    let result = await pool.query('SELECT id, email FROM users WHERE google_id = $1', [googleId]);
+    let result = await pool.query('SELECT id, email, suspended_at FROM users WHERE google_id = $1', [googleId]);
     let isNewUser = false;
 
     if (result.rows.length === 0) {
-      const byEmail = await pool.query('SELECT id, email, google_id FROM users WHERE email = $1', [email]);
+      const byEmail = await pool.query('SELECT id, email, google_id, suspended_at FROM users WHERE email = $1', [email]);
       if (byEmail.rows.length > 0) {
         if (!byEmail.rows[0].google_id) {
           await pool.query('UPDATE users SET google_id = $1 WHERE id = $2', [googleId, byEmail.rows[0].id]);
@@ -162,6 +160,9 @@ router.get(
     }
 
     const user = result.rows[0];
+    if (user.suspended_at) {
+      return res.status(403).send('This account is suspended. Contact the site admin.');
+    }
 
     req.login({ id: user.id, email: user.email }, async (err) => {
       if (err) {
@@ -340,37 +341,25 @@ router.post(
       return res.status(401).json({ error: 'password is incorrect' });
     }
 
-    // Stop billing before the account (and with it the only link to the Stripe customer) is
-    // gone. If Stripe can't be reached, keep the account rather than risk charging someone
-    // who no longer has one; they can simply try again.
-    const customerId = (await pool.query('SELECT stripe_customer_id FROM users WHERE id = $1', [req.user.id])).rows[0]
-      ?.stripe_customer_id;
-    if (customerId && billingConfigured()) {
-      try {
-        await cancelRunningSubscriptions(customerId);
-      } catch (err) {
-        req.log.error({ err, customerId }, 'could not cancel subscriptions before account deletion');
-        return res.status(503).json({
-          error: 'billing_unavailable',
-          message: "We couldn't cancel your subscription just now, so your account wasn't deleted. Please try again in a few minutes.",
-        });
-      }
+    // Stops billing first, and keeps the account if Stripe can't be reached (lib/accounts.js).
+    let email;
+    try {
+      email = await deleteUserAccount(req.user.id, {
+        log: req.log,
+        // Logged before the DELETE: user_id has a real FK to users, so the event row must be
+        // inserted while the account still exists (it's kept afterwards via ON DELETE SET NULL).
+        beforeDelete: (deletedEmail) =>
+          logAuthEvent(req, 'account_deleted', { userId: req.user.id, email: deletedEmail }).catch((logErr) =>
+            req.log.error({ err: logErr }, 'failed to record auth event')
+          ),
+      });
+    } catch (err) {
+      if (!(err instanceof BillingUnavailableError)) throw err;
+      return res.status(503).json({
+        error: 'billing_unavailable',
+        message: "We couldn't cancel your subscription just now, so your account wasn't deleted. Please try again in a few minutes.",
+      });
     }
-
-    const mediaRows = await pool.query(
-      `SELECT pm.url FROM post_media pm JOIN posts p ON p.id = pm.post_id WHERE p.user_id = $1`,
-      [req.user.id]
-    );
-    const email = req.user.email;
-    // Logged before the DELETE: user_id has a real FK to users, so the event row must be
-    // inserted while the account still exists (it's kept afterwards via ON DELETE SET NULL).
-    await logAuthEvent(req, 'account_deleted', { userId: req.user.id, email }).catch((logErr) =>
-      req.log.error({ err: logErr }, 'failed to record auth event')
-    );
-    await pool.query('DELETE FROM users WHERE id = $1', [req.user.id]);
-    await Promise.all(
-      mediaRows.rows.map((row) => deleteMedia(path.basename(row.url)))
-    );
 
     await sendMail({
       to: email,

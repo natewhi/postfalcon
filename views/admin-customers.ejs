@@ -79,6 +79,33 @@
       <h2 id="customer-title"></h2>
       <dl class="admin-facts" id="customer-facts"></dl>
 
+      <div class="admin-group">
+        <h3 class="admin-subhead">Account</h3>
+        <p class="hint" id="customer-account-status"></p>
+        <div class="admin-filter-bar is-plain">
+          <button type="button" id="customer-reset-link" class="btn-secondary">Password reset link</button>
+          <button type="button" id="customer-resend-verification" class="btn-secondary">Resend verification email</button>
+          <button type="button" id="customer-mark-verified" class="btn-secondary">Mark email verified</button>
+          <button type="button" id="customer-suspend" class="btn-secondary"></button>
+          <button type="button" id="customer-delete" class="delete-btn">Delete account</button>
+        </div>
+        <div id="customer-reset-created" class="admin-filter-bar" hidden>
+          <div class="admin-filter-field is-wide">
+            <label for="customer-reset-url">Password reset link &mdash; works once, for 24 hours. Send it to them yourself.</label>
+            <input type="text" id="customer-reset-url" readonly>
+          </div>
+          <button type="button" id="customer-reset-copy">Copy</button>
+        </div>
+      </div>
+
+      <div class="admin-group">
+        <h3 class="admin-subhead">API token</h3>
+        <p class="hint" id="customer-token-status"></p>
+        <div class="admin-filter-bar is-plain">
+          <button type="button" id="customer-token-revoke" class="btn-secondary">Revoke API token</button>
+        </div>
+      </div>
+
       <%# Self-hosted mode has no plans to give: every account already has full access. %>
       <% if (billingEnabled) { %>
       <div class="admin-group">
