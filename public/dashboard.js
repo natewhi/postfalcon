@@ -123,6 +123,28 @@ function readablePostError(message) {
   return message.length > 300 ? `${message.slice(0, 300)}…` : message;
 }
 
+// Dismissing the banner remembers the newest failure it was showing; it stays hidden until a
+// post fails after that. The failed posts themselves are untouched (Failed filter on the calendar).
+const FAILED_BANNER_DISMISSED_KEY = 'postfalcon-failed-banner-dismissed';
+let latestFailedAt = null;
+
+function failedBannerDismissedAt() {
+  try {
+    return localStorage.getItem(FAILED_BANNER_DISMISSED_KEY);
+  } catch {
+    return null;
+  }
+}
+
+document.getElementById('failed-posts-dismiss').addEventListener('click', () => {
+  document.getElementById('failed-posts-banner').hidden = true;
+  try {
+    if (latestFailedAt) localStorage.setItem(FAILED_BANNER_DISMISSED_KEY, latestFailedAt);
+  } catch {
+    // storage unavailable: dismissed for this page view only
+  }
+});
+
 async function loadFailedBanner() {
   const banner = document.getElementById('failed-posts-banner');
   try {
@@ -130,6 +152,12 @@ async function loadFailedBanner() {
     if (failed.length > 0) {
       // Say why, not just how many: the most recent failure's reason, straight from the platform.
       const latest = failed.reduce((a, b) => (new Date(b.updated_at) > new Date(a.updated_at) ? b : a));
+      latestFailedAt = latest.updated_at;
+      const dismissedAt = failedBannerDismissedAt();
+      if (dismissedAt && new Date(latest.updated_at) <= new Date(dismissedAt)) {
+        banner.hidden = true;
+        return;
+      }
       const reason = `${latest.account_display_name || accountNameFor(latest)}: ${readablePostError(latest.error_message)}`;
       document.getElementById('failed-posts-message').textContent =
         failed.length === 1
