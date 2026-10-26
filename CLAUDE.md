@@ -2,8 +2,9 @@
 
 Social media post scheduler. Node.js/Express backend, Postgres, EJS server-rendered views, vanilla JS on the
 frontend (no framework, no bundler). Users connect social accounts (live: Mastodon, Bluesky, Facebook, Instagram,
-Threads, Telegram, YouTube, TikTok, Pinterest; built but `unlisted` — not offered anywhere yet: LinkedIn (until a
-LinkedIn developer app exists) and X under the id `x` (`lib/platforms/x.js` + `routes/x.js`, OAuth 2.0 PKCE, text +
+Threads, Telegram, YouTube, TikTok, Pinterest, LinkedIn — LinkedIn is still `unlisted` in the registry, i.e. off by
+default, and was switched on in prod from Admin → Platforms once its developer app existed; built but `unlisted` and
+not offered anywhere yet: X under the id `x` (`lib/platforms/x.js` + `routes/x.js`, OAuth 2.0 PKCE, text +
 up to 4 images; unlisted until there's an X app on a paid API plan, since X charges for posting). The old `twitter`
 id is a separate never-offered placeholder the test suite uses as its generic stub — don't repurpose it. Hidden stubs,
 no adapter yet: Reddit, Google Business Profile — see `lib/platforms.js`). Deliberately out of scope: messaging apps
