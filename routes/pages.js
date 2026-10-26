@@ -3,7 +3,7 @@ import { requirePageAuth, requireAdmin } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { logPageVisit } from '../lib/activityLog.js';
 import { connectablePlatforms, livePlatforms, PLATFORM_IDS, isPlatformEnabled } from '../lib/platforms.js';
-import { PLANS, isEntitled } from '../lib/billing.js';
+import { PLANS, isEntitled, selfHosted } from '../lib/billing.js';
 import { listPosts, isBlogEnabled } from '../lib/blog.js';
 
 const router = Router();
@@ -75,6 +75,9 @@ router.get('/terms', (req, res) => {
 });
 
 router.get('/pricing', (req, res) => {
+  // Self-hosted mode: no plans to pick, so every "Start free trial" path (including signup's
+  // hand-off to /pricing?start=) lands on the app or on signup instead.
+  if (selfHosted()) return res.redirect(req.isAuthenticated() ? '/dashboard' : '/signup');
   // Only treat a plan as "current" while the user is actually subscribed. Having a Stripe
   // customer isn't enough: one is created as soon as someone clicks "Start trial", so an
   // abandoned Checkout leaves a customer, the `standard` default and no subscription, and

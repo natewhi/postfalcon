@@ -65,7 +65,8 @@ async function showCustomer(id) {
       fact('Posts', escapeHtml(counts)),
     ].join('');
 
-    document.getElementById('customer-access-note').textContent = user.stripe_customer_id
+    const accessNote = document.getElementById('customer-access-note');
+    if (accessNote) accessNote.textContent = user.stripe_customer_id
       ? 'If this customer has a Stripe subscription, change their plan in Stripe instead — these buttons are refused for them.'
       : 'For review and test logins: gives the chosen plan without a Stripe subscription, or removes it.';
 
@@ -162,8 +163,8 @@ document.getElementById('customer-results').addEventListener('click', (e) => {
   if (row) showCustomer(Number(row.dataset.userId));
 });
 
-document.getElementById('customer-grant').addEventListener('click', () => setAccess(true));
-document.getElementById('customer-revoke').addEventListener('click', () => setAccess(false));
+document.getElementById('customer-grant')?.addEventListener('click', () => setAccess(true));
+document.getElementById('customer-revoke')?.addEventListener('click', () => setAccess(false));
 document.getElementById('customer-admin-toggle').addEventListener('click', toggleAdmin);
 
 search('');

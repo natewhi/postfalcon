@@ -12,7 +12,7 @@
 <%- include('partials/site-header') %>
 <main class="auth-card">
   <div class="auth-card-head">
-    <h1>Start your free trial</h1>
+    <h1><%= billingEnabled ? 'Start your free trial' : 'Create your account' %></h1>
     <p class="auth-sub">7 days free on every plan. You'll pick a plan and add a card next.</p>
   </div>
   <a href="/api/auth/google" id="google-signup-link" class="btn-google">Continue with Google</a>

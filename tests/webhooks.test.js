@@ -19,11 +19,22 @@ describe('webhooks API', () => {
     expect(res.status).toBe(401);
   });
 
-  it('is gated to plans with the webhooks capability', async () => {
+  it('is gated to plans with the webhooks capability when billing is on', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
+    try {
+      const { client } = await loginNewUser('standard');
+      const res = await client.get('/api/v1/webhooks');
+      expect(res.status).toBe(402);
+      expect(res.body.error).toBe('plan_capability');
+    } finally {
+      delete process.env.STRIPE_SECRET_KEY;
+    }
+  });
+
+  it('is open to every account when self-hosted (no Stripe key)', async () => {
     const { client } = await loginNewUser('standard');
     const res = await client.get('/api/v1/webhooks');
-    expect(res.status).toBe(402);
-    expect(res.body.error).toBe('plan_capability');
+    expect(res.status).toBe(200);
   });
 
   it('lets a Team-plan user register, list, and delete a webhook', async () => {

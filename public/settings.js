@@ -100,6 +100,12 @@ async function loadPlan() {
   const manageBtn = document.getElementById('manage-billing-btn');
   try {
     const s = await apiJson('/api/billing/status');
+    if (!s.billingConfigured) {
+      summary.textContent = 'Self-hosted — no limits on connected accounts or scheduled posts.';
+      document.getElementById('webhooks-section').hidden = false;
+      loadWebhooks();
+      return;
+    }
     const accountsLimit = s.limits.accounts === null ? 'unlimited' : s.limits.accounts;
     const postsLimit = s.limits.scheduledPosts === null ? 'unlimited' : s.limits.scheduledPosts;
     let line = `${s.planName} plan — ${s.usage.accounts}/${accountsLimit} connected accounts, ${s.usage.scheduledPosts}/${postsLimit} scheduled posts.`;

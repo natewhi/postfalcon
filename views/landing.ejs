@@ -37,7 +37,11 @@
           on time.
         </p>
         <div class="home-hero-actions">
-          <a href="/pricing" class="home-btn home-btn-primary">Start free trial</a>
+          <% if (billingEnabled) { %>
+            <a href="/pricing" class="home-btn home-btn-primary">Start free trial</a>
+          <% } else { %>
+            <a href="/signup" class="home-btn home-btn-primary">Get started</a>
+          <% } %>
           <a href="#analytics-demo" class="home-textlink">See your analytics &rarr;</a>
         </div>
 
@@ -243,6 +247,7 @@
             Every connected account lives on one calendar &mdash; drag to reschedule, filter by
             status, and see what failed without digging through five different apps.
           </p>
+          <% if (billingEnabled) { %>
           <p>
             It&rsquo;s open source, so you get a real choice: <a href="/pricing">start a hosted
             trial</a> and we run it for you, no server required &mdash; or self-host it, like
@@ -250,6 +255,13 @@
             tokens live in your database, not a third party&rsquo;s, and the scheduler keeps
             posting on time whether or not you&rsquo;re logged in.
           </p>
+          <% } else { %>
+          <p>
+            It&rsquo;s open source and running on this server, so your access tokens live in this
+            server&rsquo;s database, not a third party&rsquo;s, and the scheduler keeps posting on
+            time whether or not you&rsquo;re logged in.
+          </p>
+          <% } %>
         </div>
       </div>
     </section>
@@ -300,6 +312,7 @@
       </div>
     </section>
 
+    <% if (billingEnabled) { %>
     <section class="home-section home-pricing-teaser">
       <h2 class="home-h2">Simple <span class="underline-mark">pricing.<svg class="underline-mark-line" viewBox="0 0 320 22" preserveAspectRatio="none" aria-hidden="true"><path d="M5 14C70 5 150 5 210 10s70 6 105 1" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/></svg></span></h2>
       <p class="home-hero-lead">Every plan starts with a 7-day free trial. Cancel anytime.</p>
@@ -311,6 +324,7 @@
         MCP server for AI agents. Change plan or cancel anytime from the billing portal.
       </p>
     </section>
+    <% } %>
 
     <section class="home-section home-faq">
       <div class="home-band">
@@ -325,10 +339,12 @@
             <summary>Is my data safe?</summary>
             <p>Postfalcon is open source and runs on your own server. Access tokens live in your database, not ours, and no third party sits in the middle.</p>
           </details>
+          <% if (billingEnabled) { %>
           <details>
             <summary>Is there a free trial?</summary>
             <p>Yes &mdash; every plan starts with a 7-day free trial. You can also run Postfalcon yourself: it&rsquo;s open source.</p>
           </details>
+          <% } %>
           <details>
             <summary>Can an AI agent run it?</summary>
             <p>Yes &mdash; any of them. There&rsquo;s a documented REST API and an MCP server reachable both as a local command (Claude Desktop, Cursor) and a remote URL (ChatGPT, Claude.ai, or anything else that speaks MCP).</p>
@@ -343,13 +359,17 @@
 
     <section class="home-final">
       <h2>Your next week of posts, done before lunch.</h2>
-      <a href="/pricing" class="home-btn home-btn-primary home-btn-lg">Start your free trial</a>
+      <% if (billingEnabled) { %>
+        <a href="/pricing" class="home-btn home-btn-primary home-btn-lg">Start your free trial</a>
+      <% } else { %>
+        <a href="/signup" class="home-btn home-btn-primary home-btn-lg">Get started</a>
+      <% } %>
     </section>
   </main>
 
   <footer class="landing-footer">
     <span>&copy; <%= new Date().getFullYear() %> Postfalcon<% if (operatorName) { %> &middot; operated by <%= operatorName %><% if (operatorAbn) { %> (ABN <%= operatorAbn %>)<% } %><% } %></span>
-    <a href="/pricing">Pricing</a>
+    <% if (billingEnabled) { %><a href="/pricing">Pricing</a><% } %>
     <% if (blogEnabled) { %><a href="/blog">Blog</a><% } %>
     <a href="/api-docs">API docs</a>
     <a href="/privacy">Privacy</a>

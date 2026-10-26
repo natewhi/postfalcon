@@ -37,6 +37,7 @@ import { ensurePlatformSettingsLoaded } from './lib/platformSettings.js';
 import pagesRouter from './routes/pages.js';
 import blogRouter from './routes/blog.js';
 import { isBlogEnabled } from './lib/blog.js';
+import { billingConfigured } from './lib/billing.js';
 import analyticsRouter from './routes/analytics.js';
 import adminRouter from './routes/admin.js';
 import billingRouter from './routes/billing.js';
@@ -159,6 +160,8 @@ app.use(passport.session());
 // /admin/* and /api/admin/* enforce requireAdmin themselves (404 for everyone else).
 app.use((req, res, next) => {
   res.locals.isAdmin = Boolean(req.user?.is_admin);
+  // False in self-hosted mode (no Stripe key): views drop pricing, trial and billing UI.
+  res.locals.billingEnabled = billingConfigured();
   next();
 });
 app.use(cookieParser());

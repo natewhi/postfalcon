@@ -40,7 +40,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
 
     // Log the new user straight in so they can pick a plan and add a card without a
     // second form. If that fails for any reason, fall back to the login page.
-    button.textContent = 'Starting your trial…';
+    button.textContent = 'Creating your account…';
     const loginRes = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': await getCsrfToken() },

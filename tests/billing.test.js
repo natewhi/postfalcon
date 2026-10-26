@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import app from '../app.js';
 import { pool } from '../db/pool.js';
@@ -574,3 +574,60 @@ describe('checkout terms agreement', () => {
     expect(stripeMock.checkout.sessions.create.mock.calls.at(-1)[0].consent_collection).toBeUndefined();
   });
 });
+
+// No STRIPE_SECRET_KEY = self-hosted: nothing to buy, every account entitled with no caps.
+describe('self-hosted mode (no Stripe key)', () => {
+  let savedKey;
+  beforeAll(() => {
+    savedKey = process.env.STRIPE_SECRET_KEY;
+    delete process.env.STRIPE_SECRET_KEY;
+  });
+  afterAll(() => {
+    process.env.STRIPE_SECRET_KEY = savedKey;
+  });
+
+  it('reports a self-hosted plan with no limits and every capability', async () => {
+    const { client } = await loginNewUser();
+    const res = await client.get('/api/billing/status');
+    expect(res.body).toMatchObject({
+      planName: 'Self-hosted',
+      billingConfigured: false,
+      limits: { accounts: null, scheduledPosts: null },
+      capabilities: { api: true, crossPosting: true, repeatedPosts: true, webhooks: true, prioritySupport: true },
+    });
+  });
+
+  it('lets an account that never went through Checkout connect past the Standard channel cap', async () => {
+    const { client, userId } = await loginNewUser();
+    await pool.query("UPDATE users SET plan = 'standard', plan_status = 'incomplete' WHERE id = $1", [userId]);
+    for (let i = 0; i < 6; i++) {
+      expect((await addAccount(client, `@sh${i}`)).status).toBe(201);
+    }
+  });
+
+  it('sends /pricing to signup (logged out) or the app (logged in)', async () => {
+    const out = await request(app).get('/pricing');
+    expect(out.status).toBe(302);
+    expect(out.headers.location).toBe('/signup');
+
+    const { client } = await loginNewUser();
+    const res = await client.get('/pricing?start=team');
+    expect(res.headers.location).toBe('/dashboard');
+  });
+
+  it('drops pricing and trial wording from the public pages', async () => {
+    const landing = await request(app).get('/');
+    expect(landing.text).not.toContain('href="/pricing"');
+    expect(landing.text).toContain('href="/signup"');
+    const signup = await request(app).get('/signup');
+    expect(signup.text).toContain('Create your account');
+    expect(signup.text).not.toContain('free trial');
+  });
+
+  it('still refuses Checkout', async () => {
+    const { client } = await loginNewUser();
+    const res = await client.post('/api/billing/checkout').send({ plan: 'team' });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+});
+

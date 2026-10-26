@@ -47,7 +47,7 @@
       <h2>Plan</h2>
       <p id="plan-summary" class="hint">Loading&hellip;</p>
       <div class="token-actions">
-        <a href="/pricing" class="btn-secondary">See plans</a>
+        <% if (billingEnabled) { %><a href="/pricing" class="btn-secondary">See plans</a><% } %>
         <button type="button" id="manage-billing-btn" hidden>Manage billing</button>
       </div>
     </section>

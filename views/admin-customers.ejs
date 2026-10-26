@@ -38,6 +38,8 @@
       <h2 id="customer-title"></h2>
       <dl class="admin-facts" id="customer-facts"></dl>
 
+      <%# Self-hosted mode has no plans to give: every account already has full access. %>
+      <% if (billingEnabled) { %>
       <h3 class="admin-subhead">Access</h3>
       <p class="hint" id="customer-access-note"></p>
       <div class="admin-filter-bar">
@@ -52,6 +54,7 @@
         <button type="button" id="customer-grant">Give free access</button>
         <button type="button" id="customer-revoke" class="btn-secondary">Remove access</button>
       </div>
+      <% } %>
 
       <h3 class="admin-subhead">Admin</h3>
       <p class="hint" id="customer-admin-note"></p>

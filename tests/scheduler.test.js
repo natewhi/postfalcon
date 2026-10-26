@@ -320,6 +320,22 @@ describe('scheduler', () => {
     expect(rows[0].error_message).toMatch(/Mastodon is temporarily unavailable/);
   });
 
+  it('publishes for a lapsed account when self-hosted (no Stripe key, nothing to subscribe to)', async () => {
+    const userId = await createUser('selfhost-lapsed@example.com');
+    await pool.query("UPDATE users SET plan_status = 'incomplete' WHERE id = $1", [userId]);
+    const accountId = await createMastodonAccount(userId);
+    const postId = await createScheduledPost(userId, accountId, 'self-hosted post');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ id: 'toot-sh', url: 'https://mastodon.example/@a/1' }))
+    );
+
+    await processDuePosts();
+
+    const { rows } = await pool.query('SELECT status FROM posts WHERE id = $1', [postId]);
+    expect(rows[0].status).toBe('posted');
+  });
+
   it("doesn't publish (or repeat) a post once its owner's subscription has ended", async () => {
     const userId = await createUser('lapsed@example.com');
     await pool.query("UPDATE users SET plan_status = 'canceled' WHERE id = $1", [userId]);
@@ -329,7 +345,12 @@ describe('scheduler', () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
-    await processDuePosts();
+    process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
+    try {
+      await processDuePosts();
+    } finally {
+      delete process.env.STRIPE_SECRET_KEY;
+    }
 
     expect(fetchMock).not.toHaveBeenCalled();
     const { rows } = await pool.query('SELECT status, error_message FROM posts WHERE user_id = $1', [userId]);

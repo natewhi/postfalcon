@@ -13,7 +13,11 @@ public feed to publish to. Users compose posts as drafts or schedule them, and a
 posts.
 A post can target several channels at once (cross-posting) and can recur (daily/weekly/monthly). There is no
 free tier: every account is on a paid plan (Standard / Team / Pro, Stripe) starting with a 7-day trial, and
-each plan carries `limits` (channel count) plus `capabilities` (webhooks, priority support, …). Team/Pro can
+each plan carries `limits` (channel count) plus `capabilities` (webhooks, priority support, …). With no
+`STRIPE_SECRET_KEY` the instance is in **self-hosted mode** (`selfHosted()` in lib/billing.js): every account is
+entitled, `planFor()` returns a no-limits/all-capabilities "Self-hosted" plan, `/pricing` redirects to signup or the
+app, and views hide pricing/trial/billing UI via `res.locals.billingEnabled`. The test suite has no Stripe key, so
+it runs self-hosted by default — a test of a billing lockout sets `STRIPE_SECRET_KEY` itself (see billing.test.js). Team/Pro can
 register outbound webhooks that fire on publish/failure. AI agents can also create/manage posts via an MCP
 server.
 

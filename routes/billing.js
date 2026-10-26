@@ -4,10 +4,10 @@ import { pool } from '../db/pool.js';
 import { validate } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import {
-  PLANS,
   PAID_PLAN_IDS,
   TRIAL_DAYS,
   limitsForPlan,
+  planFor,
   getStripe,
   billingConfigured,
   priceIdForPlan,
@@ -51,14 +51,14 @@ router.get(
     ]);
     res.json({
       plan: req.user.plan,
-      planName: PLANS[req.user.plan]?.name ?? req.user.plan,
+      planName: planFor(req.user.plan).name,
       planStatus: req.user.plan_status,
       renewsAt: req.user.plan_renews_at,
       // Set when the subscription was cancelled but runs to the end of the paid period.
       cancelsAt: req.user.plan_cancels_at,
       billingConfigured: billingConfigured(),
       hasBillingAccount: Boolean(req.user.stripe_customer_id),
-      capabilities: PLANS[req.user.plan]?.capabilities ?? {},
+      capabilities: planFor(req.user.plan).capabilities,
       limits: { accounts: limitOrNull(limits.accounts), scheduledPosts: limitOrNull(limits.scheduledPosts) },
       usage: { accounts: accountRows[0].n, scheduledPosts: postRows[0].n },
     });
