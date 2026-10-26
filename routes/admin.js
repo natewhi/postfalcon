@@ -337,7 +337,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid id' });
-    if (id === req.user.id && !req.body.admin) {
+    if (id === Number(req.user.id) && !req.body.admin) {
       return res.status(409).json({
         error: 'own_admin',
         message: "You can't remove your own admin rights. Ask another admin to do it.",
