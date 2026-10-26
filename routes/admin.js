@@ -22,7 +22,7 @@ import { envConfigured, smtpConfigured } from '../lib/config.js';
 import { createToken } from '../lib/tokens.js';
 import { sendMail, sendTestMail } from '../lib/mailer.js';
 import { deleteUserAccount, BillingUnavailableError } from '../lib/accounts.js';
-import { listLocalBackups, runBackup, backupDir } from '../lib/backup.js';
+import { listLocalBackups, runBackup, backupDir, deleteBackup } from '../lib/backup.js';
 import { s3Enabled } from '../lib/storage.js';
 import { listServerErrors } from '../lib/errorLog.js';
 import { checkAlerts, activeAlerts } from '../lib/alerts.js';
@@ -654,6 +654,16 @@ router.get(
     const backup = (await listLocalBackups()).find((b) => b.name === req.params.name);
     if (!backup) return res.status(404).json({ error: 'not found' });
     res.download(path.join(backupDir(), backup.name), backup.name);
+  })
+);
+
+router.delete(
+  '/backups/:name',
+  asyncHandler(async (req, res) => {
+    const result = await deleteBackup(req.params.name);
+    if (!result) return res.status(404).json({ error: 'not found' });
+    await logAdminAction(req, req.user.id, 'admin_backup_deleted', result);
+    res.json(result);
   })
 );
 

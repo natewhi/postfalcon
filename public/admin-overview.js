@@ -283,11 +283,14 @@ async function loadVersion() {
   }
 }
 
-// Backups: every kept file with a download link, and a backup on demand (routes/admin.js).
+// Backups: every kept file with download and delete, and a backup on demand (routes/admin.js).
+let backupCount = 0;
+
 async function loadBackups() {
   const body = document.getElementById('backup-rows');
   try {
     const { dir, copiedToBucket, backups } = await apiJson('/api/admin/backups');
+    backupCount = backups.length;
     document.getElementById('backup-dir').textContent = dir;
     document.getElementById('backups-note').textContent = `Nightly at 03:30 (server time); the last 7 are kept in ${dir}${
       copiedToBucket ? ' and copied to the bucket' : ' on this server only — set S3_BUCKET to keep copies off it too'
@@ -299,7 +302,9 @@ async function loadBackups() {
             ago(b.at)
           )})</td><td class="nowrap">${escapeHtml(bytes(b.bytes))}</td><td class="nowrap"><a href="/api/admin/backups/${encodeURIComponent(
             b.name
-          )}" download>Download</a></td></tr>`
+          )}" download>Download</a> <button type="button" class="btn-secondary" data-delete-backup="${escapeHtml(
+            b.name
+          )}">Delete</button></td></tr>`
       ),
       4,
       'No backups yet. Take one now.'
@@ -308,6 +313,24 @@ async function loadBackups() {
     body.innerHTML = `<tr><td colspan="4" class="empty">Couldn't list backups: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
+
+document.getElementById('backup-rows').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-delete-backup]');
+  if (!btn) return;
+  const name = btn.dataset.deleteBackup;
+  const warning =
+    backupCount <= 1
+      ? `Delete ${name}? It's your only backup: until the next one (tonight at 03:30, or Back up now) there's nothing to restore from.`
+      : `Delete ${name}? Its copy in the bucket goes too. This can't be undone.`;
+  if (!(await confirmDialog(warning, { confirmText: 'Delete backup' }))) return;
+  try {
+    await apiJson(`/api/admin/backups/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    showToast('Backup deleted.', 'success');
+    loadBackups();
+  } catch (err) {
+    showToast(err.message);
+  }
+});
 
 const backupBtn = document.getElementById('backup-now');
 backupBtn.addEventListener(

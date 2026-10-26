@@ -748,7 +748,7 @@ describe('admin email test', () => {
 });
 
 describe('admin backups', () => {
-  it('lists backups and downloads one, but nothing outside the backup folder', async () => {
+  it('lists, downloads and deletes backups, but nothing outside the backup folder', async () => {
     const fs = await import('node:fs/promises');
     const os = await import('node:os');
     const path = await import('node:path');
@@ -779,6 +779,18 @@ describe('admin backups', () => {
 
       expect((await admin.get('/api/admin/backups/secret.txt')).status).toBe(404);
       expect((await admin.get('/api/admin/backups/..%2F..%2Fetc%2Fpasswd')).status).toBe(404);
+
+      // Delete: only listed backups, and the file is really gone.
+      expect((await admin.delete('/api/admin/backups/secret.txt')).status).toBe(404);
+      expect((await admin.delete('/api/admin/backups/..%2Fsecret.txt')).status).toBe(404);
+      const deleted = await admin.delete('/api/admin/backups/postfalcon-2026-01-01.dump');
+      expect(deleted.status).toBe(200);
+      expect(deleted.body).toEqual({ name: 'postfalcon-2026-01-01.dump', bucketDeleted: false });
+      expect((await admin.get('/api/admin/backups')).body.backups).toEqual([]);
+      expect(await fs.readFile(path.join(dir, 'secret.txt'), 'utf8')).toBe('not a backup');
+
+      const other = await signupAndLogin('not-admin-backup-delete@example.com');
+      expect((await other.delete('/api/admin/backups/anything.dump')).status).toBe(404);
     } finally {
       delete process.env.BACKUP_DIR;
       await fs.rm(dir, { recursive: true, force: true });
