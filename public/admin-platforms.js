@@ -47,7 +47,12 @@ function setupDetails(p) {
   if (setup.env.length) {
     parts.push(
       `<p>In <code>.env</code>: ${setup.env
-        .map((v) => `<code>${escapeHtml(v.name)}</code> ${v.set ? '✓' : '<span class="admin-bad">not set</span>'}`)
+        .map(
+          (v) =>
+            `<code>${escapeHtml(v.name)}</code> ${
+              v.set ? '✓' : v.optional ? '<span class="hint">(optional)</span>' : '<span class="admin-bad">not set</span>'
+            }`
+        )
         .join(', ')}</p>`
     );
   }

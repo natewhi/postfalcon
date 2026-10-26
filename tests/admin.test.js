@@ -1076,3 +1076,67 @@ describe('admin failed posts across customers', () => {
     expect((await other.post('/api/admin/failed-posts/retry').send({ ids: [1] })).status).toBe(404);
   });
 });
+
+describe('safeguards', () => {
+  async function adminClient(email) {
+    const client = await signupAndLogin(email);
+    await makeAdmin(email);
+    return client;
+  }
+
+  it('flags a server that sells plans but lost its Stripe key, on Overview and by alert email', async () => {
+    const admin = await adminClient('admin-nokey@example.com');
+    await signupAndLogin('payer@example.com');
+    await pool.query("UPDATE users SET stripe_customer_id = 'cus_payer' WHERE email = 'payer@example.com'");
+
+    const { body } = await admin.get('/api/admin/overview');
+    const check = body.setup.checks.find((c) => c.title.startsWith('STRIPE_SECRET_KEY is missing'));
+    expect(check?.level).toBe('error');
+    expect(body.setup.checks.find((c) => c.title === 'Self-hosted mode: billing is off')).toBeUndefined();
+
+    const { checkAlerts } = await import('../lib/alerts.js');
+    expect((await checkAlerts()).raised).toContain('billing_key_missing');
+  });
+
+  it("won't make a password reset link for another admin or for yourself", async () => {
+    const admin = await adminClient('admin-resetguard@example.com');
+    await adminClient('other-admin@example.com');
+    const { rows } = await pool.query(
+      "SELECT id, email FROM users WHERE email IN ('admin-resetguard@example.com', 'other-admin@example.com')"
+    );
+    for (const row of rows) {
+      expect((await admin.post(`/api/admin/users/${row.id}/password-reset-link`)).status).toBe(409);
+    }
+  });
+
+  it('tells a customer when an admin deletes their account', async () => {
+    const { sendMail } = await import('../lib/mailer.js');
+    const admin = await adminClient('admin-notify@example.com');
+    await signupAndLogin('goner@example.com');
+    const { rows } = await pool.query("SELECT id FROM users WHERE email = 'goner@example.com'");
+    sendMail.mockClear();
+
+    expect((await admin.delete(`/api/admin/users/${rows[0].id}`)).status).toBe(204);
+    expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ to: 'goner@example.com', subject: 'Your Postfalcon account was deleted' }));
+  });
+
+  it("doesn't offer a platform with its id set but its secret missing", async () => {
+    const { livePlatforms, platformCredentialsReady } = await import('../lib/platforms.js');
+    const saved = process.env.PINTEREST_APP_SECRET;
+    delete process.env.PINTEREST_APP_SECRET;
+    try {
+      expect(platformCredentialsReady('pinterest')).toBe(false);
+      expect(livePlatforms().map((p) => p.id)).not.toContain('pinterest');
+    } finally {
+      process.env.PINTEREST_APP_SECRET = saved;
+    }
+    // FACEBOOK_CONFIG_ID is optional.
+    const savedConfig = process.env.FACEBOOK_CONFIG_ID;
+    delete process.env.FACEBOOK_CONFIG_ID;
+    try {
+      expect(platformCredentialsReady('facebook')).toBe(true);
+    } finally {
+      if (savedConfig !== undefined) process.env.FACEBOOK_CONFIG_ID = savedConfig;
+    }
+  });
+});

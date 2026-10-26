@@ -8,7 +8,15 @@ import { billingConfigured, selfHosted, PAID_PLAN_IDS, subscriptionsFor, hasRunn
 import { reconcileSubscriptions } from '../lib/billingSync.js';
 import { setupChecks, schedulerStatus, publishingHealth, businessMetrics, storageStatus } from '../lib/adminStatus.js';
 import { logProductEvent } from '../lib/activityLog.js';
-import { PLATFORMS, PLATFORM_IDS, PLATFORM_CREDENTIAL_ENV, PLATFORM_SETUP, isPlatformEnabled } from '../lib/platforms.js';
+import {
+  PLATFORMS,
+  PLATFORM_IDS,
+  PLATFORM_CREDENTIAL_ENV,
+  PLATFORM_SETUP,
+  OPTIONAL_PLATFORM_ENV,
+  isPlatformEnabled,
+  platformCredentialsReady,
+} from '../lib/platforms.js';
 import { savePlatformSetting, clearPlatformSetting } from '../lib/platformSettings.js';
 import { envConfigured, smtpConfigured } from '../lib/config.js';
 import { createToken } from '../lib/tokens.js';
@@ -219,8 +227,6 @@ router.get(
   })
 );
 
-// Every platform with its on/off state, whether its app credentials are set, and how many
-// accounts and scheduled posts would be affected by switching it off.
 // Setup help for the Platforms page: PLATFORM_SETUP with callback URLs made absolute, and which
 // of the platform's .env keys are filled in (never their values).
 function setupFor(id) {
@@ -229,11 +235,13 @@ function setupFor(id) {
   return {
     console: setup.console,
     callbackUrls: setup.callbacks.map((path) => `${process.env.BASE_URL}${path}`),
-    env: setup.env.map((name) => ({ name, set: envConfigured(name) })),
+    env: setup.env.map((name) => ({ name, set: envConfigured(name), optional: OPTIONAL_PLATFORM_ENV.has(name) })),
     steps: setup.steps,
   };
 }
 
+// Every platform with its on/off state, whether its app credentials are set, and how many
+// accounts and scheduled posts would be affected by switching it off.
 router.get(
   '/platforms',
   asyncHandler(async (req, res) => {
@@ -251,8 +259,6 @@ router.get(
     res.json(
       ADMIN_PLATFORM_IDS.map((id) => {
         const entry = PLATFORMS[id];
-        const envKey = PLATFORM_CREDENTIAL_ENV[id];
-        const envValue = envKey ? process.env[envKey] : null;
         return {
           id,
           label: entry.label,
@@ -261,8 +267,8 @@ router.get(
           defaultEnabled: entry.status === 'live' && !entry.unlisted,
           switchedAt: savedBy[id]?.updated_at ?? null,
           sharesConnectWith: id === 'instagram' ? 'facebook' : id === 'facebook' ? 'instagram' : null,
-          credentialsNeeded: envKey,
-          credentialsSet: envKey === null || Boolean(envValue && !envValue.includes('change-me')),
+          credentialsNeeded: PLATFORM_CREDENTIAL_ENV[id],
+          credentialsSet: platformCredentialsReady(id),
           connectedAccounts: accountsBy[id] ?? 0,
           scheduledPosts: scheduledBy[id] ?? 0,
           setup: setupFor(id),
@@ -461,8 +467,9 @@ router.post(
 
 // Account actions for support, so none of them needs SQL or the user's own inbox: a password
 // reset link to hand over (no SMTP on this server, or "the email never came"), verification,
-// suspension, deleting the account, and revoking a leaked API token. Admins can't be suspended
-// or deleted here (remove their admin rights first), and nobody can do either to themselves.
+// suspension, deleting the account, and revoking a leaked API token. A reset link, suspension or
+// deletion is refused for another admin (remove their admin rights first; otherwise one admin
+// could take over another's account) and for yourself (use the normal forgot-password page).
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 async function findUser(req, res) {
@@ -506,6 +513,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const user = await findUser(req, res);
     if (!user) return;
+    if (refuseSelfOrAdmin(req, res, user, 'make a password reset link for')) return;
     // A day rather than the emailed link's hour: it goes through the admin first.
     const token = await createToken(user.id, 'password_reset', ONE_DAY_MS);
     await logAdminAction(req, user.id, 'admin_password_reset_link');
@@ -580,6 +588,12 @@ router.delete(
       if (!(err instanceof BillingUnavailableError)) throw err;
       return res.status(503).json({ error: 'billing_unavailable', message: `${err.message} Try again in a few minutes.` });
     }
+    // The same notice as deleting your own account, so nobody's account just disappears.
+    await sendMail({
+      to: user.email,
+      subject: 'Your Postfalcon account was deleted',
+      text: 'Your account and all its data were deleted by the site administrator. Reply to this email if you think this was a mistake.',
+    }).catch((err) => req.log.warn({ err }, 'could not send account deletion notice'));
     res.status(204).end();
   })
 );
