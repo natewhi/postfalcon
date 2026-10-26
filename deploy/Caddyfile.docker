@@ -1,6 +1,12 @@
 # Used by docker-compose.yml. Caddy gets and renews the HTTPS certificate for DOMAIN on its
 # own (a real domain needs its DNS pointing at this server and ports 80/443 open; with
-# DOMAIN=localhost it uses a local certificate your browser will warn about).
+# DOMAIN=localhost or an IP address it uses a local certificate your browser will warn about).
+{
+	# Browsers send no server name (SNI) when connecting to an IP address, so without this
+	# Caddy can't pick a certificate and drops the connection (SSL_ERROR_INTERNAL_ERROR_ALERT).
+	default_sni {$DOMAIN}
+}
+
 {$DOMAIN} {
 	encode gzip
 	reverse_proxy app:3000
