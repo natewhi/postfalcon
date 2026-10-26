@@ -14,6 +14,7 @@ import { createToken, consumeToken, hashToken } from '../lib/tokens.js';
 import { deleteMedia } from '../lib/storage.js';
 import { logAuthEvent } from '../lib/activityLog.js';
 import { billingConfigured, cancelRunningSubscriptions } from '../lib/billing.js';
+import { signupGate, createUserThroughGate } from '../lib/signups.js';
 
 const router = Router();
 
@@ -68,6 +69,9 @@ router.get(
     // Carried through to the callback so a signup flow (?plan=standard, from /pricing) still
     // lands on checkout afterward, same as local email/password signup does.
     req.session.googleAuthPlan = typeof req.query.plan === 'string' ? req.query.plan.slice(0, 40) : null;
+    // An invite link (?invite=, from the signup page) for when sign-ups are invite-only; only
+    // used if this Google account turns out to be new.
+    req.session.googleAuthInvite = typeof req.query.invite === 'string' ? req.query.invite.slice(0, 200) : null;
 
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     url.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID);
@@ -86,6 +90,8 @@ router.get(
     const { code, state } = req.query;
     const plan = req.session.googleAuthPlan;
     delete req.session.googleAuthPlan;
+    const invite = req.session.googleAuthInvite;
+    delete req.session.googleAuthInvite;
     if (!code || !state || state !== req.session.googleAuthState) {
       return res.status(400).send('Invalid or expired sign-in attempt. Please try again.');
     }
@@ -135,14 +141,22 @@ router.get(
         }
         result = byEmail;
       } else {
+        // A brand-new account: subject to the admin's sign-up setting, like email signup.
+        const gate = await signupGate(invite);
+        if (!gate.ok) return res.redirect(`/signup?error=${gate.error}`);
         // Google already verified this email, so there's no point making them click a
         // verification link we'd send ourselves — mark it verified immediately.
-        result = await pool.query(
-          `INSERT INTO users (email, google_id, password_hash, email_verified_at)
-           VALUES ($1, $2, NULL, now())
-           RETURNING id, email`,
-          [email, googleId]
-        );
+        const created = await createUserThroughGate(gate, async (client) => {
+          const { rows } = await client.query(
+            `INSERT INTO users (email, google_id, password_hash, email_verified_at)
+             VALUES ($1, $2, NULL, now())
+             RETURNING id, email`,
+            [email, googleId]
+          );
+          return rows[0];
+        });
+        if (!created) return res.redirect('/signup?error=invite_invalid');
+        result = { rows: [created] };
         isNewUser = true;
       }
     }

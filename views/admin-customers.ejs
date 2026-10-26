@@ -34,6 +34,45 @@
       </div>
     </section>
 
+    <section class="admin-section">
+      <h2>Sign-ups</h2>
+      <p class="hint">Who can create an account on this server. The first account on a fresh install is always allowed.</p>
+      <form id="signup-mode-form" class="admin-filter-bar">
+        <div class="admin-filter-field">
+          <label for="signup-mode">New accounts</label>
+          <select id="signup-mode" name="mode" disabled>
+            <option value="open">Anyone can sign up</option>
+            <option value="invite">Invite link only</option>
+            <option value="closed">Closed — no new accounts</option>
+          </select>
+        </div>
+        <button type="submit">Save</button>
+      </form>
+
+      <h3 class="admin-subhead">Invite links</h3>
+      <p class="hint">Each link creates one account and expires after 14 days. Copy it when it's created &mdash; it isn't shown again.</p>
+      <form id="invite-form" class="admin-filter-bar">
+        <div class="admin-filter-field">
+          <label for="invite-note">Note (optional)</label>
+          <input type="text" id="invite-note" name="note" maxlength="200" placeholder="who it's for" autocomplete="off">
+        </div>
+        <button type="submit">Create invite link</button>
+      </form>
+      <div id="invite-created" class="admin-filter-bar" hidden>
+        <div class="admin-filter-field">
+          <label for="invite-url">New invite link</label>
+          <input type="text" id="invite-url" readonly>
+        </div>
+        <button type="button" id="invite-copy" class="btn-secondary">Copy</button>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Note</th><th class="nowrap">Created</th><th class="nowrap">Expires</th><th>Status</th><th></th></tr></thead>
+          <tbody id="invite-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="admin-section" id="customer-detail" hidden>
       <h2 id="customer-title"></h2>
       <dl class="admin-facts" id="customer-facts"></dl>

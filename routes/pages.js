@@ -5,6 +5,7 @@ import { logPageVisit } from '../lib/activityLog.js';
 import { connectablePlatforms, livePlatforms, PLATFORM_IDS, isPlatformEnabled } from '../lib/platforms.js';
 import { PLANS, isEntitled, selfHosted } from '../lib/billing.js';
 import { listPosts, isBlogEnabled } from '../lib/blog.js';
+import { signupGate } from '../lib/signups.js';
 
 const router = Router();
 
@@ -38,10 +39,17 @@ router.get('/login', (req, res) => {
   res.render('login');
 });
 
-router.get('/signup', (req, res) => {
-  if (req.isAuthenticated()) return res.redirect('/dashboard');
-  res.render('signup');
-});
+router.get(
+  '/signup',
+  asyncHandler(async (req, res) => {
+    if (req.isAuthenticated()) return res.redirect('/dashboard');
+    // Sign-ups closed, or invite-only without a usable ?invite=: show why instead of a form
+    // that would only be refused (lib/signups.js).
+    const invite = typeof req.query.invite === 'string' ? req.query.invite.slice(0, 200) : '';
+    const gate = await signupGate(invite || undefined);
+    res.render('signup', { signupBlocked: gate.ok ? null : gate.message, invite: gate.ok ? invite : '' });
+  })
+);
 
 router.get('/forgot-password', (req, res) => {
   if (req.isAuthenticated()) return res.redirect('/dashboard');

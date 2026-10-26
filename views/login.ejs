@@ -14,8 +14,10 @@
   <div class="auth-card-head">
     <h1>Log in to Postfalcon</h1>
   </div>
-  <a href="/api/auth/google" class="btn-google">Continue with Google</a>
-  <div class="auth-divider"><span>or</span></div>
+  <% if (googleSignIn) { %>
+    <a href="/api/auth/google" class="btn-google">Continue with Google</a>
+    <div class="auth-divider"><span>or</span></div>
+  <% } %>
   <form id="login-form">
     <label>Email <input type="email" name="email" autocomplete="email" autofocus required></label>
     <label>Password

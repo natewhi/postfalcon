@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
 import request from 'supertest';
 import app from '../app.js';
 import { pool } from '../db/pool.js';
+import { setSignupMode, createInvite } from '../lib/signups.js';
 
 describe('signup + login', () => {
   it('signs up, logs in, and reads /api/auth/me', async () => {
@@ -159,3 +160,139 @@ describe('google sign-in', () => {
     expect(rows[0].n).toBe(1); // no duplicate account created
   });
 });
+
+describe('sign-up control (lib/signups.js)', () => {
+  // Every rule except "first account" needs someone to already exist.
+  async function existingUser() {
+    await request(app).post('/api/users').send({ email: 'existing@example.com', password: 'password123' });
+  }
+
+  it('turns new accounts away when sign-ups are closed', async () => {
+    await existingUser();
+    await setSignupMode('closed', null);
+    const res = await request(app).post('/api/users').send({ email: 'late@example.com', password: 'password123' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('signups_closed');
+    const { rows } = await pool.query("SELECT 1 FROM users WHERE email = 'late@example.com'");
+    expect(rows).toHaveLength(0);
+  });
+
+  it('always lets the first account on a fresh install in, even when closed', async () => {
+    await setSignupMode('closed', null);
+    const res = await request(app).post('/api/users').send({ email: 'owner@example.com', password: 'password123' });
+    expect(res.status).toBe(201);
+  });
+
+  it('needs an invite when invite-only, and each invite works exactly once', async () => {
+    await existingUser();
+    await setSignupMode('invite', null);
+    const { token, invite } = await createInvite({ note: 'for Sam', userId: null });
+
+    const without = await request(app).post('/api/users').send({ email: 'sam@example.com', password: 'password123' });
+    expect(without.status).toBe(403);
+    expect(without.body.error).toBe('invite_required');
+
+    const withInvite = await request(app)
+      .post('/api/users')
+      .send({ email: 'sam@example.com', password: 'password123', invite: token });
+    expect(withInvite.status).toBe(201);
+    const { rows } = await pool.query('SELECT used_at, used_by FROM invites WHERE id = $1', [invite.id]);
+    expect(rows[0].used_at).not.toBeNull();
+    expect(Number(rows[0].used_by)).toBe(Number(withInvite.body.id));
+
+    const reuse = await request(app)
+      .post('/api/users')
+      .send({ email: 'sam2@example.com', password: 'password123', invite: token });
+    expect(reuse.status).toBe(403);
+    expect(reuse.body.error).toBe('invite_invalid');
+  });
+
+  it('refuses an expired invite', async () => {
+    await existingUser();
+    await setSignupMode('invite', null);
+    const { token, invite } = await createInvite({ userId: null });
+    await pool.query("UPDATE invites SET expires_at = now() - interval '1 minute' WHERE id = $1", [invite.id]);
+
+    const res = await request(app).post('/api/users').send({ email: 'slow@example.com', password: 'password123', invite: token });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('invite_invalid');
+  });
+
+  it("doesn't use up an invite on a signup that fails (email already registered)", async () => {
+    await existingUser();
+    await setSignupMode('invite', null);
+    const { token, invite } = await createInvite({ userId: null });
+
+    const dup = await request(app)
+      .post('/api/users')
+      .send({ email: 'existing@example.com', password: 'password123', invite: token });
+    expect(dup.status).toBe(409);
+    const { rows } = await pool.query('SELECT used_at FROM invites WHERE id = $1', [invite.id]);
+    expect(rows[0].used_at).toBeNull();
+  });
+
+  it('shows why on the signup page instead of a form that would be refused', async () => {
+    await existingUser();
+    await setSignupMode('invite', null);
+    const blocked = await request(app).get('/signup');
+    expect(blocked.text).toContain('by invitation');
+    expect(blocked.text).not.toContain('id="signup-form"');
+
+    const { token } = await createInvite({ userId: null });
+    const invited = await request(app).get('/signup').query({ invite: token });
+    expect(invited.text).toContain('id="signup-form"');
+    expect(invited.text).toContain(`data-invite="${token}"`);
+
+    await setSignupMode('closed', null);
+    expect((await request(app).get('/signup')).text).toContain('Sign-ups are closed');
+  });
+
+  describe('first Google sign-in', () => {
+    beforeAll(() => {
+      process.env.GOOGLE_CLIENT_ID = 'gid';
+      process.env.GOOGLE_CLIENT_SECRET = 'gsecret';
+    });
+    afterEach(() => vi.unstubAllGlobals());
+
+    async function googleSignIn(client, query = {}) {
+      const start = await client.get('/api/auth/google').query(query);
+      const state = new URL(start.headers.location).searchParams.get('state');
+      return client.get('/api/auth/google/callback').query({ code: 'good-code', state });
+    }
+
+    it('is refused when sign-ups are closed, without creating the account', async () => {
+      await existingUser();
+      await setSignupMode('closed', null);
+      stubGoogleFetch({ sub: 'g-closed', email: 'g-closed@example.com', email_verified: true });
+
+      const res = await googleSignIn(request.agent(app));
+      expect(res.status).toBe(302);
+      expect(res.headers.location).toBe('/signup?error=signups_closed');
+      const { rows } = await pool.query("SELECT 1 FROM users WHERE email = 'g-closed@example.com'");
+      expect(rows).toHaveLength(0);
+    });
+
+    it('works with an invite carried through from the signup page', async () => {
+      await existingUser();
+      await setSignupMode('invite', null);
+      const { token, invite } = await createInvite({ userId: null });
+      stubGoogleFetch({ sub: 'g-invited', email: 'g-invited@example.com', email_verified: true });
+
+      const res = await googleSignIn(request.agent(app), { invite: token });
+      expect(res.status).toBe(302);
+      expect(res.headers.location).not.toContain('/signup');
+      const { rows } = await pool.query('SELECT used_by FROM invites WHERE id = $1', [invite.id]);
+      expect(rows[0].used_by).not.toBeNull();
+    });
+
+    it('still logs in an existing account when sign-ups are closed', async () => {
+      await request(app).post('/api/users').send({ email: 'g-existing@example.com', password: 'password123' });
+      await setSignupMode('closed', null);
+      stubGoogleFetch({ sub: 'g-existing', email: 'g-existing@example.com', email_verified: true });
+
+      const res = await googleSignIn(request.agent(app));
+      expect(res.headers.location).toBe('/dashboard');
+    });
+  });
+});
+

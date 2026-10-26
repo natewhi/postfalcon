@@ -162,6 +162,8 @@ app.use((req, res, next) => {
   res.locals.isAdmin = Boolean(req.user?.is_admin);
   // False in self-hosted mode (no Stripe key): views drop pricing, trial and billing UI.
   res.locals.billingEnabled = billingConfigured();
+  // Hides "Continue with Google" on login/signup when this instance has no Google OAuth app.
+  res.locals.googleSignIn = Boolean(process.env.GOOGLE_CLIENT_ID);
   next();
 });
 app.use(cookieParser());

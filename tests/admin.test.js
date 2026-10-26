@@ -450,3 +450,53 @@ describe('first account on a fresh install', () => {
   });
 });
 
+
+describe('admin sign-ups and invites', () => {
+  it('changes who can sign up', async () => {
+    const email = 'admin-signups@example.com';
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+
+    expect((await admin.get('/api/admin/signups')).body).toEqual({ mode: 'open', invites: [] });
+    expect((await admin.post('/api/admin/signups').send({ mode: 'closed' })).body).toEqual({ mode: 'closed' });
+    expect((await admin.get('/api/admin/signups')).body.mode).toBe('closed');
+    expect((await admin.post('/api/admin/signups').send({ mode: 'whoever' })).status).toBe(400);
+
+    const res = await request(app).post('/api/users').send({ email: 'nope@example.com', password: 'password123' });
+    expect(res.status).toBe(403);
+  });
+
+  it('creates an invite link that signs one person up, lists it, and can revoke unused ones', async () => {
+    const email = 'admin-invites@example.com';
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+    await admin.post('/api/admin/signups').send({ mode: 'invite' });
+
+    const created = await admin.post('/api/admin/invites').send({ note: 'for Robin' });
+    expect(created.status).toBe(201);
+    expect(created.body.url.startsWith(`${process.env.BASE_URL}/signup?invite=`)).toBe(true);
+    const token = new URL(created.body.url).searchParams.get('invite');
+
+    const signup = await request(app).post('/api/users').send({ email: 'robin@example.com', password: 'password123', invite: token });
+    expect(signup.status).toBe(201);
+
+    const spare = await admin.post('/api/admin/invites').send({});
+    const { body } = await admin.get('/api/admin/signups');
+    expect(body.invites).toHaveLength(2);
+    const used = body.invites.find((i) => i.id === created.body.id);
+    expect(used).toMatchObject({ note: 'for Robin', used_by_email: 'robin@example.com' });
+    // The stored invite never exposes the link again.
+    expect(JSON.stringify(body)).not.toContain(token);
+
+    expect((await admin.delete(`/api/admin/invites/${created.body.id}`)).status).toBe(404); // used: kept as history
+    expect((await admin.delete(`/api/admin/invites/${spare.body.id}`)).status).toBe(204);
+    expect((await admin.get('/api/admin/signups')).body.invites).toHaveLength(1);
+  });
+
+  it('is admin-only', async () => {
+    const other = await signupAndLogin('not-admin-signups@example.com');
+    expect((await other.get('/api/admin/signups')).status).toBe(404);
+    expect((await other.post('/api/admin/signups').send({ mode: 'open' })).status).toBe(404);
+    expect((await other.post('/api/admin/invites').send({})).status).toBe(404);
+  });
+});

@@ -8,6 +8,7 @@ import { authLimiter } from '../middleware/rateLimit.js';
 import { sendMail } from '../lib/mailer.js';
 import { createToken } from '../lib/tokens.js';
 import { logAuthEvent, logProductEvent } from '../lib/activityLog.js';
+import { signupGate, createUserThroughGate } from '../lib/signups.js';
 
 const router = Router();
 
@@ -16,6 +17,8 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const signupSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(8).max(255),
+  // One-time link from an admin (lib/signups.js), needed when sign-ups are invite-only.
+  invite: z.string().trim().max(200).optional(),
 });
 
 router.post(
@@ -23,14 +26,20 @@ router.post(
   authLimiter,
   validate(signupSchema),
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, invite } = req.body;
+    const gate = await signupGate(invite);
+    if (!gate.ok) return res.status(403).json({ error: gate.error, message: gate.message });
+
     const password_hash = await bcrypt.hash(password, 10);
-    let result;
+    let user;
     try {
-      result = await pool.query(
-        'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email, created_at',
-        [email, password_hash]
-      );
+      user = await createUserThroughGate(gate, async (client) => {
+        const { rows } = await client.query(
+          'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email, created_at',
+          [email, password_hash]
+        );
+        return rows[0];
+      });
     } catch (err) {
       // 23505 = unique violation (email already registered) — by far the most common way a
       // signup fails past validation, and a real interest signal (someone tried, twice) worth
@@ -43,7 +52,12 @@ router.post(
       }
       throw err;
     }
-    const user = result.rows[0];
+    if (!user) {
+      return res.status(403).json({
+        error: 'invite_invalid',
+        message: 'This invite link has already been used or has expired. Ask the admin for a new one.',
+      });
+    }
 
     const token = await createToken(user.id, 'email_verification', ONE_DAY_MS);
     const verifyUrl = `${process.env.BASE_URL}/api/auth/verify-email?token=${token}`;

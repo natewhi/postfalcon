@@ -9,6 +9,15 @@ import { setupChecks, schedulerStatus, publishingHealth, businessMetrics, storag
 import { logProductEvent } from '../lib/activityLog.js';
 import { PLATFORMS, PLATFORM_IDS, PLATFORM_CREDENTIAL_ENV, isPlatformEnabled } from '../lib/platforms.js';
 import { savePlatformSetting, clearPlatformSetting } from '../lib/platformSettings.js';
+import {
+  SIGNUP_MODES,
+  getSignupMode,
+  setSignupMode,
+  createInvite,
+  inviteUrl,
+  listInvites,
+  revokeInvite,
+} from '../lib/signups.js';
 
 const router = Router();
 
@@ -20,6 +29,10 @@ const accessSchema = z.object({
 
 // POST /users/:id/admin: make someone an admin, or take it away.
 const adminRoleSchema = z.object({ admin: z.boolean() });
+
+// POST /signups: who may create an account. POST /invites: a one-time signup link.
+const signupModeSchema = z.object({ mode: z.enum(SIGNUP_MODES) });
+const inviteSchema = z.object({ note: z.string().trim().max(200).optional() });
 
 // POST /platforms/:id: switch a platform on or off, or `reset` it to its registry default.
 const platformSwitchSchema = z.union([z.object({ enabled: z.boolean() }), z.object({ reset: z.literal(true) })]);
@@ -308,6 +321,47 @@ router.post(
       req.log.error({ err }, 'failed to record product event')
     );
     res.json(rows[0]);
+  })
+);
+
+// Sign-ups: the instance-wide mode (open / invite / closed) and the invite links behind
+// invite-only (lib/signups.js). The link is returned once, at creation; only its hash is kept.
+router.get(
+  '/signups',
+  asyncHandler(async (req, res) => {
+    const [mode, invites] = await Promise.all([getSignupMode(), listInvites()]);
+    res.json({ mode, invites });
+  })
+);
+
+router.post(
+  '/signups',
+  validate(signupModeSchema),
+  asyncHandler(async (req, res) => {
+    await setSignupMode(req.body.mode, req.user.id);
+    await logProductEvent(req.user.id, 'signup_mode_changed', { mode: req.body.mode }).catch((err) =>
+      req.log.error({ err }, 'failed to record product event')
+    );
+    res.json({ mode: req.body.mode });
+  })
+);
+
+router.post(
+  '/invites',
+  validate(inviteSchema),
+  asyncHandler(async (req, res) => {
+    const { invite, token } = await createInvite({ note: req.body.note || null, userId: req.user.id });
+    res.status(201).json({ ...invite, url: inviteUrl(token) });
+  })
+);
+
+router.delete(
+  '/invites/:id',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid id' });
+    if (!(await revokeInvite(id))) return res.status(404).json({ error: 'not found' });
+    res.status(204).end();
   })
 );
 

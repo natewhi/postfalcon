@@ -168,3 +168,91 @@ document.getElementById('customer-revoke')?.addEventListener('click', () => setA
 document.getElementById('customer-admin-toggle').addEventListener('click', toggleAdmin);
 
 search('');
+
+// Sign-ups: the instance's open / invite-only / closed setting and its invite links
+// (routes/admin.js /api/admin/signups, /api/admin/invites).
+async function loadSignups() {
+  const select = document.getElementById('signup-mode');
+  try {
+    const { mode, invites } = await apiJson('/api/admin/signups');
+    select.value = mode;
+    select.disabled = false;
+    const now = Date.now();
+    document.getElementById('invite-rows').innerHTML = invites.length
+      ? invites
+          .map((i) => {
+            const status = i.used_at
+              ? `Used by ${escapeHtml(i.used_by_email || 'a deleted account')} ${day(i.used_at)}`
+              : new Date(i.expires_at).getTime() < now
+                ? 'Expired'
+                : 'Unused';
+            const revoke = i.used_at ? '' : `<button type="button" class="btn-secondary" data-revoke-invite="${i.id}">Revoke</button>`;
+            return `<tr><td>${escapeHtml(i.note || '')}</td><td class="nowrap">${day(i.created_at)}</td><td class="nowrap">${day(
+              i.expires_at
+            )}</td><td>${status}</td><td>${revoke}</td></tr>`;
+          })
+          .join('')
+      : emptyRow(5, 'No invite links yet.');
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
+document.getElementById('signup-mode-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const { mode } = await apiJson('/api/admin/signups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: document.getElementById('signup-mode').value }),
+    });
+    const labels = { open: 'Anyone can sign up.', invite: 'Sign-ups need an invite link.', closed: 'Sign-ups are closed.' };
+    showToast(labels[mode], 'success');
+  } catch (err) {
+    showToast(err.message);
+  }
+});
+
+document.getElementById('invite-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const noteInput = document.getElementById('invite-note');
+  try {
+    const invite = await apiJson('/api/admin/invites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: noteInput.value.trim() || undefined }),
+    });
+    document.getElementById('invite-url').value = invite.url;
+    document.getElementById('invite-created').hidden = false;
+    noteInput.value = '';
+    loadSignups();
+  } catch (err) {
+    showToast(err.message);
+  }
+});
+
+document.getElementById('invite-copy').addEventListener('click', async () => {
+  const input = document.getElementById('invite-url');
+  try {
+    await navigator.clipboard.writeText(input.value);
+    showToast('Invite link copied.', 'success');
+  } catch {
+    input.select();
+    showToast('Select the link and copy it with Ctrl+C.', 'warning');
+  }
+});
+
+document.getElementById('invite-rows').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-revoke-invite]');
+  if (!btn) return;
+  const ok = await confirmDialog('Revoke this invite link? Nobody will be able to sign up with it.', { confirmText: 'Revoke' });
+  if (!ok) return;
+  try {
+    await apiJson(`/api/admin/invites/${btn.dataset.revokeInvite}`, { method: 'DELETE' });
+    loadSignups();
+  } catch (err) {
+    showToast(err.message);
+  }
+});
+
+loadSignups();

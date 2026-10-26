@@ -242,7 +242,10 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   `users.plan_interval` (migration 025), storage use; all from `lib/adminStatus.js`, never returning secret values),
   `/admin/customers` (lookup + give/remove free access for logins without a Stripe subscription, and make/remove
   admins — an admin can't remove their own rights, so one always remains; the very first account on a fresh install
-  is made admin on `pro`/`active` by a trigger, migration 028, which tests/setup.js disables for the suite),
+  is made admin on `pro`/`active` by a trigger, migration 028, which tests/setup.js disables for the suite; plus
+  the Sign-ups section: open / invite-only / closed and one-time 14-day invite links, `lib/signups.js` +
+  migration 029 — both account-creating paths, POST /api/users and a first Google sign-in, go through
+  `signupGate()` + `createUserThroughGate()`, and the first account on an empty instance is always allowed),
   `/admin/platforms` (switch each built platform on/off — `platform_settings`, migration 027, loaded into
   lib/platforms.js by `lib/platformSettings.js`; a platform with no saved switch uses the registry default,
   i.e. on unless `unlisted`), and `/admin/activity` (logs + Billing). Off means: dropped from

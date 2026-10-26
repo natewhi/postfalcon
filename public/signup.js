@@ -1,14 +1,20 @@
 const signupPlan = new URLSearchParams(location.search).get('plan');
+const signupForm = document.getElementById('signup-form');
+// Set by routes/pages.js only when the page's ?invite= link is still usable.
+const signupInvite = signupForm?.dataset.invite || '';
 
-// Carry ?plan= through to Google sign-in too, so a plan picked on /pricing before signing up
-// still lands on checkout afterward — routes/auth.js's /google start route reads it back off
-// the query string and stashes it in the session for its callback to redirect with.
-if (signupPlan) {
-  const googleLink = document.getElementById('google-signup-link');
-  googleLink.href = `${googleLink.href}?plan=${encodeURIComponent(signupPlan)}`;
+// Carry ?plan= (a plan picked on /pricing before signing up, so it still lands on checkout)
+// and ?invite= (invite-only sign-ups) through to Google sign-in too — routes/auth.js's
+// /google start route reads them off the query string and stashes them in the session.
+const googleLink = document.getElementById('google-signup-link');
+if (googleLink && (signupPlan || signupInvite)) {
+  const params = new URLSearchParams();
+  if (signupPlan) params.set('plan', signupPlan);
+  if (signupInvite) params.set('invite', signupInvite);
+  googleLink.href = `${googleLink.pathname}?${params}`;
 }
 
-document.getElementById('signup-form').addEventListener('submit', async (e) => {
+signupForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
   const button = form.querySelector('button[type="submit"]');
@@ -21,7 +27,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
     const res = await fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': await getCsrfToken() },
-      body: JSON.stringify({ email: form.email.value, password: form.password.value }),
+      body: JSON.stringify({ email: form.email.value, password: form.password.value, invite: signupInvite || undefined }),
     });
 
     if (res.status === 409) {
@@ -34,7 +40,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
     }
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      document.getElementById('error').textContent = data.error || 'Sign up failed';
+      document.getElementById('error').textContent = data.message || data.error || 'Sign up failed';
       return;
     }
 
