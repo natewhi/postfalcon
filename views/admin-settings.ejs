@@ -5,7 +5,7 @@
 <script src="/theme-init.js?v=<%= assetVersion %>"></script>
 <meta name="color-scheme" content="light dark">
 <title>Admin - Settings - <%= siteName %></title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" href="<%= logoUrl || '/favicon.svg' %>">
 <link rel="stylesheet" href="/style.css?v=<%= assetVersion %>">
 </head>
 <body>
@@ -26,6 +26,23 @@
           <input type="text" id="site-name" maxlength="40" autocomplete="off">
         </div>
         <button type="submit">Save</button>
+      </form>
+    </section>
+
+    <section class="admin-section">
+      <h2>Logo</h2>
+      <p class="hint">Shown in the header and sidebar and as the browser-tab icon, in place of the default mark. A square PNG, JPEG or WebP works best (up to 2&nbsp;MB); it's resized to 256&times;256.</p>
+      <div class="logo-setting">
+        <img id="logo-preview" class="logo-preview" alt="Current logo" hidden>
+        <span id="logo-default" class="hint">Using the default mark.</span>
+      </div>
+      <form id="logo-form" class="admin-filter-bar is-plain">
+        <div class="admin-filter-field">
+          <label for="logo-file">Image</label>
+          <input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp" required>
+        </div>
+        <button type="submit">Upload logo</button>
+        <button type="button" id="logo-remove" class="btn-secondary" hidden>Remove logo</button>
       </form>
     </section>
 

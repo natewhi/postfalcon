@@ -1,6 +1,12 @@
 // Admin Settings: site name and the public website switch (routes/admin.js /api/admin/settings).
 
 function render(settings) {
+  const preview = document.getElementById('logo-preview');
+  preview.hidden = !settings.logoUrl;
+  if (settings.logoUrl) preview.src = settings.logoUrl;
+  document.getElementById('logo-default').hidden = Boolean(settings.logoUrl);
+  document.getElementById('logo-remove').hidden = !settings.logoUrl;
+
   const nameInput = document.getElementById('site-name');
   nameInput.placeholder = settings.siteNameDefault;
   nameInput.value = settings.siteName === settings.siteNameDefault ? '' : settings.siteName;
@@ -48,6 +54,36 @@ document.getElementById('alert-emails-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const value = document.getElementById('alert-emails').value;
   save({ alert_emails: value }, value === 'on' ? 'Alert emails are on.' : 'Alert emails are off.');
+});
+
+// The page's own header and sidebar keep the old logo until the next page load.
+const logoForm = document.getElementById('logo-form');
+logoForm.addEventListener(
+  'submit',
+  withLoading(logoForm.querySelector('button[type="submit"]'), 'Uploading…', async (e) => {
+    e.preventDefault();
+    const file = document.getElementById('logo-file').files[0];
+    if (!file) return;
+    const body = new FormData();
+    body.append('logo', file);
+    try {
+      render(await apiJson('/api/admin/settings/logo', { method: 'POST', body }));
+      logoForm.reset();
+      showToast('Logo updated. Reload the page to see it in the sidebar.', 'success');
+    } catch (err) {
+      showToast(err.message);
+    }
+  })
+);
+
+document.getElementById('logo-remove').addEventListener('click', async () => {
+  if (!(await confirmDialog('Remove the logo and go back to the default mark?', { confirmText: 'Remove' }))) return;
+  try {
+    render(await apiJson('/api/admin/settings/logo', { method: 'DELETE' }));
+    showToast('Logo removed.', 'success');
+  } catch (err) {
+    showToast(err.message);
+  }
 });
 
 apiJson('/api/admin/settings')

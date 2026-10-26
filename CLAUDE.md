@@ -131,7 +131,9 @@ lib/config.js        isConfigured()/envConfigured()/smtpConfigured(): an .env va
                      SESSION_SECRET/BASE_URL are empty (dotenv loaded first, app imported after the check).
 lib/instanceSettings.js  instance_settings (migration 029) read per page request in app.js into res.locals:
                      siteName (header/sidebar/titles — views use <%= siteName %>, never a literal
-                     "Postfalcon" in chrome) and publicSite (landing + blog; off = / redirects to /login;
+                     "Postfalcon" in chrome), logoUrl (an uploaded logo: PNG/JPEG/WebP only, never SVG,
+                     redrawn by sharp to a 256px PNG and kept with the media; replaces the "P" mark and
+                     the favicon — views use <%= logoUrl || '/favicon.svg' %>) and publicSite (landing + blog; off = / redirects to /login;
                      default on only when billing is configured). Set from Admin -> Settings
                      (/api/admin/settings). Not cached, on purpose. signup_mode lives there too.
 lib/                 passport strategy, mailer (real SMTP via nodemailer, falls back to console.log if

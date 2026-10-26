@@ -1,5 +1,8 @@
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { Router } from 'express';
+import multer from 'multer';
+import sharp from 'sharp';
 import { pool } from '../db/pool.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { z } from 'zod';
@@ -23,7 +26,7 @@ import { createToken } from '../lib/tokens.js';
 import { sendMail, sendTestMail } from '../lib/mailer.js';
 import { deleteUserAccount, BillingUnavailableError } from '../lib/accounts.js';
 import { listLocalBackups, runBackup, backupDir, deleteBackup } from '../lib/backup.js';
-import { s3Enabled } from '../lib/storage.js';
+import { s3Enabled, saveMedia, deleteMedia } from '../lib/storage.js';
 import { listServerErrors } from '../lib/errorLog.js';
 import { checkAlerts, activeAlerts } from '../lib/alerts.js';
 import { versionStatus } from '../lib/version.js';
@@ -429,9 +432,10 @@ router.delete(
 // Instance settings (Admin -> Settings, lib/instanceSettings.js).
 async function settingsResponse() {
   const stored = await readInstanceSettings();
-  const { siteName, publicSite, publicSiteSaved } = resolveSettings(stored);
+  const { siteName, publicSite, publicSiteSaved, logoUrl } = resolveSettings(stored);
   return {
     siteName,
+    logoUrl,
     siteNameDefault: DEFAULT_SITE_NAME,
     publicSite,
     publicSiteDefault: !selfHosted(),
@@ -461,6 +465,60 @@ router.post(
     await logProductEvent(req.user.id, 'instance_settings_changed', req.body).catch((err) =>
       req.log.error({ err }, 'failed to record product event')
     );
+    res.json(await settingsResponse());
+  })
+);
+
+// The site logo (Admin -> Settings). PNG, JPEG or WebP only, never SVG: an SVG can carry script,
+// and served from this origin it would run if opened directly. Whatever comes in is redrawn by
+// sharp as a 256px square PNG (which also drops metadata) and stored with the other media, so it
+// survives redeploys and lives in the bucket when there is one. The previous file is removed.
+const LOGO_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const uploadLogo = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+  fileFilter: (req, file, cb) => {
+    if (LOGO_TYPES.has(file.mimetype)) return cb(null, true);
+    const err = new Error('The logo must be a PNG, JPEG or WebP image.');
+    err.status = 400;
+    cb(err);
+  },
+}).single('logo');
+
+async function removeLogoFile(name, log) {
+  if (typeof name === 'string') await deleteMedia(name).catch((err) => log.warn({ err }, 'could not delete old logo'));
+}
+
+router.post(
+  '/settings/logo',
+  uploadLogo,
+  asyncHandler(async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'no_file', message: 'Choose an image to upload.' });
+    let png;
+    try {
+      png = await sharp(req.file.buffer)
+        .resize(256, 256, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toBuffer();
+    } catch {
+      return res.status(400).json({ error: 'bad_image', message: "That file couldn't be read as an image." });
+    }
+    const name = `${crypto.randomUUID()}.png`;
+    await saveMedia(name, png, 'image/png');
+    const { logo: previous } = await readInstanceSettings();
+    await saveInstanceSetting('logo', name, req.user.id);
+    await removeLogoFile(previous, req.log);
+    await logAdminAction(req, req.user.id, 'instance_logo_changed');
+    res.json(await settingsResponse());
+  })
+);
+
+router.delete(
+  '/settings/logo',
+  asyncHandler(async (req, res) => {
+    const { logo: previous } = await readInstanceSettings();
+    await clearInstanceSetting('logo');
+    await removeLogoFile(previous, req.log);
     res.json(await settingsResponse());
   })
 );

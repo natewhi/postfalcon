@@ -1152,3 +1152,72 @@ describe('safeguards', () => {
     }
   });
 });
+
+describe('admin logo', () => {
+  async function pngBytes(color) {
+    const sharp = (await import('sharp')).default;
+    return sharp({ create: { width: 400, height: 200, channels: 3, background: color } }).png().toBuffer();
+  }
+
+  it('uploads a logo shown in the header, sidebar and tab icon, replaces it, and removes it', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const { uploadDir } = await import('../middleware/upload.js');
+    const email = 'admin-logo@example.com';
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+
+    const first = await admin.post('/api/admin/settings/logo').attach('logo', await pngBytes('#ff0000'), {
+      filename: 'logo.png',
+      contentType: 'image/png',
+    });
+    expect(first.status).toBe(200);
+    expect(first.body.logoUrl).toMatch(/^\/uploads\/[0-9a-f-]{36}\.png$/);
+    const firstFile = path.join(uploadDir, path.basename(first.body.logoUrl));
+    const sharp = (await import('sharp')).default;
+    expect(await sharp(firstFile).metadata()).toMatchObject({ width: 256, height: 256, format: 'png' });
+
+    const login = await request(app).get('/login');
+    expect(login.text).toContain(`<img class="site-brand-mark" src="${first.body.logoUrl}"`);
+    expect(login.text).toContain(`<link rel="icon" href="${first.body.logoUrl}">`);
+    expect((await admin.get('/dashboard')).text).toContain(`<img class="sidebar-brand-mark" src="${first.body.logoUrl}"`);
+
+    const second = await admin.post('/api/admin/settings/logo').attach('logo', await pngBytes('#0000ff'), {
+      filename: 'logo2.png',
+      contentType: 'image/png',
+    });
+    expect(second.body.logoUrl).not.toBe(first.body.logoUrl);
+    await expect(fs.access(firstFile)).rejects.toThrow();
+
+    const removed = await admin.delete('/api/admin/settings/logo');
+    expect(removed.body.logoUrl).toBeNull();
+    await expect(fs.access(path.join(uploadDir, path.basename(second.body.logoUrl)))).rejects.toThrow();
+    expect((await request(app).get('/login')).text).toContain('<link rel="icon" href="/favicon.svg">');
+  });
+
+  it('refuses SVGs, files that are not images, and anyone but an admin', async () => {
+    const email = 'admin-logo-bad@example.com';
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+
+    const svg = await admin
+      .post('/api/admin/settings/logo')
+      .attach('logo', Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'), {
+        filename: 'logo.svg',
+        contentType: 'image/svg+xml',
+      });
+    expect(svg.status).toBe(400);
+    const fake = await admin
+      .post('/api/admin/settings/logo')
+      .attach('logo', Buffer.from('definitely not a png'), { filename: 'logo.png', contentType: 'image/png' });
+    expect(fake.status).toBe(400);
+    expect(fake.body.error).toBe('bad_image');
+    expect((await admin.post('/api/admin/settings/logo')).status).toBe(400);
+    expect((await admin.get('/api/admin/settings')).body.logoUrl).toBeNull();
+
+    const other = await signupAndLogin('not-admin-logo@example.com');
+    expect(
+      (await other.post('/api/admin/settings/logo').attach('logo', await pngBytes('#00ff00'), { filename: 'x.png', contentType: 'image/png' })).status
+    ).toBe(404);
+  });
+});

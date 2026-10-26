@@ -69,6 +69,7 @@ app.locals.blogEnabled = isBlogEnabled();
 // Defaults for views rendered without the per-request instance settings below (error pages).
 app.locals.siteName = DEFAULT_SITE_NAME;
 app.locals.publicSite = true;
+app.locals.logoUrl = null;
 
 // The legal name of whoever runs this instance, shown in public footers and the Terms/Privacy
 // pages when set. Meta's business verification requires the operator's legal name on the site;
@@ -185,8 +186,9 @@ app.use((req, res, next) => {
   if (!['GET', 'HEAD'].includes(req.method) || NO_INSTANCE_SETTINGS.test(req.path)) return next();
   readInstanceSettings()
     .then((stored) => {
-      const { siteName, publicSite } = resolveSettings(stored);
+      const { siteName, publicSite, logoUrl } = resolveSettings(stored);
       res.locals.siteName = siteName;
+      res.locals.logoUrl = logoUrl;
       res.locals.publicSite = publicSite;
       res.locals.blogEnabled = publicSite && isBlogEnabled();
       next();
