@@ -20,6 +20,10 @@ beforeAll(async () => {
   // DB's default stands in for "this user already finished Checkout". billing.test.js sets
   // 'incomplete' explicitly to cover the real default.
   await pool.query("ALTER TABLE users ALTER COLUMN plan_status SET DEFAULT 'trialing'");
+  // Every test starts from an empty users table, so the first-account-is-admin trigger
+  // (migration 028) would make each test's first user an admin. admin.test.js turns it back
+  // on to cover it.
+  await pool.query('ALTER TABLE users DISABLE TRIGGER first_user_is_admin');
 });
 
 afterEach(async () => {

@@ -2,6 +2,7 @@
 // (routes/admin.js /api/admin/users*).
 
 let currentUserId = null;
+let currentUserIsAdmin = false;
 
 function when(value) {
   return value ? new Date(value).toLocaleString() : '—';
@@ -68,6 +69,12 @@ async function showCustomer(id) {
       ? 'If this customer has a Stripe subscription, change their plan in Stripe instead — these buttons are refused for them.'
       : 'For review and test logins: gives the chosen plan without a Stripe subscription, or removes it.';
 
+    currentUserIsAdmin = Boolean(user.is_admin);
+    document.getElementById('customer-admin-note').textContent = currentUserIsAdmin
+      ? 'Can open these admin pages, switch platforms, and give access or admin rights to others.'
+      : 'Admins can open these admin pages, switch platforms, and give access or admin rights to others.';
+    document.getElementById('customer-admin-toggle').textContent = currentUserIsAdmin ? 'Remove admin' : 'Make admin';
+
     document.getElementById('customer-accounts').innerHTML = accounts.length
       ? accounts
           .map(
@@ -92,6 +99,30 @@ async function showCustomer(id) {
 
     section.hidden = false;
     section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
+async function toggleAdmin() {
+  if (!currentUserId) return;
+  const admin = !currentUserIsAdmin;
+  const email = document.getElementById('customer-title').textContent;
+  const ok = await confirmDialog(
+    admin
+      ? `Make ${email} an admin? They'll see every customer and can change platform and access settings.`
+      : `Remove ${email}'s admin rights?`,
+    { confirmText: admin ? 'Make admin' : 'Remove admin' }
+  );
+  if (!ok) return;
+  try {
+    await apiJson(`/api/admin/users/${currentUserId}/admin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin }),
+    });
+    showToast(admin ? 'Admin rights given.' : 'Admin rights removed.', 'success');
+    showCustomer(currentUserId);
   } catch (err) {
     showToast(err.message);
   }
@@ -133,5 +164,6 @@ document.getElementById('customer-results').addEventListener('click', (e) => {
 
 document.getElementById('customer-grant').addEventListener('click', () => setAccess(true));
 document.getElementById('customer-revoke').addEventListener('click', () => setAccess(false));
+document.getElementById('customer-admin-toggle').addEventListener('click', toggleAdmin);
 
 search('');

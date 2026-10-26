@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import app from '../app.js';
 import { pool } from '../db/pool.js';
@@ -379,3 +379,74 @@ describe('admin platform switches', () => {
     expect((await other.get('/admin/platforms')).status).toBe(404);
   });
 });
+
+describe('admin rights', () => {
+  it('makes a customer an admin and takes it away again, effective on their next request', async () => {
+    const email = 'admin-roles@example.com';
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+    const helper = await signupAndLogin('helper@example.com');
+    const { rows } = await pool.query("SELECT id FROM users WHERE email = 'helper@example.com'");
+
+    expect((await helper.get('/api/admin/users')).status).toBe(404);
+
+    const made = await admin.post(`/api/admin/users/${rows[0].id}/admin`).send({ admin: true });
+    expect(made.status).toBe(200);
+    expect(made.body).toMatchObject({ email: 'helper@example.com', is_admin: true });
+    expect((await helper.get('/api/admin/users')).status).toBe(200);
+
+    const removed = await admin.post(`/api/admin/users/${rows[0].id}/admin`).send({ admin: false });
+    expect(removed.body.is_admin).toBe(false);
+    expect((await helper.get('/api/admin/users')).status).toBe(404);
+  });
+
+  it("won't let an admin remove their own rights, so there's always one left", async () => {
+    const email = 'admin-self@example.com';
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+    const { rows } = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+
+    const res = await admin.post(`/api/admin/users/${rows[0].id}/admin`).send({ admin: false });
+    expect(res.status).toBe(409);
+    const { rows: after } = await pool.query('SELECT is_admin FROM users WHERE id = $1', [rows[0].id]);
+    expect(after[0].is_admin).toBe(true);
+  });
+
+  it('validates, 404s an unknown user, and is admin-only', async () => {
+    const email = 'admin-roles-misc@example.com';
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+    expect((await admin.post('/api/admin/users/999999/admin').send({ admin: true })).status).toBe(404);
+    expect((await admin.post('/api/admin/users/1/admin').send({ admin: 'yes' })).status).toBe(400);
+
+    const other = await signupAndLogin('not-admin-roles@example.com');
+    const { rows } = await pool.query('SELECT id FROM users WHERE email = $1', ['not-admin-roles@example.com']);
+    expect((await other.post(`/api/admin/users/${rows[0].id}/admin`).send({ admin: true })).status).toBe(404);
+    const { rows: after } = await pool.query('SELECT is_admin FROM users WHERE id = $1', [rows[0].id]);
+    expect(after[0].is_admin).toBe(false);
+  });
+});
+
+describe('first account on a fresh install', () => {
+  // tests/setup.js switches this trigger off for every other test; each test starts with an
+  // empty users table, which is exactly the fresh-install case.
+  beforeAll(async () => {
+    await pool.query('ALTER TABLE users ENABLE TRIGGER first_user_is_admin');
+  });
+  afterAll(async () => {
+    await pool.query('ALTER TABLE users DISABLE TRIGGER first_user_is_admin');
+  });
+
+  it('becomes an admin on the top plan without Stripe; later signups do not', async () => {
+    const owner = await signupAndLogin('owner@example.com');
+    await signupAndLogin('second@example.com');
+
+    const { rows } = await pool.query('SELECT email, is_admin, plan, plan_status FROM users ORDER BY id');
+    expect(rows).toEqual([
+      { email: 'owner@example.com', is_admin: true, plan: 'pro', plan_status: 'active' },
+      { email: 'second@example.com', is_admin: false, plan: 'standard', plan_status: 'trialing' },
+    ]);
+    expect((await owner.get('/api/admin/users')).status).toBe(200);
+  });
+});
+

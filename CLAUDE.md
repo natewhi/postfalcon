@@ -236,7 +236,9 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   test-mode/sandbox settings left on, missing config — scheduler heartbeat via `lib/schedulerHeartbeat.js` plus
   overdue posts, publishing failures and reconnects, business numbers incl. an MRR estimate from
   `users.plan_interval` (migration 025), storage use; all from `lib/adminStatus.js`, never returning secret values),
-  `/admin/customers` (lookup + give/remove free access for logins without a Stripe subscription),
+  `/admin/customers` (lookup + give/remove free access for logins without a Stripe subscription, and make/remove
+  admins — an admin can't remove their own rights, so one always remains; the very first account on a fresh install
+  is made admin on `pro`/`active` by a trigger, migration 028, which tests/setup.js disables for the suite),
   `/admin/platforms` (switch each built platform on/off — `platform_settings`, migration 027, loaded into
   lib/platforms.js by `lib/platformSettings.js`; a platform with no saved switch uses the registry default,
   i.e. on unless `unlisted`), and `/admin/activity` (logs + Billing). Off means: dropped from

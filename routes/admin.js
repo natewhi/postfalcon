@@ -18,6 +18,9 @@ const accessSchema = z.object({
   plan: z.enum(PAID_PLAN_IDS).default('pro'),
 });
 
+// POST /users/:id/admin: make someone an admin, or take it away.
+const adminRoleSchema = z.object({ admin: z.boolean() });
+
 // POST /platforms/:id: switch a platform on or off, or `reset` it to its registry default.
 const platformSwitchSchema = z.union([z.object({ enabled: z.boolean() }), z.object({ reset: z.literal(true) })]);
 
@@ -279,6 +282,32 @@ router.get(
       recentPosts: posts.rows.map((p) => ({ ...p, content: p.content.slice(0, 140) })),
       postCounts: Object.fromEntries(counts.rows.map((r) => [r.status, r.n])),
     });
+  })
+);
+
+// Admin rights, without SQL. An admin can't remove their own, so an instance always keeps at
+// least one admin (the first account on a fresh install is made one by migration 028).
+router.post(
+  '/users/:id/admin',
+  validate(adminRoleSchema),
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid id' });
+    if (id === req.user.id && !req.body.admin) {
+      return res.status(409).json({
+        error: 'own_admin',
+        message: "You can't remove your own admin rights. Ask another admin to do it.",
+      });
+    }
+    const { rows } = await pool.query('UPDATE users SET is_admin = $2 WHERE id = $1 RETURNING id, email, is_admin', [
+      id,
+      req.body.admin,
+    ]);
+    if (rows.length === 0) return res.status(404).json({ error: 'not found' });
+    await logProductEvent(id, 'admin_role_changed', { admin: req.body.admin, by: req.user.id }).catch((err) =>
+      req.log.error({ err }, 'failed to record product event')
+    );
+    res.json(rows[0]);
   })
 );
 
