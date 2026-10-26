@@ -61,7 +61,8 @@ git pull
 docker compose up -d --build
 ```
 
-Database changes are applied automatically when the app starts.
+Database changes are applied automatically when the app starts. Admin → Overview → **Version**
+shows how many commits behind GitHub your server is, and whether every database change is applied.
 
 ### Logs, backups and restoring
 

@@ -269,7 +269,10 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   spikes — with `admin_alerts` (migration 031) and emails all admins once on start, daily while active, once on
   resolve (instance setting `alert_emails`). Activity -> Server errors reads `server_errors`, filled by a pino
   `logMethod` hook in lib/logger.js for every error/fatal line (lib/errorLog.js; rate-capped, pruned at 30 days,
-  inert under test since the test logger is silent),
+  inert under test since the test logger is silent), Version (lib/version.js: running commit read from .git files
+  — .dockerignore lets HEAD/refs through — vs GitHub main via the API, cached 6h, `UPDATE_CHECK=false` to disable;
+  plus `pendingMigrations()`, also a red setup check), and Failed posts across all customers with bulk retry
+  (status back to 'scheduled', same as a user's own retry; last 7 days only),
   `/admin/platforms` (switch each built platform on/off — `platform_settings`, migration 027, loaded into
   lib/platforms.js by `lib/platformSettings.js`; a platform with no saved switch uses the registry default,
   i.e. on unless `unlisted`), and `/admin/activity` (logs + Billing). Off means: dropped from
