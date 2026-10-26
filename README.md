@@ -129,7 +129,7 @@ Run the commands below from the install folder (`~/postfalcon` for the installer
   docker compose exec app ls backups                        # pick a file
   docker compose cp app:/app/backups/<file>.dump ./restore.dump
   docker compose stop app
-  docker compose exec -T db pg_restore --clean --if-exists --no-owner \
+  docker compose exec -T db pg_restore --clean --if-exists --no-owner --single-transaction \
     -U postfalcon -d postfalcon < restore.dump
   docker compose start app
   ```

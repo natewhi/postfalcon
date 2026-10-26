@@ -58,9 +58,9 @@
         <details class="platform-setup">
           <summary>How to restore a backup</summary>
           <p>Download the file (or use it where it is, in <code id="backup-dir"></code>), stop the app, then run:</p>
-          <p><code>pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" &lt;file&gt;.dump</code></p>
+          <p><code>pg_restore --clean --if-exists --no-owner --single-transaction -d "$DATABASE_URL" &lt;file&gt;.dump</code></p>
           <p>With Docker: <code>docker compose stop app</code>, then
-            <code>docker compose exec -T db pg_restore --clean --if-exists --no-owner -U postfalcon -d postfalcon &lt; &lt;file&gt;.dump</code>,
+            <code>docker compose exec -T db pg_restore --clean --if-exists --no-owner --single-transaction -U postfalcon -d postfalcon &lt; &lt;file&gt;.dump</code>,
             then <code>docker compose start app</code>. Everything since the backup was taken is replaced.</p>
         </details>
       </section>

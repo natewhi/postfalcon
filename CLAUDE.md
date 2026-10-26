@@ -39,7 +39,7 @@ server.
 - Database backups: `lib/backup.js` runs `pg_dump` (custom format) nightly at 03:30 from scheduler.js, keeps the
   last 7 in `backups/` (git-ignored; `BACKUP_DIR` overrides) and, when `S3_BUCKET` is set, uploads each under the
   bucket's `backups/` prefix (kept 30 days; never served by `/uploads`). `npm run backup` takes one on demand. Restore:
-  stop the app, `pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" <file>.dump`. The admin overview flags
+  stop the app, `pg_restore --clean --if-exists --no-owner --single-transaction -d "$DATABASE_URL" <file>.dump`. The admin overview flags
   missing or stale backups.
 - Self-hosters install with `docker compose up -d` (Dockerfile + docker-compose.yml: app + Postgres 16 + Caddy via
   `deploy/Caddyfile.docker`; the app container runs pending migrations then `index.js`, one container only) or the
