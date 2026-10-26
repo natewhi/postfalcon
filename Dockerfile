@@ -15,9 +15,14 @@ RUN npm ci --omit=dev
 
 COPY . .
 
-# Uploaded media and backups live on volumes; the image creates the directories so a fresh
-# named volume starts out owned by the unprivileged user.
-RUN mkdir -p public/uploads backups && chown -R node:node public/uploads backups
+# The app runs as the unprivileged `node` user, so everything it ships must be readable by it
+# whatever permissions the files had on the machine that built the image (a strict umask, or a
+# copy that kept private 600 modes, otherwise fails at start with EACCES). Uploaded media and
+# backups live on volumes; the image creates those directories so a fresh named volume starts
+# out owned by `node`.
+RUN chmod -R a+rX /app \
+  && mkdir -p public/uploads backups \
+  && chown -R node:node public/uploads backups
 USER node
 
 ENV NODE_ENV=production PORT=3000
