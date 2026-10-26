@@ -100,7 +100,8 @@ describe('google sign-in', () => {
 
     const res = await client.get('/api/auth/google/callback').query({ code: 'good-code', state });
     expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/pricing');
+    // No plan picked: straight into the app on the free plan.
+    expect(res.headers.location).toBe('/dashboard');
 
     const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', ['new-google-user@example.com']);
     expect(rows).toHaveLength(1);

@@ -320,6 +320,24 @@ describe('scheduler', () => {
     expect(rows[0].error_message).toMatch(/Mastodon is temporarily unavailable/);
   });
 
+  it('still publishes to the free platforms (Mastodon, Bluesky, Telegram) with no subscription', async () => {
+    const userId = await createUser('free-plan@example.com');
+    await pool.query("UPDATE users SET plan_status = 'incomplete' WHERE id = $1", [userId]);
+    const accountId = await createMastodonAccount(userId);
+    const postId = await createScheduledPost(userId, accountId, 'free toot');
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ id: 'toot-free' })));
+
+    process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
+    try {
+      await processDuePosts();
+    } finally {
+      delete process.env.STRIPE_SECRET_KEY;
+    }
+
+    const { rows } = await pool.query('SELECT status, platform_post_id FROM posts WHERE id = $1', [postId]);
+    expect(rows[0]).toEqual({ status: 'posted', platform_post_id: 'toot-free' });
+  });
+
   it('publishes for a lapsed account when self-hosted (no Stripe key, nothing to subscribe to)', async () => {
     const userId = await createUser('selfhost-lapsed@example.com');
     await pool.query("UPDATE users SET plan_status = 'incomplete' WHERE id = $1", [userId]);
@@ -336,10 +354,15 @@ describe('scheduler', () => {
     expect(rows[0].status).toBe('posted');
   });
 
-  it("doesn't publish (or repeat) a post once its owner's subscription has ended", async () => {
+  it("doesn't publish (or repeat) a paid-platform post once its owner's subscription has ended", async () => {
     const userId = await createUser('lapsed@example.com');
     await pool.query("UPDATE users SET plan_status = 'canceled' WHERE id = $1", [userId]);
-    const accountId = await createMastodonAccount(userId);
+    const { rows: acc } = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token)
+       VALUES ($1, 'linkedin', 'Alice', 'li-lapsed', 'tok') RETURNING id`,
+      [userId]
+    );
+    const accountId = acc[0].id;
     const postId = await createScheduledPost(userId, accountId, 'queued before cancelling');
     await pool.query("UPDATE posts SET repeat_interval = 'daily' WHERE id = $1", [postId]);
     const fetchMock = vi.fn();

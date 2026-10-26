@@ -316,6 +316,7 @@
     <section class="home-section home-pricing-teaser">
       <h2 class="home-h2">Simple <span class="underline-mark">pricing.<svg class="underline-mark-line" viewBox="0 0 320 22" preserveAspectRatio="none" aria-hidden="true"><path d="M5 14C70 5 150 5 210 10s70 6 105 1" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/></svg></span></h2>
       <p class="home-hero-lead">Every plan starts with a 7-day free trial. Cancel anytime.</p>
+      <p class="home-hero-lead">Only posting to Mastodon, Bluesky or Telegram? That's free, with no card: <a href="/signup">sign up free</a>.</p>
 
       <%- include('partials/pricing-cards', { headingTag: 'h3', loggedIn: false, currentPlan: null }) %>
 
@@ -342,7 +343,7 @@
           <% if (billingEnabled) { %>
           <details>
             <summary>Is there a free trial?</summary>
-            <p>Yes &mdash; every plan starts with a 7-day free trial. You can also run Postfalcon yourself: it&rsquo;s open source.</p>
+            <p>Yes &mdash; every plan starts with a 7-day free trial. Posting to Mastodon, Bluesky and Telegram is free, with no card and no time limit. You can also run Postfalcon yourself: it&rsquo;s open source.</p>
           </details>
           <% } %>
           <details>

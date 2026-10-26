@@ -175,7 +175,8 @@ router.get(
       }).catch((logErr) => req.log.error({ err: logErr }, 'failed to record auth event'));
 
       if (isNewUser) {
-        return res.redirect(plan ? `/pricing?start=${encodeURIComponent(plan)}` : '/pricing');
+        // Same as email signup: a picked plan goes on to Checkout, otherwise into the app (free plan).
+        return res.redirect(plan ? `/pricing?start=${encodeURIComponent(plan)}` : '/dashboard');
       }
       res.redirect('/dashboard');
     });

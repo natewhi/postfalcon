@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import path from 'node:path';
 import { pool } from './db/pool.js';
 import { copyMedia, mediaUrl } from './lib/storage.js';
-import { isEntitled, billingConfigured } from './lib/billing.js';
+import { canUsePlatform, billingConfigured } from './lib/billing.js';
 import { reconcileSubscriptions } from './lib/billingSync.js';
 import { markSchedulerStarted, markSchedulerTick } from './lib/schedulerHeartbeat.js';
 import { runBackup } from './lib/backup.js';
@@ -131,10 +131,11 @@ export async function processDuePosts() {
       await failWithoutSending(post, 'Not published: this account is suspended. Contact the site admin.');
       continue;
     }
-    // Publishing is what a plan pays for. Posts queued (or recurring) before a trial or
-    // subscription lapsed fail here instead of going out for free, and a recurring one stops
-    // cloning itself. The user can retry them once they've reactivated.
-    if (!isEntitled({ plan_status: post.user_plan_status })) {
+    // Publishing to anything but the free platforms (lib/billing.js FREE_PLATFORMS) is what a
+    // plan pays for. Such posts queued (or recurring) before a trial or subscription lapsed fail
+    // here instead of going out for free, and a recurring one stops cloning itself. The user can
+    // retry them once they've reactivated.
+    if (!canUsePlatform({ plan_status: post.user_plan_status }, post.platform)) {
       await failWithoutSending(
         post,
         'Not published: your Postfalcon trial or subscription has ended. Reactivate at /pricing, then retry this post.'

@@ -27,6 +27,8 @@
     <section class="pricing-hero">
       <h1>Simple <span class="underline-mark">pricing.<svg class="underline-mark-line" viewBox="0 0 320 22" preserveAspectRatio="none" aria-hidden="true"><path d="M5 14C70 5 150 5 210 10s70 6 105 1" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/></svg></span></h1>
       <p class="landing-subhead">Every plan starts with a 7-day free trial. Cancel anytime.</p>
+      <p class="landing-subhead">Only posting to Mastodon, Bluesky or Telegram? That's free, with no card:
+        <a href="<%= loggedIn ? '/dashboard' : '/signup' %>"><%= loggedIn ? 'go to your calendar' : 'sign up free' %></a>.</p>
       <p id="pricing-message" class="error" hidden></p>
     </section>
 

@@ -117,7 +117,7 @@ router.get(
       `SELECT 1 FROM social_accounts WHERE user_id = $1 AND platform = 'mastodon' AND external_account_id = $2`,
       [req.user.id, account.id]
     );
-    if (alreadyConnected.rows.length === 0 && (await atAccountLimit(req.user))) {
+    if (alreadyConnected.rows.length === 0 && (await atAccountLimit(req.user, 'mastodon'))) {
       return res.redirect('/accounts?error=plan_limit');
     }
 

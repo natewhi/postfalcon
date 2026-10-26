@@ -87,9 +87,9 @@ function billingStatusLine(s) {
     case 'past_due':
       return 'Your last payment failed — update your card in Manage billing to keep publishing.';
     case 'incomplete':
-      return 'Not started — choose a plan to start your free trial.';
+      return 'Free plan: Mastodon, Bluesky and Telegram. Choose a plan to add other platforms (7-day free trial).';
     case 'canceled':
-      return 'Your subscription has ended — choose a plan to start publishing again.';
+      return 'Your subscription has ended: Mastodon, Bluesky and Telegram are still free. Choose a plan for the rest.';
     default:
       return '';
   }
@@ -104,6 +104,12 @@ async function loadPlan() {
       summary.textContent = 'Self-hosted — no limits on connected accounts or scheduled posts.';
       document.getElementById('webhooks-section').hidden = false;
       loadWebhooks();
+      return;
+    }
+    // No running plan: the free plan line says it all (no plan name, no paid limits).
+    if (!['active', 'trialing', 'past_due'].includes(s.planStatus)) {
+      summary.textContent = billingStatusLine(s);
+      manageBtn.hidden = !s.hasBillingAccount;
       return;
     }
     const accountsLimit = s.limits.accounts === null ? 'unlimited' : s.limits.accounts;

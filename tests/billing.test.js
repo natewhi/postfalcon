@@ -222,6 +222,48 @@ describe('plan limits', () => {
     expect(res.body.message).toMatch(/start your free trial/i);
   });
 
+  it('lets an account with no plan use the free platforms, up to the Standard channel cap', async () => {
+    const { client, userId } = await loginNewUser();
+    await pool.query("UPDATE users SET plan_status = 'incomplete' WHERE id = $1", [userId]);
+
+    const free = await client.post('/api/v1/social-accounts').send({ platform: 'bluesky', display_name: '@free' });
+    expect(free.status).toBe(201);
+    const paid = await client.post('/api/v1/social-accounts').send({ platform: 'linkedin', display_name: '@paid' });
+    expect(paid.status).toBe(402);
+    expect(paid.body.message).toMatch(/Mastodon, Bluesky and Telegram are free/);
+
+    // Scheduling to a free platform works; mixing in a paid one doesn't.
+    const ok = await client
+      .post('/api/v1/posts')
+      .send({ social_account_id: free.body.id, content: 'free post', scheduled_for: futureIso() });
+    expect(ok.status).toBe(201);
+    await pool.query(
+      "INSERT INTO social_accounts (user_id, platform, display_name, external_account_id) VALUES ($1, 'linkedin', 'p', 'li-x')",
+      [userId]
+    );
+    const { rows: paidAcc } = await pool.query("SELECT id FROM social_accounts WHERE user_id = $1 AND platform = 'linkedin'", [userId]);
+    const mixed = await client
+      .post('/api/v1/posts')
+      .send({ social_account_ids: [free.body.id, paidAcc[0].id], content: 'both', scheduled_for: futureIso() });
+    expect(mixed.status).toBe(402);
+
+    // Editing a free post works; rescheduling a paid-platform post doesn't.
+    expect((await client.patch(`/api/v1/posts/${ok.body.id}`).send({ content: 'edited' })).status).toBe(200);
+    const { rows: paidPost } = await pool.query(
+      `INSERT INTO posts (user_id, social_account_id, content, status) VALUES ($1, $2, 'p', 'draft') RETURNING id`,
+      [userId, paidAcc[0].id]
+    );
+    expect((await client.patch(`/api/v1/posts/${paidPost[0].id}`).send({ status: 'scheduled', scheduled_for: futureIso() })).status).toBe(402);
+
+    // The cap: Standard's channel count, over free platforms only (the LinkedIn one doesn't count).
+    for (let i = 1; i < 5; i++) {
+      expect((await client.post('/api/v1/social-accounts').send({ platform: 'mastodon', display_name: `@m${i}` })).status).toBe(201);
+    }
+    const over = await client.post('/api/v1/social-accounts').send({ platform: 'telegram', display_name: '@one-too-many' });
+    expect(over.status).toBe(402);
+    expect(over.body.error).toBe('plan_limit');
+  });
+
   it('shows the start-trial banner in the app only until the account can publish', async () => {
     const { client, userId } = await loginNewUser();
     const entitled = await client.get('/dashboard');
@@ -229,7 +271,7 @@ describe('plan limits', () => {
 
     await pool.query("UPDATE users SET plan_status = 'incomplete' WHERE id = $1", [userId]);
     const notStarted = await client.get('/dashboard');
-    expect(notStarted.text).toContain('Start your 7-day free trial');
+    expect(notStarted.text).toContain("You're on the free plan: Mastodon, Bluesky and Telegram");
 
     await pool.query("UPDATE users SET plan_status = 'canceled' WHERE id = $1", [userId]);
     const lapsed = await client.get('/accounts');

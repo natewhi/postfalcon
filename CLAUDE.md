@@ -295,9 +295,14 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   have a Stripe subscription and skips admins, so hand-set review/test logins survive it. `STRIPE_REQUIRE_TERMS=true`
   adds a required Terms tick to Checkout (live only: Stripe needs a Terms URL in business details first);
   `users.plan`/`plan_status`/`plan_renews_at` are the app's read-fast copy of Stripe state, written only by
-  `routes/billingWebhook.js`. There is no free plan — new rows default to `plan='standard'`,
-  `plan_status='incomplete'` (migration 023 — not entitled until Stripe Checkout completes and the webhook sets
-  `trialing`/`active`), and Checkout adds a 7-day `trial_period_days` for never-subscribed customers. A test/
+  `routes/billingWebhook.js`. New rows default to `plan='standard'`, `plan_status='incomplete'` (migration 023 — not
+  entitled until Stripe Checkout completes and the webhook sets `trialing`/`active`), and Checkout adds a 7-day
+  `trial_period_days` for never-subscribed customers. The only free use is the open platforms: `FREE_PLATFORMS`
+  (mastodon/bluesky/telegram) in lib/billing.js work for any account, entitled or not, capped at Standard's channel
+  count over those platforms — `canUsePlatform()` in scheduler.js, and in middleware/planLimit.js
+  (`atAccountLimit(user, platform)` — pass the platform from a free platform's connect route —,
+  `enforceAccountLimit`, and `enforceScheduledPostLimit`, which looks up the post's target accounts). Not a Stripe
+  plan and no capabilities beyond Standard's; webhooks stay paid. Signup with no plan picked lands on /dashboard. A test/
   reviewer login that should work without Stripe is just set to `plan_status='active'` by hand. `isEntitled(user)` (plan_status in active/trialing/past_due) is the "can still publish" gate;
   when a subscription lapses the `plan` string sticks and `plan_status` drives the lockout. Enforce with the
   middleware in `middleware/planLimit.js`: `enforceAccountLimit` (402 `plan_limit`), `enforceScheduledPostLimit`

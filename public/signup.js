@@ -54,9 +54,8 @@ signupForm?.addEventListener('submit', async (e) => {
     });
 
     if (loginRes.ok) {
-      window.location.href = signupPlan
-        ? `/pricing?start=${encodeURIComponent(signupPlan)}`
-        : '/pricing';
+      // A plan picked on /pricing goes on to Checkout; otherwise straight in, on the free plan.
+      window.location.href = signupPlan ? `/pricing?start=${encodeURIComponent(signupPlan)}` : '/dashboard';
     } else {
       window.location.href = '/login';
     }

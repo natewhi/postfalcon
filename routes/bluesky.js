@@ -47,7 +47,7 @@ router.post(
       `SELECT 1 FROM social_accounts WHERE user_id = $1 AND platform = 'bluesky' AND external_account_id = $2`,
       [req.user.id, externalId]
     );
-    if (existing.rows.length === 0 && (await atAccountLimit(req.user))) {
+    if (existing.rows.length === 0 && (await atAccountLimit(req.user, 'bluesky'))) {
       return res.status(402).json({
         error: 'plan_limit',
         message: 'Your plan is at its connected-account limit. Upgrade at /pricing to add more.',

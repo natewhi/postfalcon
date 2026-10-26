@@ -179,8 +179,13 @@ blueskyForm?.addEventListener(
 );
 
 if (new URLSearchParams(location.search).get('error') === 'plan_limit') {
-  // atAccountLimit() also returns true for an account with no active trial/subscription.
-  showToast('Some accounts were not connected — start your free trial, or upgrade if your plan’s channel limit was reached.', 'error', '/pricing');
+  // atAccountLimit() also returns true for a paid platform on an account with no active trial/
+  // subscription (Mastodon, Bluesky and Telegram are free).
+  showToast(
+    'Not connected: this platform needs a plan (Mastodon, Bluesky and Telegram are free), or your plan’s channel limit was reached. Start a free trial or upgrade.',
+    'error',
+    '/pricing'
+  );
   history.replaceState(null, '', location.pathname);
 }
 
