@@ -25,7 +25,8 @@ repository is the whole thing.
 
 You need a Linux server with [Docker](https://docs.docker.com/engine/install/) (Compose is
 included), and a domain or subdomain whose DNS points at the server, with ports 80 and 443 open.
-Caddy, included, gets the HTTPS certificate on its own.
+Caddy, included, gets the HTTPS certificate on its own. Running it takes about 100 MB of memory
+at rest; a 1 GB server is enough, 2 GB is comfortable while it builds the image.
 
 ```bash
 git clone https://github.com/natewhi/postfalcon.git
