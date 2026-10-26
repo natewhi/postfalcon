@@ -155,6 +155,42 @@ function renderStorage(s) {
     : 'No bucket configured: media lives on the server disk.';
 }
 
+// Alerts (lib/alerts.js): what admins have been (or will be) emailed about.
+function renderAlerts({ alerts, emailsOn, emailConfigured }) {
+  document.getElementById('alerts-list').innerHTML = alerts.length
+    ? alerts.map((a) => checkItem('error', a.title, `${a.detail || ''} Since ${when(a.active_since)}.`)).join('')
+    : checkItem('ok', 'No problems right now', '');
+  let note = 'Checked every 10 minutes; admins are emailed when a problem starts, daily while it lasts, and when it clears.';
+  if (!emailsOn) note = 'Checked every 10 minutes. Alert emails are off (Admin → Settings), so problems only show here.';
+  else if (!emailConfigured) note += " Email isn't set up on this server, so they're only written to the log.";
+  document.getElementById('alerts-note').textContent = note;
+}
+
+async function loadAlerts() {
+  try {
+    renderAlerts(await apiJson('/api/admin/alerts'));
+  } catch (err) {
+    document.getElementById('alerts-list').innerHTML = checkItem('warn', "Couldn't load alerts", err.message);
+  }
+}
+
+const alertsBtn = document.getElementById('alerts-check');
+alertsBtn.addEventListener(
+  'click',
+  withLoading(alertsBtn, 'Checking…', async () => {
+    try {
+      const result = await apiJson('/api/admin/alerts/check', { method: 'POST' });
+      const { alerts } = result;
+      const { emailsOn, emailConfigured } = await apiJson('/api/admin/alerts');
+      renderAlerts({ alerts, emailsOn, emailConfigured });
+      const sent = result.emailedTo.length ? ` Emailed ${result.emailedTo.length} admin(s).` : '';
+      showToast(`${alerts.length ? `${alerts.length} problem(s) found.` : 'No problems found.'}${sent}`, alerts.length ? 'warning' : 'success');
+    } catch (err) {
+      showToast(err.message);
+    }
+  })
+);
+
 // Backups: every kept file with a download link, and a backup on demand (routes/admin.js).
 async function loadBackups() {
   const body = document.getElementById('backup-rows');
@@ -219,6 +255,7 @@ testEmailForm.addEventListener(
 
 async function loadOverview() {
   loadBackups();
+  loadAlerts();
   try {
     const data = await apiJson('/api/admin/overview');
     renderSetup(data.setup);

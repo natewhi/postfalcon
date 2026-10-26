@@ -120,6 +120,12 @@ Everything below is done from the app, in the **Admin** section of the sidebar.
    goes straight to log in. Log in is the default for a self-hosted server.
 5. **Email** (optional, recommended): fill in `SMTP_*` in `.env` so verification and
    password-reset emails are actually sent. Any SMTP provider works.
+   Then use **Send test email** on Overview to check it works.
+6. **Alerts**: with email working, every admin is emailed when something needs attention, such
+   as posts not going out, backups stopping, a burst of failures on one platform, or a run of server
+   errors. Admin → Settings can turn this off. These checks run inside the app, so add an outside
+   uptime monitor (any free one that checks `<BASE_URL>/health`) to hear about the server being
+   down altogether.
 
 Restart the app after editing `.env`: `docker compose up -d`, or `pm2 reload postfalcon --update-env`.
 

@@ -52,6 +52,26 @@
     </section>
 
     <section class="admin-section">
+      <h2>Alert emails</h2>
+      <p class="hint">
+        Every admin gets an email when something needs a person: posts overdue or stuck, the scheduler
+        failing, backups stopping, a burst of failed posts on one platform, or a spike in server errors.
+        Once when it starts, daily while it lasts, and once when it clears. Problems show on
+        <a href="/admin/overview">Overview</a> either way.
+      </p>
+      <form id="alert-emails-form" class="admin-filter-bar is-plain">
+        <div class="admin-filter-field">
+          <label for="alert-emails">Alert emails</label>
+          <select id="alert-emails" disabled>
+            <option value="on">On</option>
+            <option value="off">Off</option>
+          </select>
+        </div>
+        <button type="submit">Save</button>
+      </form>
+    </section>
+
+    <section class="admin-section">
       <h2>Elsewhere</h2>
       <p class="hint">
         Who can sign up, invite links and admin rights: <a href="/admin/customers">Customers</a>.

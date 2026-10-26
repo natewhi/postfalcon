@@ -16,6 +16,8 @@ import { sendMail, sendTestMail } from '../lib/mailer.js';
 import { deleteUserAccount, BillingUnavailableError } from '../lib/accounts.js';
 import { listLocalBackups, runBackup, backupDir } from '../lib/backup.js';
 import { s3Enabled } from '../lib/storage.js';
+import { listServerErrors } from '../lib/errorLog.js';
+import { checkAlerts, activeAlerts } from '../lib/alerts.js';
 import {
   SIGNUP_MODES,
   getSignupMode,
@@ -58,8 +60,9 @@ const settingsSchema = z
   .object({
     site_name: z.string().trim().min(1).max(40).nullable().optional(),
     public_site: z.enum(['on', 'off', 'default']).optional(),
+    alert_emails: z.enum(['on', 'off']).optional(),
   })
-  .refine((v) => v.site_name !== undefined || v.public_site !== undefined, { message: 'nothing to change' });
+  .refine((v) => Object.values(v).some((x) => x !== undefined), { message: 'nothing to change' });
 
 // POST /platforms/:id: switch a platform on or off, or `reset` it to its registry default.
 const platformSwitchSchema = z.union([z.object({ enabled: z.boolean() }), z.object({ reset: z.literal(true) })]);
@@ -419,6 +422,7 @@ async function settingsResponse() {
     publicSiteDefault: !selfHosted(),
     publicSiteSaved,
     selfHosted: selfHosted(),
+    alertEmails: stored.alert_emails !== 'off',
   };
 }
 
@@ -438,6 +442,7 @@ router.post(
     else if (siteName !== undefined) await saveInstanceSetting('site_name', siteName, req.user.id);
     if (publicSite === 'default') await clearInstanceSetting('public_site');
     else if (publicSite !== undefined) await saveInstanceSetting('public_site', publicSite, req.user.id);
+    if (req.body.alert_emails !== undefined) await saveInstanceSetting('alert_emails', req.body.alert_emails, req.user.id);
     await logProductEvent(req.user.id, 'instance_settings_changed', req.body).catch((err) =>
       req.log.error({ err }, 'failed to record product event')
     );
@@ -626,6 +631,32 @@ router.get(
     const backup = (await listLocalBackups()).find((b) => b.name === req.params.name);
     if (!backup) return res.status(404).json({ error: 'not found' });
     res.download(path.join(backupDir(), backup.name), backup.name);
+  })
+);
+
+// Activity -> Server errors (lib/errorLog.js) and Overview -> Alerts (lib/alerts.js).
+router.get(
+  '/errors',
+  asyncHandler(async (req, res) => {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
+    res.json(await listServerErrors({ limit }));
+  })
+);
+
+router.get(
+  '/alerts',
+  asyncHandler(async (req, res) => {
+    const { alert_emails: setting } = await readInstanceSettings();
+    res.json({ alerts: await activeAlerts(), emailsOn: setting !== 'off', emailConfigured: smtpConfigured() });
+  })
+);
+
+// Runs the same check as the 10-minute job now, emailing anything new.
+router.post(
+  '/alerts/check',
+  asyncHandler(async (req, res) => {
+    const result = await checkAlerts();
+    res.json({ ...result, alerts: await activeAlerts() });
   })
 );
 

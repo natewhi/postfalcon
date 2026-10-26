@@ -703,6 +703,19 @@ a.attention-banner-link:hover {
   flex-shrink: 0;
 }
 
+.error-detail summary {
+  cursor: pointer;
+}
+
+.error-detail pre {
+  margin: var(--space-2) 0 0;
+  max-height: 320px;
+  overflow: auto;
+  font-size: 0.8em;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .platform-setup {
   margin-top: var(--space-1);
   font-size: 0.875em;

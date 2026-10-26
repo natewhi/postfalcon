@@ -10,6 +10,10 @@ function render(settings) {
   select.querySelector('option[value="default"]').textContent = `Default — ${defaultLabel}`;
   select.value = settings.publicSiteSaved ? (settings.publicSite ? 'on' : 'off') : 'default';
   select.disabled = false;
+  const alertSelect = document.getElementById('alert-emails');
+  alertSelect.value = settings.alertEmails ? 'on' : 'off';
+  alertSelect.disabled = false;
+
   document.getElementById('public-site-status').textContent = settings.publicSite
     ? 'Currently on: visitors to the home page see the landing page.'
     : 'Currently off: the home page goes to log in.';
@@ -38,6 +42,12 @@ document.getElementById('site-name-form').addEventListener('submit', (e) => {
 document.getElementById('public-site-form').addEventListener('submit', (e) => {
   e.preventDefault();
   save({ public_site: document.getElementById('public-site').value }, 'Public website setting saved.');
+});
+
+document.getElementById('alert-emails-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const value = document.getElementById('alert-emails').value;
+  save({ alert_emails: value }, value === 'on' ? 'Alert emails are on.' : 'Alert emails are off.');
 });
 
 apiJson('/api/admin/settings')

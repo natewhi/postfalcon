@@ -785,3 +785,165 @@ describe('admin backups', () => {
     }
   });
 });
+
+describe('server error log', () => {
+  it('reads the message, error and request out of each way pino gets called', async () => {
+    const { errorFromLogCall } = await import('../lib/errorLog.js');
+    const err = new Error('boom');
+    expect(errorFromLogCall(['plain message'], null)).toMatchObject({ message: 'plain message', err: null });
+    expect(errorFromLogCall([{ err }, 'unhandled error'], { req: { method: 'POST', url: '/api/v1/posts' } })).toMatchObject({
+      message: 'unhandled error',
+      err,
+      method: 'POST',
+      url: '/api/v1/posts',
+    });
+    expect(errorFromLogCall([err], null)).toMatchObject({ message: 'boom', err, method: null });
+  });
+
+  it('keeps errors for Activity, newest first, admin-only', async () => {
+    const { recordServerError } = await import('../lib/errorLog.js');
+    await recordServerError({ message: 'database backup failed', err: new Error('pg_dump exited with 1') });
+    await recordServerError({ message: 'unhandled error', err: new TypeError('x is undefined'), method: 'GET', url: '/dashboard' });
+
+    const email = 'admin-errors@example.com';
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+    const res = await admin.get('/api/admin/errors');
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toMatchObject({ message: 'unhandled error', error_type: 'TypeError', method: 'GET', url: '/dashboard' });
+    expect(res.body[0].stack).toContain('x is undefined');
+    expect(res.body[1]).toMatchObject({ message: 'database backup failed', error_message: 'pg_dump exited with 1', method: null });
+
+    const other = await signupAndLogin('not-admin-errors@example.com');
+    expect((await other.get('/api/admin/errors')).status).toBe(404);
+  });
+});
+
+describe('admin alerts', () => {
+  let backupDir;
+  // A backup folder holding one fresh backup, so the backup check stays quiet unless a test
+  // wants it to fire.
+  beforeAll(async () => {
+    const fs = await import('node:fs/promises');
+    const os = await import('node:os');
+    const path = await import('node:path');
+    backupDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pf-alert-backups-'));
+    await fs.writeFile(path.join(backupDir, 'postfalcon-fresh.dump'), 'x');
+    process.env.BACKUP_DIR = backupDir;
+  });
+  afterAll(async () => {
+    const fs = await import('node:fs/promises');
+    delete process.env.BACKUP_DIR;
+    await fs.rm(backupDir, { recursive: true, force: true });
+  });
+
+  async function adminWithAccount(email) {
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+    const { rows: user } = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    const { rows: acc } = await pool.query(
+      `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, metadata)
+       VALUES ($1, 'mastodon', '@a@example.social', 'ext-alert', 'tok', '{"instance":"example.social"}') RETURNING id`,
+      [user[0].id]
+    );
+    return { admin, userId: user[0].id, accountId: acc[0].id };
+  }
+
+  async function overduePost(userId, accountId) {
+    const { rows } = await pool.query(
+      `INSERT INTO posts (user_id, social_account_id, content, status, scheduled_for)
+       VALUES ($1, $2, 'late', 'scheduled', now() - interval '30 minutes') RETURNING id`,
+      [userId, accountId]
+    );
+    return rows[0].id;
+  }
+
+  it('emails admins once when a problem starts, stays quiet while it lasts, and reports when it clears', async () => {
+    const { sendMail } = await import('../lib/mailer.js');
+    const { checkAlerts } = await import('../lib/alerts.js');
+    const { userId, accountId } = await adminWithAccount('admin-alerts@example.com');
+    sendMail.mockClear();
+
+    expect(await checkAlerts()).toMatchObject({ raised: [], resolved: [], emailedTo: [] });
+    expect(sendMail).not.toHaveBeenCalled();
+
+    const postId = await overduePost(userId, accountId);
+    const first = await checkAlerts();
+    expect(first).toMatchObject({ raised: ['overdue_posts'], emailedTo: ['admin-alerts@example.com'] });
+    expect(sendMail).toHaveBeenCalledTimes(1);
+    expect(sendMail.mock.calls[0][0]).toMatchObject({ to: 'admin-alerts@example.com' });
+    expect(sendMail.mock.calls[0][0].subject).toContain('1 scheduled post is overdue');
+
+    expect(await checkAlerts()).toMatchObject({ raised: [], reminded: [], resolved: [] });
+    expect(sendMail).toHaveBeenCalledTimes(1);
+
+    await pool.query('DELETE FROM posts WHERE id = $1', [postId]);
+    const cleared = await checkAlerts();
+    expect(cleared.resolved).toEqual(['overdue_posts']);
+    expect(sendMail).toHaveBeenCalledTimes(2);
+    expect(sendMail.mock.calls[1][0].subject).toContain('Resolved');
+  });
+
+  it('reminds every 24 hours while a problem lasts', async () => {
+    const { sendMail } = await import('../lib/mailer.js');
+    const { checkAlerts } = await import('../lib/alerts.js');
+    const { userId, accountId } = await adminWithAccount('admin-remind@example.com');
+    await overduePost(userId, accountId);
+    await checkAlerts();
+    await pool.query("UPDATE admin_alerts SET notified_at = now() - interval '25 hours' WHERE key = 'overdue_posts'");
+    sendMail.mockClear();
+
+    expect((await checkAlerts()).reminded).toEqual(['overdue_posts']);
+    expect(sendMail.mock.calls[0][0].text).toContain('Still going on');
+  });
+
+  it('spots a burst of failures on one platform, a spike in server errors, and stopped backups', async () => {
+    const { checkAlerts } = await import('../lib/alerts.js');
+    const { recordServerError } = await import('../lib/errorLog.js');
+    const fs = await import('node:fs/promises');
+    const { userId, accountId } = await adminWithAccount('admin-bursts@example.com');
+    for (let i = 0; i < 5; i++) {
+      await pool.query(
+        `INSERT INTO posts (user_id, social_account_id, content, status, scheduled_for, error_message)
+         VALUES ($1, $2, 'x', 'failed', now() - interval '5 minutes', 'Mastodon said no')`,
+        [userId, accountId]
+      );
+    }
+    for (let i = 0; i < 20; i++) await recordServerError({ message: `error ${i}` });
+    await fs.rm(backupDir, { recursive: true, force: true });
+    await fs.mkdir(backupDir);
+    await pool.query("UPDATE users SET created_at = now() - interval '3 days'");
+
+    const { raised } = await checkAlerts();
+    expect(raised).toEqual(expect.arrayContaining(['failures_mastodon', 'server_errors', 'backups_stale']));
+    await fs.writeFile((await import('node:path')).join(backupDir, 'postfalcon-fresh.dump'), 'x');
+  });
+
+  it('records problems but sends nothing when alert emails are switched off', async () => {
+    const { sendMail } = await import('../lib/mailer.js');
+    const { checkAlerts } = await import('../lib/alerts.js');
+    const { admin, userId, accountId } = await adminWithAccount('admin-quiet@example.com');
+    await admin.post('/api/admin/settings').send({ alert_emails: 'off' });
+    await overduePost(userId, accountId);
+    sendMail.mockClear();
+
+    const result = await checkAlerts();
+    expect(result).toMatchObject({ raised: ['overdue_posts'], emailedTo: [] });
+    expect(sendMail).not.toHaveBeenCalled();
+    const { body } = await admin.get('/api/admin/alerts');
+    expect(body.emailsOn).toBe(false);
+    expect(body.alerts.map((a) => a.key)).toEqual(['overdue_posts']);
+  });
+
+  it('lets an admin run the check from Overview, and nobody else', async () => {
+    const { admin, userId, accountId } = await adminWithAccount('admin-checknow@example.com');
+    await overduePost(userId, accountId);
+    const res = await admin.post('/api/admin/alerts/check');
+    expect(res.status).toBe(200);
+    expect(res.body.alerts.map((a) => a.key)).toEqual(['overdue_posts']);
+
+    const other = await signupAndLogin('not-admin-alerts@example.com');
+    expect((await other.post('/api/admin/alerts/check')).status).toBe(404);
+    expect((await other.get('/api/admin/alerts')).status).toBe(404);
+  });
+});

@@ -22,6 +22,15 @@
 
     <div id="overview-content" hidden>
       <section class="admin-section">
+        <h2>Alerts</h2>
+        <p class="hint" id="alerts-note">Checked every 10 minutes; admins are emailed when a problem starts, daily while it lasts, and when it clears.</p>
+        <ul id="alerts-list" class="admin-checks"></ul>
+        <div class="admin-filter-bar is-plain">
+          <button type="button" id="alerts-check" class="btn-secondary">Check now</button>
+        </div>
+      </section>
+
+      <section class="admin-section">
         <h2>Setup</h2>
         <p class="hint">Settings to fix before (or after) launch. Red is broken now; amber is a test or temporary setting.</p>
         <ul id="setup-checks" class="admin-checks"></ul>

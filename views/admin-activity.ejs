@@ -18,6 +18,20 @@
     </div>
 
     <section class="admin-section">
+      <h2>Server errors</h2>
+      <p class="hint">Everything the app logged as an error in the last 30 days, newest first: failed requests, scheduler and platform problems, failed backups. Open one for the full technical detail.</p>
+      <div class="admin-filter-bar is-plain">
+        <button type="button" id="errors-refresh" class="btn-secondary">Refresh</button>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th class="nowrap">Time</th><th>Where</th><th>What happened</th></tr></thead>
+          <tbody id="errors-body"><tr><td colspan="3" class="empty"><span class="spinner"></span> Loading&hellip;</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-section">
       <h2>Billing</h2>
       <p class="hint">Each account's plan as Postfalcon holds it. The billing check re-reads every subscriber from Stripe and corrects any that disagree (it also runs nightly). Accounts with no Stripe subscription, like a review login set to active by hand, are left alone.</p>
       <form id="billing-filter" class="admin-filter-bar">

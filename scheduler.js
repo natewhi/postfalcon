@@ -6,6 +6,8 @@ import { isEntitled, billingConfigured } from './lib/billing.js';
 import { reconcileSubscriptions } from './lib/billingSync.js';
 import { markSchedulerStarted, markSchedulerTick } from './lib/schedulerHeartbeat.js';
 import { runBackup } from './lib/backup.js';
+import { checkAlerts } from './lib/alerts.js';
+import { pruneServerErrors } from './lib/errorLog.js';
 import { ensurePlatformSettingsLoaded } from './lib/platformSettings.js';
 import { cleanupOldMedia } from './lib/mediaCleanup.js';
 import { cleanupOldActivityLogs, logProductEvent } from './lib/activityLog.js';
@@ -332,6 +334,21 @@ export function startScheduler() {
       .catch((err) => logger.error({ err }, 'stored platform data refresh error'));
   });
 
+  // Admin alert emails (lib/alerts.js): problems that need a person, announced when they start,
+  // reminded daily, reported when they clear.
+  cron.schedule('*/10 * * * *', () => {
+    checkAlerts()
+      .then((result) => {
+        if (result.raised.length || result.resolved.length) logger.info(result, 'admin alerts');
+      })
+      .catch((err) => logger.error({ err }, 'admin alerts check failed'));
+  });
+
+  // Server errors kept for Admin -> Activity (lib/errorLog.js) are pruned after 30 days.
+  cron.schedule('15 3 * * *', () => {
+    pruneServerErrors().catch((err) => logger.warn({ err }, 'server error log prune failed'));
+  });
+
   // Nightly database backup (lib/backup.js): to the server disk, and the bucket if configured.
   cron.schedule('30 3 * * *', () => {
     runBackup()
@@ -351,6 +368,6 @@ export function startScheduler() {
   });
 
   logger.info(
-    'Scheduler started (runs every minute); media cleanup, activity log cleanup, post metrics refresh, stored platform data refresh and billing reconciliation run on their own schedules.'
+    'Scheduler started (runs every minute); media cleanup, activity log cleanup, post metrics refresh, stored platform data refresh, admin alerts, backups and billing reconciliation run on their own schedules.'
   );
 }

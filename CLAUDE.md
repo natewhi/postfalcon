@@ -264,6 +264,12 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   delete (lib/accounts.js `deleteUserAccount()`, shared with the user's own delete-account), revoke API token. Admins
   can't suspend/delete themselves or another admin. Overview also has Backups (list, back up now, download, restore
   steps) and Email (`sendTestMail()` in lib/mailer.js — add new mailer exports to tests/setup.js's mock too),
+  plus Alerts: lib/alerts.js `checkAlerts()` (every 10 min from scheduler.js, or "Check now") compares
+  `currentProblems()` — overdue/stuck posts, scheduler error, per-platform failure bursts, stale backups, server-error
+  spikes — with `admin_alerts` (migration 031) and emails all admins once on start, daily while active, once on
+  resolve (instance setting `alert_emails`). Activity -> Server errors reads `server_errors`, filled by a pino
+  `logMethod` hook in lib/logger.js for every error/fatal line (lib/errorLog.js; rate-capped, pruned at 30 days,
+  inert under test since the test logger is silent),
   `/admin/platforms` (switch each built platform on/off — `platform_settings`, migration 027, loaded into
   lib/platforms.js by `lib/platformSettings.js`; a platform with no saved switch uses the registry default,
   i.e. on unless `unlisted`), and `/admin/activity` (logs + Billing). Off means: dropped from

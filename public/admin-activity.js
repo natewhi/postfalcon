@@ -170,3 +170,34 @@ createAdminSection({
     { key: 'metadata' },
   ],
 });
+
+// Server errors (lib/errorLog.js, via GET /api/admin/errors): error-level log lines, with the
+// stack trace tucked into a <details> per row.
+async function loadServerErrors() {
+  const body = document.getElementById('errors-body');
+  try {
+    const errors = await apiJson('/api/admin/errors?limit=200');
+    body.innerHTML = errors.length
+      ? errors
+          .map((e) => {
+            const where = e.method ? `${e.method} ${e.url}` : 'Background job';
+            const summary = [e.message, e.error_message].filter(Boolean).join(': ') || 'Error';
+            const detail = [e.error_type, e.stack].filter(Boolean).join('\n');
+            return `<tr><td class="nowrap">${escapeHtml(new Date(e.created_at).toLocaleString())}</td><td><code>${escapeHtml(
+              where
+            )}</code></td><td>${
+              detail
+                ? `<details class="error-detail"><summary>${escapeHtml(summary)}</summary><pre>${escapeHtml(detail)}</pre></details>`
+                : escapeHtml(summary)
+            }</td></tr>`;
+          })
+          .join('')
+      : '<tr><td colspan="3" class="empty">No errors in the last 30 days.</td></tr>';
+  } catch (err) {
+    body.innerHTML = `<tr><td colspan="3" class="empty">Couldn't load errors: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+const errorsRefresh = document.getElementById('errors-refresh');
+errorsRefresh.addEventListener('click', withLoading(errorsRefresh, 'Refreshing…', loadServerErrors));
+loadServerErrors();
