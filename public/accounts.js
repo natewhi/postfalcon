@@ -29,6 +29,12 @@ async function loadAccounts() {
         <span class="content">
           ${escapeHtml(a.display_name)}
           ${pill}
+          ${
+            a.platform === 'pinterest'
+              ? `<label class="account-board">Pins go to
+                  <select data-board-for="${a.id}" disabled><option>Loading boards…</option></select></label>`
+              : ''
+          }
         </span>
         ${issue && target ? `<a class="btn-link account-reconnect" href="${escapeHtml(target)}">Reconnect</a>` : ''}
         <button data-id="${a.id}" class="delete-btn">Remove</button>
@@ -37,6 +43,8 @@ async function loadAccounts() {
         })
         .join('') ||
       '<li class="empty">No accounts connected yet &mdash; connect one below to start scheduling posts.</li>';
+
+    list.querySelectorAll('select[data-board-for]').forEach(loadPinterestBoards);
 
     list.querySelectorAll('.delete-btn').forEach((btn) => {
       btn.addEventListener(
@@ -60,6 +68,48 @@ async function loadAccounts() {
     list.innerHTML = '<li class="empty">Failed to load accounts.</li>';
     showToast(err.message);
   }
+}
+
+// Pinterest Pins go to one board per account; this lets the user choose which. Boards Pinterest
+// has refused Pins on (e.g. leftovers from the API sandbox) are labelled rather than hidden.
+async function loadPinterestBoards(select) {
+  const id = select.dataset.boardFor;
+  let data;
+  try {
+    data = await apiJson(`/api/pinterest/accounts/${id}/boards`);
+  } catch (err) {
+    select.innerHTML = "<option>Couldn't load boards</option>";
+    select.title = err.message;
+    return;
+  }
+  const { boards, selected_board_id: selected } = data;
+  const options = boards.map(
+    (b) =>
+      `<option value="${escapeHtml(b.id)}"${b.id === selected ? ' selected' : ''}>${escapeHtml(b.name)}${
+        b.usable ? '' : " (doesn't accept Pins)"
+      }</option>`
+  );
+  if (!boards.some((b) => b.id === selected)) {
+    options.unshift('<option value="" selected disabled>Choose a board…</option>');
+  }
+  select.innerHTML = options.join('') || '<option>No boards — create one on Pinterest</option>';
+  select.disabled = boards.length === 0;
+
+  select.addEventListener('change', async () => {
+    select.disabled = true;
+    try {
+      const saved = await apiJson(`/api/pinterest/accounts/${id}/board`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board_id: select.value }),
+      });
+      showToast(`Pins will go to “${saved.board_name}”.`, 'success');
+    } catch (err) {
+      showToast(err.message);
+    } finally {
+      select.disabled = false;
+    }
+  });
 }
 
 // The placeholder-account form is only rendered when there are stub platforms to add.

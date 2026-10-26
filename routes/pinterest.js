@@ -1,14 +1,18 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
+import { z } from 'zod';
 import { pool } from '../db/pool.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { validate } from '../middleware/validate.js';
 import { sanitizeUrl } from '../lib/url.js';
 import { logProductEvent } from '../lib/activityLog.js';
 import { logger } from '../lib/logger.js';
 import { atAccountLimit } from '../middleware/planLimit.js';
-import { basicAuthHeader, pinterestApiBase, sandboxToken } from '../lib/platforms/pinterest.js';
+import { accessToken, basicAuthHeader, listBoards, pinterestApiBase, sandboxToken } from '../lib/platforms/pinterest.js';
 
 const router = Router();
+
+const boardSchema = z.object({ board_id: z.string().trim().min(1).max(64) });
 // The exact set Pinterest's endpoints demand: POST /v5/pins needs boards:read+boards:write+
 // pins:read+pins:write (a Pin is written into a board), and GET /v5/user_account (the
 // username + picture below) needs user_accounts:read.
@@ -118,7 +122,11 @@ router.get(
        ON CONFLICT (user_id, platform, external_account_id)
        DO UPDATE SET display_name = EXCLUDED.display_name, access_token = EXCLUDED.access_token,
          refresh_token = COALESCE(EXCLUDED.refresh_token, social_accounts.refresh_token),
-         token_expires_at = EXCLUDED.token_expires_at, avatar_url = EXCLUDED.avatar_url, metadata = EXCLUDED.metadata
+         token_expires_at = EXCLUDED.token_expires_at, avatar_url = EXCLUDED.avatar_url,
+         -- Reconnecting keeps the board the user chose (and the boards found not to take Pins);
+         -- only an account with no board yet takes the first one picked above.
+         metadata = CASE WHEN social_accounts.metadata ? 'board_id' THEN social_accounts.metadata
+                         ELSE EXCLUDED.metadata END
        RETURNING id, (xmax = 0) AS inserted`,
       [
         req.user.id,
@@ -139,6 +147,71 @@ router.get(
     }
 
     res.redirect('/accounts');
+  })
+);
+
+// The connected account's boards for the Accounts page's board picker. `usable: false` marks a
+// board Pinterest has refused Pins on (lib/platforms/pinterest.js remembers those).
+async function pinterestAccount(req) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return null;
+  const { rows } = await pool.query(
+    `SELECT id, access_token, refresh_token, token_expires_at, metadata FROM social_accounts
+     WHERE id = $1 AND user_id = $2 AND platform = 'pinterest'`,
+    [id, req.user.id]
+  );
+  return rows[0] || null;
+}
+
+async function boardsFor(account) {
+  // accessToken() takes the scheduler's post shape, keyed by social_account_id.
+  const token = sandboxToken() || (await accessToken({ ...account, social_account_id: account.id }));
+  return listBoards(token);
+}
+
+router.get(
+  '/accounts/:id/boards',
+  asyncHandler(async (req, res) => {
+    const account = await pinterestAccount(req);
+    if (!account) return res.status(404).json({ error: 'not found' });
+
+    let boards;
+    try {
+      boards = await boardsFor(account);
+    } catch (err) {
+      req.log.warn({ err, socialAccountId: account.id }, 'pinterest boards lookup failed');
+      return res.status(502).json({ error: err.message });
+    }
+    const unusable = new Set(account.metadata?.unusable_board_ids || []);
+    res.json({
+      selected_board_id: account.metadata?.board_id ? String(account.metadata.board_id) : null,
+      boards: boards.map((b) => ({ ...b, usable: !unusable.has(b.id) })),
+    });
+  })
+);
+
+router.patch(
+  '/accounts/:id/board',
+  validate(boardSchema),
+  asyncHandler(async (req, res) => {
+    const account = await pinterestAccount(req);
+    if (!account) return res.status(404).json({ error: 'not found' });
+
+    let boards;
+    try {
+      boards = await boardsFor(account);
+    } catch (err) {
+      req.log.warn({ err, socialAccountId: account.id }, 'pinterest boards lookup failed');
+      return res.status(502).json({ error: err.message });
+    }
+    const board = boards.find((b) => b.id === req.body.board_id);
+    if (!board) return res.status(400).json({ error: 'That board is not on this Pinterest account.' });
+
+    // Choosing a board by hand clears any earlier refusal of it: the user says it works now.
+    const unusable = (account.metadata?.unusable_board_ids || []).filter((id) => id !== board.id);
+    const metadata = { ...account.metadata, board_id: board.id, board_name: board.name, unusable_board_ids: unusable };
+    await pool.query('UPDATE social_accounts SET metadata = $1 WHERE id = $2', [metadata, account.id]);
+    res.json({ board_id: board.id, board_name: board.name });
   })
 );
 

@@ -847,6 +847,133 @@ describe('scheduler', () => {
     }
   });
 
+  describe('Pinterest board refused', () => {
+    const SANDBOX_REFUSAL = { code: 1, message: 'Cannot add non-sandbox pins on sandbox boards.' };
+
+    async function pinterestPost(email, metadata) {
+      const userId = await createUser(email);
+      const { rows } = await pool.query(
+        `INSERT INTO social_accounts (user_id, platform, display_name, external_account_id, access_token, metadata)
+         VALUES ($1, 'pinterest', 'alice', 'alice', 'valid-token', $2) RETURNING id`,
+        [userId, metadata]
+      );
+      const postId = await createScheduledPost(userId, rows[0].id, 'a pin');
+      await createPostMedia(postId, { url: 'http://example.test/uploads/pin.jpg' });
+      return { accountId: rows[0].id, postId };
+    }
+
+    // Pins succeed only on the boards in `good`; every other board is refused like a sandbox one.
+    function stubPinterest({ boards, good = [], createBoard = null, pinError = null }) {
+      const pinnedTo = [];
+      let createdWith = null;
+      const fetchMock = vi.fn(async (url, options = {}) => {
+        const u = String(url);
+        if (u === 'https://api.pinterest.com/v5/pins') {
+          const boardId = JSON.parse(options.body).board_id;
+          pinnedTo.push(boardId);
+          if (pinError) return jsonResponse(pinError, 400);
+          return good.includes(boardId) ? jsonResponse({ id: `pin-on-${boardId}` }, 201) : jsonResponse(SANDBOX_REFUSAL, 400);
+        }
+        if (u === 'https://api.pinterest.com/v5/boards?page_size=100') return jsonResponse({ items: boards });
+        if (u === 'https://api.pinterest.com/v5/boards' && options.method === 'POST') {
+          createdWith = JSON.parse(options.body);
+          return createBoard ? jsonResponse(createBoard, 201) : jsonResponse({ message: 'nope' }, 403);
+        }
+        throw new Error(`unexpected fetch: ${u}`);
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      return { pinnedTo, created: () => createdWith, fetchMock };
+    }
+
+    it("moves to the account's next board that takes Pins and remembers both", async () => {
+      const { accountId, postId } = await pinterestPost('pin-heal@example.com', { board_id: 'sb-1', board_name: 'Postfalcon' });
+      const { pinnedTo } = stubPinterest({
+        boards: [
+          { id: 'sb-1', name: 'Postfalcon' },
+          { id: 'sb-2', name: 'test' },
+          { id: 'real-1', name: 'Recipes' },
+        ],
+        good: ['real-1'],
+      });
+
+      await processDuePosts();
+
+      expect(pinnedTo).toEqual(['sb-1', 'sb-2', 'real-1']);
+      const { rows } = await pool.query('SELECT status, platform_post_id FROM posts WHERE id = $1', [postId]);
+      expect(rows[0]).toEqual({ status: 'posted', platform_post_id: 'pin-on-real-1' });
+      const { rows: acc } = await pool.query('SELECT metadata FROM social_accounts WHERE id = $1', [accountId]);
+      expect(acc[0].metadata).toEqual({ board_id: 'real-1', board_name: 'Recipes', unusable_board_ids: ['sb-1', 'sb-2'] });
+    });
+
+    it('skips boards already known to refuse Pins', async () => {
+      await pinterestPost('pin-skip@example.com', {
+        board_id: 'gone-1',
+        board_name: 'Deleted',
+        unusable_board_ids: ['sb-1'],
+      });
+      const { pinnedTo } = stubPinterest({
+        boards: [
+          { id: 'sb-1', name: 'Postfalcon' },
+          { id: 'real-1', name: 'Recipes' },
+        ],
+        good: ['real-1'],
+      });
+
+      await processDuePosts();
+
+      expect(pinnedTo).toEqual(['gone-1', 'real-1']);
+    });
+
+    it('creates a new board when none of the existing ones take Pins', async () => {
+      const { accountId, postId } = await pinterestPost('pin-create@example.com', { board_id: 'sb-1', board_name: 'Postfalcon' });
+      const { pinnedTo, created } = stubPinterest({
+        boards: [{ id: 'sb-1', name: 'Postfalcon' }],
+        good: ['new-1'],
+        createBoard: { id: 'new-1', name: 'Postfalcon Pins' },
+      });
+
+      await processDuePosts();
+
+      // "Postfalcon" is taken by the refused sandbox board, so the new one gets another name.
+      expect(created().name).toBe('Postfalcon Pins');
+      expect(pinnedTo).toEqual(['sb-1', 'new-1']);
+      const { rows } = await pool.query('SELECT status FROM posts WHERE id = $1', [postId]);
+      expect(rows[0].status).toBe('posted');
+      const { rows: acc } = await pool.query('SELECT metadata FROM social_accounts WHERE id = $1', [accountId]);
+      expect(acc[0].metadata).toMatchObject({ board_id: 'new-1', board_name: 'Postfalcon Pins' });
+    });
+
+    it('fails the post with what to do when no board works and none can be created', async () => {
+      const { accountId, postId } = await pinterestPost('pin-nowhere@example.com', { board_id: 'sb-1', board_name: 'Postfalcon' });
+      stubPinterest({ boards: [{ id: 'sb-1', name: 'Postfalcon' }] });
+
+      await processDuePosts();
+
+      const { rows } = await pool.query('SELECT status, error_message FROM posts WHERE id = $1', [postId]);
+      expect(rows[0].status).toBe('failed');
+      expect(rows[0].error_message).toMatch(/choose it on the Accounts page/);
+      expect(rows[0].error_message).toMatch(/non-sandbox pins on sandbox boards/);
+      const { rows: acc } = await pool.query('SELECT metadata FROM social_accounts WHERE id = $1', [accountId]);
+      expect(acc[0].metadata).toEqual({ board_id: 'sb-1', board_name: 'Postfalcon' });
+    });
+
+    it("doesn't try other boards when the failure isn't about the board", async () => {
+      const { postId } = await pinterestPost('pin-badimage@example.com', { board_id: 'real-1', board_name: 'Recipes' });
+      const { pinnedTo, fetchMock } = stubPinterest({
+        boards: [{ id: 'real-2', name: 'Other' }],
+        pinError: { code: 2, message: 'Sorry, we could not fetch the image.' },
+      });
+
+      await processDuePosts();
+
+      expect(pinnedTo).toEqual(['real-1']);
+      expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/v5/boards'))).toBe(false);
+      const { rows } = await pool.query('SELECT status, error_message FROM posts WHERE id = $1', [postId]);
+      expect(rows[0].status).toBe('failed');
+      expect(rows[0].error_message).toMatch(/could not fetch the image/);
+    });
+  });
+
   it('renews an expired Pinterest token with its refresh token before pinning', async () => {
     const userId = await createUser('pi-refresh@example.com');
     const { rows: acc } = await pool.query(

@@ -89,9 +89,14 @@ lib/platforms.js     The platform registry — the ONE place a social platform i
                      don't (no metrics API available via the scopes Postfalcon already requests).
                      Pinterest and LinkedIn both use access levels open to any registered app (not
                      the partner-approval-gated tiers each platform also has): Pinterest posts a Pin
-                     to whichever board was picked automatically at connect time (stored in
-                     social_accounts.metadata, same place Mastodon keeps its instance domain) and
-                     always needs an image — there's no text-only Pin. LinkedIn posts to the user's
+                     to one board per account (social_accounts.metadata.board_id, same place
+                     Mastodon keeps its instance domain): the first board at connect time, then
+                     whatever the user picks on Accounts (GET/PATCH /api/pinterest/accounts/:id/
+                     board[s]); reconnecting keeps the choice. If Pinterest refuses that board
+                     (sandbox leftovers — the live API lists them with no marker — or deleted),
+                     publish() tries the other boards, then creates one, saves what worked and
+                     records refused ids in metadata.unusable_board_ids. Always needs an image —
+                     there's no text-only Pin. LinkedIn posts to the user's
                      personal profile (not a Company Page) and is text-only for now; its access
                      token has no refresh_token for standard apps, so it just expires (~60 days)
                      and surfaces as a normal failed-post error until reconnected.

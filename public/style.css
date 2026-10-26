@@ -698,6 +698,20 @@ a.attention-banner-link:hover {
   flex-shrink: 0;
 }
 
+#accounts-list .account-board {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: 0.875em;
+  color: var(--color-text-muted);
+}
+
+#accounts-list .account-board select {
+  max-width: 100%;
+}
+
 #accounts-list li.has-issue {
   border-color: var(--status-failed-border);
 }
