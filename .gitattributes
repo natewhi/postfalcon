@@ -1,0 +1,6 @@
+# Shell scripts and container files must keep Unix line endings wherever they are checked out
+# (a Windows checkout with core.autocrlf would otherwise give install.sh CRLFs, which sh rejects).
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+deploy/Caddyfile* text eol=lf
