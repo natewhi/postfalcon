@@ -1,4 +1,4 @@
-<% if (!emailVerified) { %>
+<% if (!emailVerified && emailEnabled) { %>
 <section class="verify-banner">
   <span>Please verify your email address.</span>
   <button id="resend-verification-btn" type="button">Resend verification email</button>

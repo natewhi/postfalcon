@@ -1,0 +1,7 @@
+# Used by docker-compose.yml. Caddy gets and renews the HTTPS certificate for DOMAIN on its
+# own (a real domain needs its DNS pointing at this server and ports 80/443 open; with
+# DOMAIN=localhost it uses a local certificate your browser will warn about).
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy app:3000
+}

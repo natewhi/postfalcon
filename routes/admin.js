@@ -3,12 +3,13 @@ import { pool } from '../db/pool.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { billingConfigured, PAID_PLAN_IDS, subscriptionsFor, hasRunningSubscription } from '../lib/billing.js';
+import { billingConfigured, selfHosted, PAID_PLAN_IDS, subscriptionsFor, hasRunningSubscription } from '../lib/billing.js';
 import { reconcileSubscriptions } from '../lib/billingSync.js';
 import { setupChecks, schedulerStatus, publishingHealth, businessMetrics, storageStatus } from '../lib/adminStatus.js';
 import { logProductEvent } from '../lib/activityLog.js';
-import { PLATFORMS, PLATFORM_IDS, PLATFORM_CREDENTIAL_ENV, isPlatformEnabled } from '../lib/platforms.js';
+import { PLATFORMS, PLATFORM_IDS, PLATFORM_CREDENTIAL_ENV, PLATFORM_SETUP, isPlatformEnabled } from '../lib/platforms.js';
 import { savePlatformSetting, clearPlatformSetting } from '../lib/platformSettings.js';
+import { envConfigured } from '../lib/config.js';
 import {
   SIGNUP_MODES,
   getSignupMode,
@@ -18,6 +19,13 @@ import {
   listInvites,
   revokeInvite,
 } from '../lib/signups.js';
+import {
+  readInstanceSettings,
+  resolveSettings,
+  saveInstanceSetting,
+  clearInstanceSetting,
+  DEFAULT_SITE_NAME,
+} from '../lib/instanceSettings.js';
 
 const router = Router();
 
@@ -33,6 +41,15 @@ const adminRoleSchema = z.object({ admin: z.boolean() });
 // POST /signups: who may create an account. POST /invites: a one-time signup link.
 const signupModeSchema = z.object({ mode: z.enum(SIGNUP_MODES) });
 const inviteSchema = z.object({ note: z.string().trim().max(200).optional() });
+
+// POST /settings: site name (null = back to the default) and the public website switch
+// ('default' = follow the instance type: on when hosted with Stripe, off when self-hosted).
+const settingsSchema = z
+  .object({
+    site_name: z.string().trim().min(1).max(40).nullable().optional(),
+    public_site: z.enum(['on', 'off', 'default']).optional(),
+  })
+  .refine((v) => v.site_name !== undefined || v.public_site !== undefined, { message: 'nothing to change' });
 
 // POST /platforms/:id: switch a platform on or off, or `reset` it to its registry default.
 const platformSwitchSchema = z.union([z.object({ enabled: z.boolean() }), z.object({ reset: z.literal(true) })]);
@@ -182,6 +199,19 @@ router.get(
 
 // Every platform with its on/off state, whether its app credentials are set, and how many
 // accounts and scheduled posts would be affected by switching it off.
+// Setup help for the Platforms page: PLATFORM_SETUP with callback URLs made absolute, and which
+// of the platform's .env keys are filled in (never their values).
+function setupFor(id) {
+  const setup = PLATFORM_SETUP[id];
+  if (!setup) return null;
+  return {
+    console: setup.console,
+    callbackUrls: setup.callbacks.map((path) => `${process.env.BASE_URL}${path}`),
+    env: setup.env.map((name) => ({ name, set: envConfigured(name) })),
+    steps: setup.steps,
+  };
+}
+
 router.get(
   '/platforms',
   asyncHandler(async (req, res) => {
@@ -213,6 +243,7 @@ router.get(
           credentialsSet: envKey === null || Boolean(envValue && !envValue.includes('change-me')),
           connectedAccounts: accountsBy[id] ?? 0,
           scheduledPosts: scheduledBy[id] ?? 0,
+          setup: setupFor(id),
         };
       })
     );
@@ -362,6 +393,43 @@ router.delete(
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid id' });
     if (!(await revokeInvite(id))) return res.status(404).json({ error: 'not found' });
     res.status(204).end();
+  })
+);
+
+// Instance settings (Admin -> Settings, lib/instanceSettings.js).
+async function settingsResponse() {
+  const stored = await readInstanceSettings();
+  const { siteName, publicSite, publicSiteSaved } = resolveSettings(stored);
+  return {
+    siteName,
+    siteNameDefault: DEFAULT_SITE_NAME,
+    publicSite,
+    publicSiteDefault: !selfHosted(),
+    publicSiteSaved,
+    selfHosted: selfHosted(),
+  };
+}
+
+router.get(
+  '/settings',
+  asyncHandler(async (req, res) => {
+    res.json(await settingsResponse());
+  })
+);
+
+router.post(
+  '/settings',
+  validate(settingsSchema),
+  asyncHandler(async (req, res) => {
+    const { site_name: siteName, public_site: publicSite } = req.body;
+    if (siteName === null) await clearInstanceSetting('site_name');
+    else if (siteName !== undefined) await saveInstanceSetting('site_name', siteName, req.user.id);
+    if (publicSite === 'default') await clearInstanceSetting('public_site');
+    else if (publicSite !== undefined) await saveInstanceSetting('public_site', publicSite, req.user.id);
+    await logProductEvent(req.user.id, 'instance_settings_changed', req.body).catch((err) =>
+      req.log.error({ err }, 'failed to record product event')
+    );
+    res.json(await settingsResponse());
   })
 );
 

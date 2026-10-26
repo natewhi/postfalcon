@@ -1,0 +1,30 @@
+# Postfalcon app image. docker-compose.yml runs it next to Postgres and Caddy; see README.md.
+FROM node:22-alpine
+
+# pg_dump for the nightly backups (lib/backup.js); must match the Postgres major version in
+# docker-compose.yml (16).
+RUN apk add --no-cache postgresql16-client
+
+WORKDIR /app
+
+# Dependencies first so they're cached between code changes. postinstall copies the
+# self-hosted FullCalendar bundle into public/vendor, so it needs its script.
+COPY package.json package-lock.json ./
+COPY scripts/copy-vendor.js scripts/copy-vendor.js
+RUN npm ci --omit=dev
+
+COPY . .
+
+# Uploaded media and backups live on volumes; the image creates the directories so a fresh
+# named volume starts out owned by the unprivileged user.
+RUN mkdir -p public/uploads backups && chown -R node:node public/uploads backups
+USER node
+
+ENV NODE_ENV=production PORT=3000
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
+  CMD wget -qO- http://127.0.0.1:3000/health > /dev/null || exit 1
+
+# Pending migrations, then the app (the scheduler runs in this same process: run one container).
+CMD ["sh", "-c", "node db/migrate.js && node index.js"]

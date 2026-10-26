@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/theme-init.js?v=<%= assetVersion %>"></script>
+<meta name="color-scheme" content="light dark">
+<title>Admin - Settings - <%= siteName %></title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css?v=<%= assetVersion %>">
+</head>
+<body>
+<div class="app-shell">
+  <%- include('partials/sidebar', { active: 'admin-settings', email }) %>
+
+  <main class="app-main">
+    <div class="page-header">
+      <h1>Admin &mdash; Settings</h1>
+    </div>
+
+    <section class="admin-section">
+      <h2>Site name</h2>
+      <p class="hint">Shown in the header, the sidebar and browser tabs. Leave it empty to use the default.</p>
+      <form id="site-name-form" class="admin-filter-bar">
+        <div class="admin-filter-field">
+          <label for="site-name">Name</label>
+          <input type="text" id="site-name" maxlength="40" autocomplete="off">
+        </div>
+        <button type="submit">Save</button>
+      </form>
+    </section>
+
+    <section class="admin-section">
+      <h2>Public website</h2>
+      <p class="hint">
+        <strong>On</strong>: the home page is the marketing landing page, and the blog is published (unless
+        <code>ENABLE_BLOG=false</code>). <strong>Off</strong>: the home page goes straight to log in, and
+        there's no blog &mdash; usually what a private, self-hosted server wants. Sign-up, log in, the API
+        docs and the legal pages work either way.
+      </p>
+      <form id="public-site-form" class="admin-filter-bar">
+        <div class="admin-filter-field">
+          <label for="public-site">Public website</label>
+          <select id="public-site" disabled>
+            <option value="default">Default</option>
+            <option value="on">On</option>
+            <option value="off">Off</option>
+          </select>
+        </div>
+        <button type="submit">Save</button>
+      </form>
+      <p class="hint" id="public-site-status"></p>
+    </section>
+
+    <section class="admin-section">
+      <h2>Elsewhere</h2>
+      <p class="hint">
+        Who can sign up, invite links and admin rights: <a href="/admin/customers">Customers</a>.
+        Which social platforms are offered, and how to set each one up: <a href="/admin/platforms">Platforms</a>.
+        Anything still to configure: <a href="/admin/overview">Overview</a>.
+      </p>
+    </section>
+  </main>
+</div>
+
+<script src="/csrf.js?v=<%= assetVersion %>"></script>
+<script src="/common.js?v=<%= assetVersion %>"></script>
+<script src="/admin-settings.js?v=<%= assetVersion %>"></script>
+</body>
+</html>

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script src="/theme-init.js?v=<%= assetVersion %>"></script>
 <meta name="color-scheme" content="light dark">
-<title>Log in - Postfalcon</title>
+<title>Log in - <%= siteName %></title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/style.css?v=<%= assetVersion %>">
 </head>
@@ -12,7 +12,7 @@
 <%- include('partials/site-header') %>
 <main class="auth-card">
   <div class="auth-card-head">
-    <h1>Log in to Postfalcon</h1>
+    <h1>Log in to <%= siteName %></h1>
   </div>
   <% if (googleSignIn) { %>
     <a href="/api/auth/google" class="btn-google">Continue with Google</a>

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script src="/theme-init.js?v=<%= assetVersion %>"></script>
 <meta name="color-scheme" content="light dark">
-<title>Blog - Postfalcon</title>
+<title>Blog - <%= siteName %></title>
 <meta name="description" content="Guides for getting the most out of Postfalcon &mdash; connecting accounts, scheduling and cross-posting, and why teams self-host their social scheduler.">
 <link rel="canonical" href="<%= process.env.BASE_URL %>/blog<%= (page > 1 || activeCategory) ? `?${[page > 1 ? `page=${page}` : '', activeCategory ? `category=${encodeURIComponent(activeCategory)}` : ''].filter(Boolean).join('&')}` : '' %>">
 <meta property="og:type" content="website">

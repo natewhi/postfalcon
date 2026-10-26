@@ -2,9 +2,9 @@ import { Router } from 'express';
 import { requirePageAuth, requireAdmin } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { logPageVisit } from '../lib/activityLog.js';
-import { connectablePlatforms, livePlatforms, PLATFORM_IDS, isPlatformEnabled } from '../lib/platforms.js';
+import { connectablePlatforms, livePlatforms, PLATFORM_IDS, isPlatformOffered } from '../lib/platforms.js';
 import { PLANS, isEntitled, selfHosted } from '../lib/billing.js';
-import { listPosts, isBlogEnabled } from '../lib/blog.js';
+import { listPosts } from '../lib/blog.js';
 import { signupGate } from '../lib/signups.js';
 
 const router = Router();
@@ -18,7 +18,7 @@ function planBanner(user) {
 }
 
 // The publicly crawlable pages, in the order they should be listed — used by /sitemap.xml.
-// '/blog' only when isBlogEnabled() — see that function for why a self-hoster might turn it off.
+// '/blog' only while the blog is on (res.locals.blogEnabled: ENABLE_BLOG + the public-website switch).
 const STATIC_PAGES = ['/', '/pricing', '/api-docs', '/privacy', '/terms'];
 
 function xmlEscape(value) {
@@ -63,6 +63,8 @@ router.get('/reset-password', (req, res) => {
 
 router.get('/', (req, res) => {
   if (req.isAuthenticated()) return res.redirect('/dashboard');
+  // Public website off (Admin -> Settings; the default when self-hosted): / is just the way in.
+  if (!res.locals.publicSite) return res.redirect('/login');
   const platforms = livePlatforms();
   // "Mastodon, Bluesky, …, and Pinterest", from whatever is switched on (admin Platforms page).
   const names = platforms.map((p) => p.label);
@@ -124,7 +126,7 @@ router.get('/accounts', requirePageAuth, (req, res) => {
     platforms: connectablePlatforms(),
     // For the page's hand-built connect blocks (Mastodon, Facebook/Instagram, Telegram, Bluesky),
     // which aren't driven by `platforms`: each shows only while its platform is switched on.
-    enabledIds: PLATFORM_IDS.filter(isPlatformEnabled),
+    enabledIds: PLATFORM_IDS.filter(isPlatformOffered),
   });
 });
 
@@ -145,6 +147,10 @@ router.get('/admin/overview', requireAdmin, (req, res) => {
   res.render('admin-overview', { email: req.user.email });
 });
 
+router.get('/admin/settings', requireAdmin, (req, res) => {
+  res.render('admin-settings', { email: req.user.email });
+});
+
 router.get('/admin/platforms', requireAdmin, (req, res) => {
   res.render('admin-platforms', { email: req.user.email });
 });
@@ -160,11 +166,12 @@ router.get('/admin/activity', requireAdmin, (req, res) => {
 router.get(
   '/sitemap.xml',
   asyncHandler(async (req, res) => {
-    const blogEnabled = isBlogEnabled();
+    const blogEnabled = res.locals.blogEnabled;
     const posts = blogEnabled ? await listPosts() : [];
+    const pages = res.locals.publicSite ? STATIC_PAGES : STATIC_PAGES.filter((p) => p !== '/' && p !== '/pricing');
     const base = process.env.BASE_URL;
     const urls = [
-      ...STATIC_PAGES.map((loc) => ({ loc, lastmod: null })),
+      ...pages.map((loc) => ({ loc, lastmod: null })),
       ...(blogEnabled ? [{ loc: '/blog', lastmod: null }] : []),
       ...posts.map((p) => ({ loc: `/blog/${p.slug}`, lastmod: (p.updated || p.date).toISOString().slice(0, 10) })),
     ];

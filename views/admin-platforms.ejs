@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script src="/theme-init.js?v=<%= assetVersion %>"></script>
 <meta name="color-scheme" content="light dark">
-<title>Admin - Platforms - Postfalcon</title>
+<title>Admin - Platforms - <%= siteName %></title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/style.css?v=<%= assetVersion %>">
 </head>
@@ -18,12 +18,14 @@
     </div>
 
     <section class="admin-section">
-      <h2>Which platforms Postfalcon offers</h2>
+      <h2>Which platforms this server offers</h2>
       <p class="hint">
         <strong>On</strong>: shown on the Accounts page and the website, and people can connect it.
         <strong>Off</strong>: hidden, its connect link stops working, and scheduled posts to it are paused
         (they fail with a "temporarily unavailable" message and can be retried once it's back on).
-        A platform needs its app credentials in <code>.env</code> before turning it on is useful.
+        A platform needs its app credentials in <code>.env</code> before turning it on is useful &mdash;
+        open <strong>How to set up</strong> under each one for where to get them and the callback URL to
+        register (restart the app after editing <code>.env</code>).
         Changes apply immediately, with no deploy.
       </p>
       <div class="admin-table-wrap">

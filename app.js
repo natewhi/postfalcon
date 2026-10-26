@@ -37,7 +37,9 @@ import { ensurePlatformSettingsLoaded } from './lib/platformSettings.js';
 import pagesRouter from './routes/pages.js';
 import blogRouter from './routes/blog.js';
 import { isBlogEnabled } from './lib/blog.js';
+import { readInstanceSettings, resolveSettings, DEFAULT_SITE_NAME } from './lib/instanceSettings.js';
 import { billingConfigured } from './lib/billing.js';
+import { envConfigured, smtpConfigured } from './lib/config.js';
 import analyticsRouter from './routes/analytics.js';
 import adminRouter from './routes/admin.js';
 import billingRouter from './routes/billing.js';
@@ -64,11 +66,18 @@ if (isProduction) {
 // Available to every view without each route needing to pass it — see isBlogEnabled() in
 // lib/blog.js for why a self-hoster would turn this off.
 app.locals.blogEnabled = isBlogEnabled();
+// Defaults for views rendered without the per-request instance settings below (error pages).
+app.locals.siteName = DEFAULT_SITE_NAME;
+app.locals.publicSite = true;
 
 // The legal name of whoever runs this instance, shown in public footers and the Terms/Privacy
 // pages when set. Meta's business verification requires the operator's legal name on the site;
 // a self-hoster's instance just leaves it unset.
 app.locals.operatorName = process.env.OPERATOR_NAME?.trim() || null;
+
+// Umami tracking (views/partials/analytics.ejs) only when both halves are really set.
+app.locals.umamiWebsiteId =
+  envConfigured('UMAMI_HOST') && envConfigured('UMAMI_WEBSITE_ID') ? process.env.UMAMI_WEBSITE_ID.trim() : null;
 // Australian Business Number, shown next to the name. Accepts it with or without spaces and
 // renders the standard "XX XXX XXX XXX" grouping; anything that isn't 11 digits is ignored.
 const abnDigits = (process.env.OPERATOR_ABN || '').replace(/\D/g, '');
@@ -163,8 +172,25 @@ app.use((req, res, next) => {
   // False in self-hosted mode (no Stripe key): views drop pricing, trial and billing UI.
   res.locals.billingEnabled = billingConfigured();
   // Hides "Continue with Google" on login/signup when this instance has no Google OAuth app.
-  res.locals.googleSignIn = Boolean(process.env.GOOGLE_CLIENT_ID);
+  res.locals.googleSignIn = envConfigured('GOOGLE_CLIENT_ID');
+  // No SMTP = verification emails are only logged, so don't nag people to click one.
+  res.locals.emailEnabled = smtpConfigured();
   next();
+});
+
+// Admin -> Settings (lib/instanceSettings.js): the site name, and whether the public website
+// (landing page, blog) is shown. Only page requests need them; API, MCP and media skip it.
+const NO_INSTANCE_SETTINGS = /^\/(api|mcp|stats|uploads|health)(\/|$)/;
+app.use((req, res, next) => {
+  if (!['GET', 'HEAD'].includes(req.method) || NO_INSTANCE_SETTINGS.test(req.path)) return next();
+  readInstanceSettings()
+    .then((stored) => {
+      const { siteName, publicSite } = resolveSettings(stored);
+      res.locals.siteName = siteName;
+      res.locals.publicSite = publicSite;
+      res.locals.blogEnabled = publicSite && isBlogEnabled();
+      next();
+    }, next);
 });
 app.use(cookieParser());
 
@@ -257,7 +283,8 @@ app.use('/api/v1/webhooks', requireAuth, apiLimiter, requireCapability('webhooks
 app.use('/api/admin', requireAdmin, adminRouter);
 
 if (isBlogEnabled()) {
-  app.use('/blog', blogRouter);
+  // Also 404 while Admin -> Settings has the public website off.
+  app.use('/blog', (req, res, next) => (res.locals.blogEnabled ? next() : res.status(404).render('404')), blogRouter);
 }
 app.use('/', pagesRouter);
 

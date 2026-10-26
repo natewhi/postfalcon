@@ -22,6 +22,38 @@ function actionsCell(p) {
   return toggle + reset;
 }
 
+// "How to set up": developer console, callback URL(s) to register there (copyable), and which
+// .env keys are filled in.
+function setupDetails(p) {
+  const setup = p.setup;
+  if (!p.built || !setup) return '';
+  const parts = [`<p>${escapeHtml(setup.steps)}</p>`];
+  if (setup.console) {
+    parts.push(
+      `<p>Developer console: <a href="${escapeHtml(setup.console)}" target="_blank" rel="noopener">${escapeHtml(setup.console)} ↗</a></p>`
+    );
+  }
+  if (setup.callbackUrls.length) {
+    parts.push(
+      `<p>Callback URL${setup.callbackUrls.length > 1 ? 's' : ''} to register:</p>` +
+        setup.callbackUrls
+          .map(
+            (url) =>
+              `<div class="setup-copy"><code>${escapeHtml(url)}</code> <button type="button" class="btn-secondary" data-copy="${escapeHtml(url)}">Copy</button></div>`
+          )
+          .join('')
+    );
+  }
+  if (setup.env.length) {
+    parts.push(
+      `<p>In <code>.env</code>: ${setup.env
+        .map((v) => `<code>${escapeHtml(v.name)}</code> ${v.set ? '✓' : '<span class="admin-bad">not set</span>'}`)
+        .join(', ')}</p>`
+    );
+  }
+  return `<details class="platform-setup"><summary>How to set up</summary>${parts.join('')}</details>`;
+}
+
 let platforms = [];
 
 async function loadPlatforms() {
@@ -31,7 +63,7 @@ async function loadPlatforms() {
     body.innerHTML = platforms
       .map(
         (p) =>
-          `<tr><td>${escapeHtml(p.label)}${p.sharesConnectWith ? ` <span class="hint">(connects with ${escapeHtml(p.sharesConnectWith)})</span>` : ''}</td><td class="nowrap">${statusCell(
+          `<tr><td>${escapeHtml(p.label)}${p.sharesConnectWith ? ` <span class="hint">(connects with ${escapeHtml(p.sharesConnectWith)})</span>` : ''}${setupDetails(p)}</td><td class="nowrap">${statusCell(
             p
           )}</td><td class="nowrap">${credentialsCell(p)}</td><td class="nowrap">${p.connectedAccounts}</td><td class="nowrap">${p.scheduledPosts}</td><td class="nowrap">${actionsCell(p)}</td></tr>`
       )
@@ -59,6 +91,14 @@ async function send(id, payload, confirmMessage, confirmText) {
 }
 
 document.getElementById('platforms-body').addEventListener('click', (e) => {
+  const copyBtn = e.target.closest('[data-copy]');
+  if (copyBtn) {
+    navigator.clipboard
+      .writeText(copyBtn.dataset.copy)
+      .then(() => showToast('Copied.', 'success'))
+      .catch(() => showToast('Select the URL and copy it with Ctrl+C.', 'warning'));
+    return;
+  }
   const switchBtn = e.target.closest('[data-switch]');
   if (switchBtn) {
     const p = platforms.find((x) => x.id === switchBtn.dataset.switch);

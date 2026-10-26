@@ -38,6 +38,10 @@ server.
   bucket's `backups/` prefix (kept 30 days; never served by `/uploads`). `npm run backup` takes one on demand. Restore:
   stop the app, `pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" <file>.dump`. The admin overview flags
   missing or stale backups.
+- Self-hosters install with `docker compose up -d` (Dockerfile + docker-compose.yml: app + Postgres 16 + Caddy via
+  `deploy/Caddyfile.docker`; the app container runs pending migrations then `index.js`, one container only) or the
+  non-Docker steps in README.md, which is the public install/operator guide — keep it in step with features that change
+  setup. postfalcon.co itself stays on the pm2 + scripts/deploy.sh setup below.
 - `.env` values (DB creds, session secret, OAuth app IDs/secrets) are entered by the user directly. Don't invent
   or insert real secrets — use placeholders in `.env.example` and let the user fill in `.env`/`.env.test`.
 - Traffic/SEO analytics (referrers, top pages, trends) runs as a separate self-hosted Umami instance, not part
@@ -121,6 +125,15 @@ routes/auth.js       Session auth: local email/password (passport-local, lib/pas
                      users.password_hash is nullable for this reason — /change-password and
                      /delete-account both treat "no password_hash" as "nothing to verify, the
                      session itself is the only factor" rather than calling bcrypt on null.
+lib/config.js        isConfigured()/envConfigured()/smtpConfigured(): an .env value counts as set only when non-empty
+                     and not a 'change-me' placeholder. Use these, not a bare truthiness check, for any
+                     "is this feature configured" decision. index.js exits at start if DATABASE_URL/
+                     SESSION_SECRET/BASE_URL are empty (dotenv loaded first, app imported after the check).
+lib/instanceSettings.js  instance_settings (migration 029) read per page request in app.js into res.locals:
+                     siteName (header/sidebar/titles — views use <%= siteName %>, never a literal
+                     "Postfalcon" in chrome) and publicSite (landing + blog; off = / redirects to /login;
+                     default on only when billing is configured). Set from Admin -> Settings
+                     (/api/admin/settings). Not cached, on purpose. signup_mode lives there too.
 lib/                 passport strategy, mailer (real SMTP via nodemailer, falls back to console.log if
                      SMTP_* env vars are unset), token hashing, media cleanup logic,
                      storage.js (uploaded media: local public/uploads by default, or an S3-compatible
@@ -251,7 +264,11 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   i.e. on unless `unlisted`), and `/admin/activity` (logs + Billing). Off means: dropped from
   `connectablePlatforms()`/`livePlatforms()` (Accounts page, landing — whose platform lists are generated, not
   hardcoded), connect routes 404 via `platformGate()` in app.js, and `isPlatformPaused()` fails its due posts
-  in scheduler.js and skips its metrics. Use `isPlatformEnabled()` for "is it offered", not `unlisted`. Tests
+  in scheduler.js and skips its metrics. "Offered to users" is `isPlatformOffered()` = switched on AND its
+  `PLATFORM_CREDENTIAL_ENV` key set (so a fresh install hides platforms it has no developer app for); use it, not
+  `unlisted` or a bare `isPlatformEnabled()`, for anything user-facing. `PLATFORM_SETUP` (lib/platforms.js) holds
+  each platform's developer-console URL, callback paths, .env keys and caveats for Admin -> Platforms'
+  "How to set up" — add an entry for a new platform. Tests
   that need an unlisted platform's connect routes switch it on with `savePlatformSetting()` and clear it after.
   `lib/billingSync.js` holds `applySubscription`/`applyCurrent` (used by the webhook) and `reconcileSubscriptions`,
   run nightly by scheduler.js and on demand from the admin page's Billing section — it only touches customers who
@@ -354,6 +371,9 @@ These aren't enforced by a linter — follow them by hand so the codebase doesn'
   `POST /api/users` in tests act as if they'd finished Checkout. To test the real never-checked-out state, set
   `plan_status = 'incomplete'` on the user explicitly (see `tests/billing.test.js`).
 - One test file per resource, matching the route file name. Add new tests there rather than starting a new file.
+- tests/setup.js makes the suite a fully set-up self-hosted server: placeholder keys for every platform (set with
+  `||=`), no Stripe key, `public_site` switched on before each test, and the first-user-admin trigger disabled.
+  A test of the opposite case changes that itself and puts it back.
 
 ## Before adding a feature, check
 

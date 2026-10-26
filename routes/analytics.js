@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { logger } from '../lib/logger.js';
+import { isConfigured } from '../lib/config.js';
 
 const router = Router();
 
@@ -18,7 +19,7 @@ router.all(
   '*',
   async (req, res) => {
     const umamiHost = process.env.UMAMI_HOST;
-    if (!umamiHost) return res.status(404).end();
+    if (!isConfigured(umamiHost)) return res.status(404).end();
 
     const target = `${umamiHost.replace(/\/$/, '')}${req.url}`;
     try {

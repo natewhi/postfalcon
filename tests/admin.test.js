@@ -500,3 +500,109 @@ describe('admin sign-ups and invites', () => {
     expect((await other.post('/api/admin/invites').send({})).status).toBe(404);
   });
 });
+
+describe('admin instance settings', () => {
+  async function adminClient(email) {
+    const client = await signupAndLogin(email);
+    await makeAdmin(email);
+    return client;
+  }
+
+  it('renames the site everywhere it is shown, and resets to the default', async () => {
+    const admin = await adminClient('admin-name@example.com');
+    const saved = await admin.post('/api/admin/settings').send({ site_name: 'Acme Social' });
+    expect(saved.status).toBe(200);
+    expect(saved.body.siteName).toBe('Acme Social');
+
+    const login = await request(app).get('/login');
+    expect(login.text).toContain('<title>Log in - Acme Social</title>');
+    expect(login.text).toContain('Log in to Acme Social');
+    expect((await admin.get('/dashboard')).text).toContain('<span>Acme Social</span>');
+
+    const reset = await admin.post('/api/admin/settings').send({ site_name: null });
+    expect(reset.body.siteName).toBe('Postfalcon');
+    expect((await request(app).get('/login')).text).toContain('Log in to Postfalcon');
+  });
+
+  it('turns the public website off: / goes to log in, the blog 404s, the sitemap drops the marketing pages', async () => {
+    const admin = await adminClient('admin-public@example.com');
+    const off = await admin.post('/api/admin/settings').send({ public_site: 'off' });
+    expect(off.body).toMatchObject({ publicSite: false, publicSiteSaved: true });
+
+    const home = await request(app).get('/');
+    expect(home.status).toBe(302);
+    expect(home.headers.location).toBe('/login');
+    expect((await request(app).get('/blog')).status).toBe(404);
+    const sitemap = await request(app).get('/sitemap.xml');
+    expect(sitemap.text).not.toContain('/pricing</loc>');
+    expect(sitemap.text).toContain('/api-docs</loc>');
+
+    await admin.post('/api/admin/settings').send({ public_site: 'on' });
+    expect((await request(app).get('/')).status).toBe(200);
+  });
+
+  it('defaults the public website to off on a self-hosted server and on with Stripe', async () => {
+    const admin = await adminClient('admin-public-default@example.com');
+    const res = await admin.post('/api/admin/settings').send({ public_site: 'default' });
+    expect(res.body).toMatchObject({ selfHosted: true, publicSite: false, publicSiteDefault: false, publicSiteSaved: false });
+    expect((await request(app).get('/')).headers.location).toBe('/login');
+
+    process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
+    try {
+      expect((await request(app).get('/')).status).toBe(200);
+    } finally {
+      delete process.env.STRIPE_SECRET_KEY;
+    }
+  });
+
+  it('validates and is admin-only', async () => {
+    const admin = await adminClient('admin-settings-misc@example.com');
+    expect((await admin.post('/api/admin/settings').send({})).status).toBe(400);
+    expect((await admin.post('/api/admin/settings').send({ public_site: 'maybe' })).status).toBe(400);
+    expect((await admin.post('/api/admin/settings').send({ site_name: 'x'.repeat(41) })).status).toBe(400);
+    expect((await admin.get('/admin/settings')).status).toBe(200);
+
+    const other = await signupAndLogin('not-admin-settings@example.com');
+    expect((await other.get('/api/admin/settings')).status).toBe(404);
+    expect((await other.post('/api/admin/settings').send({ site_name: 'Mine' })).status).toBe(404);
+    expect((await other.get('/admin/settings')).status).toBe(404);
+  });
+});
+
+describe('platform setup on a new server', () => {
+  it('lists how to set each platform up, with absolute callback URLs and which keys are set', async () => {
+    const email = 'admin-setup@example.com';
+    const admin = await signupAndLogin(email);
+    await makeAdmin(email);
+    const { body } = await admin.get('/api/admin/platforms');
+    const byId = Object.fromEntries(body.map((p) => [p.id, p]));
+
+    expect(byId.pinterest.setup).toMatchObject({
+      console: 'https://developers.pinterest.com/apps/',
+      callbackUrls: [`${process.env.BASE_URL}/api/pinterest/callback`],
+      env: [
+        { name: 'PINTEREST_APP_ID', set: true },
+        { name: 'PINTEREST_APP_SECRET', set: true },
+      ],
+    });
+    expect(byId.youtube.setup.callbackUrls).toContain(`${process.env.BASE_URL}/api/auth/google/callback`);
+    expect(byId.bluesky.setup).toMatchObject({ console: null, callbackUrls: [], env: [] });
+    // Names and set/unset only, never a key's value.
+    expect(JSON.stringify(byId.pinterest.setup)).not.toContain(process.env.PINTEREST_APP_SECRET);
+  });
+
+  it("doesn't offer a switched-on platform until its app keys are set", async () => {
+    const { livePlatforms, connectablePlatforms } = await import('../lib/platforms.js');
+    const saved = process.env.GOOGLE_CLIENT_ID;
+    process.env.GOOGLE_CLIENT_ID = 'change-me';
+    try {
+      expect(livePlatforms().map((p) => p.id)).not.toContain('youtube');
+      expect(connectablePlatforms().map((p) => p.id)).not.toContain('youtube');
+      // Platforms that need no keys are always offered.
+      expect(livePlatforms().map((p) => p.id)).toEqual(expect.arrayContaining(['mastodon', 'bluesky', 'telegram']));
+    } finally {
+      process.env.GOOGLE_CLIENT_ID = saved;
+    }
+    expect(livePlatforms().map((p) => p.id)).toContain('youtube');
+  });
+});

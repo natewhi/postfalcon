@@ -698,6 +698,33 @@ a.attention-banner-link:hover {
   flex-shrink: 0;
 }
 
+.platform-setup {
+  margin-top: var(--space-1);
+  font-size: 0.875em;
+  max-width: 60ch;
+}
+
+.platform-setup summary {
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.platform-setup p {
+  margin: var(--space-2) 0;
+}
+
+.setup-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.setup-copy code {
+  word-break: break-all;
+}
+
 #accounts-list .account-board {
   display: flex;
   align-items: center;

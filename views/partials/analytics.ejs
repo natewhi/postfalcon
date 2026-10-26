@@ -1,3 +1,3 @@
-<% if (process.env.UMAMI_WEBSITE_ID) { %>
-<script defer src="/stats/script.js" data-website-id="<%= process.env.UMAMI_WEBSITE_ID %>"></script>
+<% if (umamiWebsiteId) { %>
+<script defer src="/stats/script.js" data-website-id="<%= umamiWebsiteId %>"></script>
 <% } %>
