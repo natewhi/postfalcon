@@ -10,3 +10,12 @@ describe('GET /health', () => {
     expect(res.body.db).toBe('connected');
   });
 });
+
+// Ops endpoints that aren't pages: the installer's short address sits beside /health.
+describe('GET /install.sh', () => {
+  it('redirects to the installer script in the repository', async () => {
+    const res = await request(app).get('/install.sh');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('https://raw.githubusercontent.com/natewhi/postfalcon/main/install.sh');
+  });
+});

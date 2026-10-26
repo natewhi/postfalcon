@@ -189,6 +189,12 @@ router.get(
   })
 );
 
+// The short address for the one-line installer (`curl -fsSL <BASE_URL>/install.sh | sh`): the
+// script itself lives in the repository; curl -L follows the redirect.
+router.get('/install.sh', (req, res) => {
+  res.redirect('https://raw.githubusercontent.com/natewhi/postfalcon/main/install.sh');
+});
+
 router.get('/robots.txt', (req, res) => {
   res.type('text/plain').send(
     ['User-agent: *', 'Disallow: /dashboard', 'Disallow: /analytics', 'Disallow: /accounts', 'Disallow: /settings', 'Disallow: /admin', '', `Sitemap: ${process.env.BASE_URL}/sitemap.xml`, ''].join(

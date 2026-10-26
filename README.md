@@ -23,12 +23,42 @@ repository is the whole thing.
 
 ## Install with Docker (recommended)
 
-You need a Linux server with [Docker](https://docs.docker.com/engine/install/) (Compose is
-included), and a domain or subdomain whose DNS points at the server, with ports 80 and 443 open.
-Caddy, included, gets the HTTPS certificate on its own. Running it takes about 100 MB of memory
-at rest; a 1 GB server is enough, 2 GB is comfortable while it builds the image.
+You need a Linux server (x86 or ARM) and a domain or subdomain whose DNS points at it, with
+ports 80 and 443 open. Caddy, included, gets the HTTPS certificate on its own. It uses about
+100 MB of memory at rest, so a 1 GB server is enough.
 
-If the server doesn't have Docker yet, install it and let your user run it:
+### One-line install
+
+```bash
+curl -fsSL https://postfalcon.co/install.sh | sh
+```
+
+It checks for Docker (and offers to install it), asks for your domain, generates the passwords,
+and starts Postfalcon in `~/postfalcon` from the published image. It changes nothing else on the
+machine and never overwrites an existing install. To read it before running it:
+
+```bash
+curl -fsSL https://postfalcon.co/install.sh -o install.sh
+less install.sh
+sh install.sh
+```
+
+When it finishes, open the address it prints and choose **Sign up**. **The first account becomes
+the admin**, so do this straight away, before anyone else can reach the server.
+
+To update an install made this way:
+
+```bash
+cd ~/postfalcon
+docker compose pull
+docker compose up -d
+```
+
+### Install by hand, from source
+
+The same thing step by step, building the image on the server instead of downloading it (2 GB of
+memory is comfortable while it builds). Install Docker if the server doesn't have it, and let
+your user run it:
 
 ```bash
 curl -fsSL https://get.docker.com | sudo sh
@@ -63,18 +93,20 @@ Open your `BASE_URL`: you'll see the log in page. Choose **Sign up**. **The firs
 becomes the admin**, so do this straight away, before anyone else can reach the server.
 
 **Trying it out without a domain**, on your own computer or a machine on your network: use
-`localhost` or the machine's IP address for both, e.g. `DOMAIN=192.168.1.20` and
-`BASE_URL=https://192.168.1.20`. Your browser will warn about the certificate; that's expected,
+`localhost` or the machine's IP address (with the installer, enter it as the domain; by hand, use
+it for both, e.g. `DOMAIN=192.168.1.20` and `BASE_URL=https://192.168.1.20`). Your browser will warn about the certificate; that's expected,
 choose to continue. Most social platforms only accept a real public `https://` domain for their
 login callbacks, so on a test setup like this only Mastodon, Bluesky and Telegram can be
 connected.
 
-### Updating
+To update an install from source:
 
 ```bash
 git pull
 docker compose up -d --build
 ```
+
+### Updates, data and backups (either way)
 
 Database changes are applied automatically when the app starts. Admin → Overview → **Version**
 shows how many commits behind GitHub your server is, and whether every database change is applied.
@@ -83,7 +115,7 @@ Your data (database, uploaded media, backups, certificates) lives in Docker volu
 `postfalcon` folder, so updating, rebuilding or `docker compose down` never touches it.
 `docker compose down -v` **does** delete the volumes; don't use it unless you mean to start over.
 
-### Logs, backups and restoring
+Run the commands below from the install folder (`~/postfalcon` for the installer, or your clone).
 
 - Logs: `docker compose logs -f app`. Every request is logged; set `LOG_LEVEL=warn` in `.env`
   to see only problems. Errors are also listed in Admin → Activity → Server errors.
@@ -109,6 +141,7 @@ Your data (database, uploaded media, backups, certificates) lives in Docker volu
 | `permission denied while trying to connect to the docker API` | Your user isn't in the `docker` group yet: `sudo usermod -aG docker $USER`, then log out and back in. |
 | The browser shows **502 Bad Gateway** | Caddy is up but the app isn't. `docker compose logs app --tail 50` says why; a missing `.env` setting is named there. |
 | The app stops with `Missing required settings in .env` | Fill in that setting (see the table above), then `docker compose up -d`. |
+| The installer says it's already installed | It found `~/postfalcon/.env` and changed nothing. Update with `docker compose pull && docker compose up -d` there, or move that folder away to start fresh. |
 | A certificate error for a real domain | Its DNS must point at this server and ports 80 and 443 must be reachable from the internet; `docker compose logs caddy` shows what Let's Encrypt said. |
 | Changes to `.env` don't take effect | Run `docker compose up -d` again; it recreates the app with the new settings. |
 

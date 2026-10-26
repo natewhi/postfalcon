@@ -32,7 +32,10 @@ server.
   (`ecosystem.config.cjs`) with **`instances: 1`** — `scheduler.js`'s node-cron jobs run in-process, so a second
   instance would double-publish due posts and double-run media cleanup. Don't change that without moving the
   scheduler out of the app process first. `scripts/deploy.sh` is the deploy sequence (pull, install, migrate,
-  pm2 reload) — run it manually on the VPS; there's still no CI/CD, and none should be added unless asked.
+  pm2 reload) — run it manually on the VPS; nothing deploys automatically, and no deploy CI should be added unless asked. The one
+  workflow, `.github/workflows/docker-image.yml` (added at the user's request 2026-10-27), only builds and publishes
+  the Docker image to ghcr.io/natewhi/postfalcon (amd64 + arm64, `latest` + `sha-<commit>`, APP_COMMIT build arg) on
+  each push to main — it doesn't run tests or touch any server.
 - Database backups: `lib/backup.js` runs `pg_dump` (custom format) nightly at 03:30 from scheduler.js, keeps the
   last 7 in `backups/` (git-ignored; `BACKUP_DIR` overrides) and, when `S3_BUCKET` is set, uploads each under the
   bucket's `backups/` prefix (kept 30 days; never served by `/uploads`). `npm run backup` takes one on demand. Restore:
@@ -45,7 +48,10 @@ server.
   VM (devbox01) on 2026-10-26; two things that test caught must stay: Caddyfile.docker's `default_sni {$DOMAIN}`
   (browsers send no SNI to an IP address, so without it HTTPS by IP fails) and the Dockerfile's `chmod -R a+rX /app`
   after `COPY` (the app runs as `node`; files copied with private 600 modes otherwise crash it with EACCES). The
-  pg_dump client in the image (postgresql16-client) must match the compose Postgres major version.
+  pg_dump client in the image (postgresql16-client) must match the compose Postgres major version. The one-line
+  installer, `install.sh` (served as `<BASE_URL>/install.sh`, a redirect to the raw file on GitHub), sets up
+  `deploy/docker-compose.image.yml` — the same stack using the published image — with `deploy/Caddyfile.docker` and a
+  generated `.env`; keep that compose file in step with the root `docker-compose.yml` (build from source).
 - `.env` values (DB creds, session secret, OAuth app IDs/secrets) are entered by the user directly. Don't invent
   or insert real secrets — use placeholders in `.env.example` and let the user fill in `.env`/`.env.test`.
 - Traffic/SEO analytics (referrers, top pages, trends) runs as a separate self-hosted Umami instance, not part

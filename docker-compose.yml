@@ -1,6 +1,8 @@
-# One-command install: `docker compose up -d` (see README.md -> "Install with Docker").
-# Reads .env (copied from .env.example) for both its own settings (DOMAIN, POSTGRES_PASSWORD)
-# and the app's (BASE_URL, SESSION_SECRET, platform keys, ...).
+# Build-from-source install: `docker compose up -d` in a clone of the repository (README.md ->
+# "Install from source with Docker"). Reads .env (copied from .env.example) for both its own
+# settings (DOMAIN, POSTGRES_PASSWORD) and the app's (BASE_URL, SESSION_SECRET, platform keys,
+# ...). deploy/docker-compose.image.yml is the same stack using the published image instead,
+# which install.sh sets up; keep the two in step.
 services:
   db:
     image: postgres:16-alpine

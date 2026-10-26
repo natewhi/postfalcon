@@ -28,6 +28,15 @@ USER node
 ENV NODE_ENV=production PORT=3000
 EXPOSE 3000
 
+# The commit this image was built from, passed by the publishing workflow
+# (.github/workflows/docker-image.yml) for Admin -> Overview -> Version. Empty for a local build,
+# which then reads it from the .git files instead (lib/version.js).
+ARG APP_COMMIT=
+ENV APP_COMMIT=$APP_COMMIT
+LABEL org.opencontainers.image.source="https://github.com/natewhi/postfalcon" \
+      org.opencontainers.image.description="Open-source social media scheduler" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
+
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD wget -qO- http://127.0.0.1:3000/health > /dev/null || exit 1
 

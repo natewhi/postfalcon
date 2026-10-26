@@ -1,0 +1,62 @@
+# The compose file install.sh sets up (saved there as docker-compose.yml, next to .env and
+# Caddyfile): the same three services as the repository's own docker-compose.yml, but the app
+# is the published image instead of a local build, so no source code is needed on the server.
+# Keep the two files in step.
+#
+#   Update:  docker compose pull && docker compose up -d
+#   Pin a version: set POSTFALCON_IMAGE in .env, e.g. ghcr.io/natewhi/postfalcon:sha-1a2b3c4
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postfalcon
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: postfalcon
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postfalcon -d postfalcon']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ${POSTFALCON_IMAGE:-ghcr.io/natewhi/postfalcon:latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Overrides any DATABASE_URL in .env: inside Compose the database is the `db` service.
+      DATABASE_URL: postgres://postfalcon:${POSTGRES_PASSWORD}@db:5432/postfalcon
+      NODE_ENV: production
+      PORT: '3000'
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/public/uploads
+      - backups:/app/backups
+    # Exactly one app container: the scheduler runs inside it, and a second copy would
+    # publish every post twice. Don't add `deploy.replicas`.
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env (your domain, or localhost to try it out)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  db-data:
+  uploads:
+  backups:
+  caddy-data:
+  caddy-config:
