@@ -3,7 +3,7 @@ import { requirePageAuth, requireAdmin } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { logPageVisit } from '../lib/activityLog.js';
 import { connectablePlatforms, livePlatforms, PLATFORM_IDS, isPlatformOffered } from '../lib/platforms.js';
-import { PLANS, isEntitled, selfHosted } from '../lib/billing.js';
+import { PLANS, isEntitled, selfHosted, canUsePlatform } from '../lib/billing.js';
 import { listPosts } from '../lib/blog.js';
 import { signupGate } from '../lib/signups.js';
 import { onboardingStatus, adminSetupStatus } from '../lib/onboarding.js';
@@ -134,6 +134,7 @@ router.get('/analytics', requirePageAuth, (req, res) => {
 });
 
 router.get('/accounts', requirePageAuth, (req, res) => {
+  const enabledIds = PLATFORM_IDS.filter(isPlatformOffered);
   res.render('accounts', {
     email: req.user.email,
     emailVerified: Boolean(req.user.email_verified_at),
@@ -141,7 +142,11 @@ router.get('/accounts', requirePageAuth, (req, res) => {
     platforms: connectablePlatforms(),
     // For the page's hand-built connect blocks (Mastodon, Facebook/Instagram, Telegram, Bluesky),
     // which aren't driven by `platforms`: each shows only while its platform is switched on.
-    enabledIds: PLATFORM_IDS.filter(isPlatformOffered),
+    enabledIds,
+    // Platforms this account can't use without a paid plan (the free plan covers only
+    // FREE_PLATFORMS): shown together as "with a paid plan" instead of connect buttons that
+    // would only be refused after the platform's sign-in.
+    lockedIds: enabledIds.filter((id) => !canUsePlatform(req.user, id)),
   });
 });
 

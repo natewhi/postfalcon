@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/style.css?v=<%= assetVersion %>">
 </head>
 <body>
+<%- include('partials/platform-icons') %>
 <div class="app-shell">
   <%- include('partials/sidebar', { active: 'accounts', email }) %>
 
@@ -39,9 +40,11 @@
       <%
         // These four blocks are hand-built (not from `platforms`), so each checks its own switch
         // from the admin Platforms page.
-        const isOn = (id) => enabledIds.includes(id);
+        const isLocked = (id) => lockedIds.includes(id);
+        const isOn = (id) => enabledIds.includes(id) && !isLocked(id);
         const fbOn = isOn('facebook');
         const igOn = isOn('instagram');
+        const lockedPlatforms = lockedIds.map((id) => platforms.find((p) => p.id === id)).filter(Boolean);
       %>
       <% if (isOn('mastodon')) { %>
       <div class="connect-option" id="connect-mastodon">
@@ -99,7 +102,7 @@
       </div>
       <% } %>
 
-      <% platforms.filter((p) => p.connect === 'oauth' && p.connectPath && p.id !== 'facebook').forEach((p) => { %>
+      <% platforms.filter((p) => p.connect === 'oauth' && p.connectPath && p.id !== 'facebook' && !isLocked(p.id)).forEach((p) => { %>
       <div class="connect-option" id="connect-<%= p.id %>">
         <h3><%= p.label %></h3>
         <% if (p.hint) { %><p class="hint"><%= p.hint %></p><% } %>
@@ -113,6 +116,25 @@
         <a href="<%= p.connectPath %>" class="btn-link">Connect <%= p.label %></a>
       </div>
       <% }); %>
+
+      <% if (lockedPlatforms.length) { %>
+      <div class="connect-option connect-locked" id="connect-paid">
+        <h3>With a paid plan</h3>
+        <p class="hint">
+          <% if (planBanner === 'lapsed') { %>
+            Renew your plan to connect these again. Your Mastodon, Bluesky and Telegram accounts keep working either way.
+          <% } else { %>
+            Your free plan covers Mastodon, Bluesky and Telegram. Try any paid plan free for 7 days to add these too.
+          <% } %>
+        </p>
+        <div class="connect-locked-list">
+          <% lockedPlatforms.forEach((p) => { %>
+          <span class="connect-locked-item"><span class="connect-locked-icon" style="--tile: <%= p.color %>"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#pi-<%= p.id %>"></use></svg></span><%= p.label %></span>
+          <% }); %>
+        </div>
+        <a href="/pricing" class="btn-link"><%= planBanner === 'lapsed' ? 'See plans' : 'Start free trial' %></a>
+      </div>
+      <% } %>
 
       <% const stubPlatforms = platforms.filter((p) => p.status === 'stub' && p.connect === 'manual'); %>
       <% if (stubPlatforms.length) { %>

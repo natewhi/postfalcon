@@ -1399,6 +1399,43 @@ section h2 {
   padding-top: 0;
 }
 
+/* Accounts page: the platforms the free plan doesn't cover, grouped with one upgrade button
+   instead of connect buttons that would only be refused after signing in to the platform. */
+.connect-locked-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 var(--space-4);
+}
+
+.connect-locked-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.connect-locked-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--tile);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+}
+
+.connect-locked-icon svg {
+  width: 12px;
+  height: 12px;
+  fill: #fff;
+}
+
 .connect-option:last-child {
   padding-bottom: 0;
   border-bottom: none;

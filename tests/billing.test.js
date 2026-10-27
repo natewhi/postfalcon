@@ -505,6 +505,23 @@ describe('pricing page for a returning visitor', () => {
   });
 });
 
+describe('Accounts page on the free plan', () => {
+  it('groups the paid platforms behind a trial button instead of offering their connect flows', async () => {
+    const { client, userId } = await loginNewUser();
+    await pool.query("UPDATE users SET plan_status = 'incomplete' WHERE id = $1", [userId]);
+    const free = (await client.get('/accounts')).text;
+    expect(free).toContain('id="connect-paid"');
+    expect(free).toContain('Start free trial');
+    expect(free).not.toContain('id="connect-youtube"');
+    expect(free).toContain('id="connect-bluesky"');
+
+    await pool.query("UPDATE users SET plan_status = 'trialing' WHERE id = $1", [userId]);
+    const paid = (await client.get('/accounts')).text;
+    expect(paid).not.toContain('id="connect-paid"');
+    expect(paid).toContain('id="connect-youtube"');
+  });
+});
+
 describe('sign-up page wording', () => {
   it('promises a trial and Checkout only when a plan was picked', async () => {
     const picked = await request(app).get('/signup?plan=team-yearly');
