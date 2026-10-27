@@ -47,7 +47,15 @@ router.get(
     // that would only be refused (lib/signups.js).
     const invite = typeof req.query.invite === 'string' ? req.query.invite.slice(0, 200) : '';
     const gate = await signupGate(invite || undefined);
-    res.render('signup', { signupBlocked: gate.ok ? null : gate.message, invite: gate.ok ? invite : '' });
+    // ?plan=<plan>[-yearly] (picked on /pricing): that plan's trial and Checkout come next;
+    // without one, signing up just opens the app (free platforms, or a trial started later).
+    const planId = typeof req.query.plan === 'string' ? req.query.plan.replace(/-yearly$/, '') : '';
+    res.render('signup', {
+      signupBlocked: gate.ok ? null : gate.message,
+      invite: gate.ok ? invite : '',
+      pickedPlan: PLANS[planId] && PLANS[planId].priceUsd > 0 ? PLANS[planId] : null,
+      livePlatforms: livePlatforms(),
+    });
   })
 );
 

@@ -505,6 +505,22 @@ describe('pricing page for a returning visitor', () => {
   });
 });
 
+describe('sign-up page wording', () => {
+  it('promises a trial and Checkout only when a plan was picked', async () => {
+    const picked = await request(app).get('/signup?plan=team-yearly');
+    expect(picked.text).toContain('Start your free trial');
+    expect(picked.text).toContain('7 days free on Team');
+    expect(picked.text).toContain('Continue to payment');
+
+    const plain = await request(app).get('/signup');
+    expect(plain.text).toContain('Create your free account');
+    expect(plain.text).toContain('Create free account');
+    expect(plain.text).not.toContain("You'll add a card next");
+
+    expect((await request(app).get('/signup?plan=bogus')).text).toContain('Create your free account');
+  });
+});
+
 describe('deleting an account with a subscription', () => {
   it('cancels the running subscriptions before deleting the account', async () => {
     const { client, userId } = await loginNewUser();

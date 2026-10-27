@@ -15,7 +15,7 @@
     <h1>Log in to <%= siteName %></h1>
   </div>
   <% if (googleSignIn) { %>
-    <a href="/api/auth/google" class="btn-google">Continue with Google</a>
+    <a href="/api/auth/google" class="btn-google"><%- include('partials/google-g') %>Continue with Google</a>
     <div class="auth-divider"><span>or</span></div>
   <% } %>
   <form id="login-form">

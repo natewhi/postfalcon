@@ -9,32 +9,89 @@
 <link rel="stylesheet" href="/style.css?v=<%= assetVersion %>">
 </head>
 <body class="dark-canvas">
+<%- include('partials/platform-icons') %>
 <%- include('partials/site-header') %>
-<main class="auth-card">
-  <div class="auth-card-head">
-    <h1><%= billingEnabled ? 'Start your free trial' : 'Create your account' %></h1>
-    <% if (billingEnabled && !signupBlocked) { %>
-      <p class="auth-sub">7 days free on every plan. You'll pick a plan and add a card next.</p>
+<%
+  // Heading, line under it and button text: a plan picked on /pricing leads to that plan's
+  // trial and Checkout; otherwise the account opens straight into the app (routes/pages.js).
+  let heading = 'Create your account';
+  let sub = '';
+  let submitLabel = 'Create account';
+  if (billingEnabled && pickedPlan) {
+    heading = 'Start your free trial';
+    sub = `7 days free on ${pickedPlan.name}. You'll add a card next, and can cancel anytime.`;
+    submitLabel = 'Continue to payment';
+  } else if (billingEnabled) {
+    heading = 'Create your free account';
+    sub = 'Free for Mastodon, Bluesky and Telegram, with no card. Try any paid plan free for 7 days whenever you like.';
+    submitLabel = 'Create free account';
+  }
+  const platformCount = livePlatforms.length;
+%>
+<div class="auth-split">
+  <main class="auth-card">
+    <div class="auth-card-head">
+      <h1><%= heading %></h1>
+      <% if (sub && !signupBlocked) { %>
+        <p class="auth-sub"><%= sub %></p>
+      <% } %>
+    </div>
+    <% if (signupBlocked) { %>
+      <p class="auth-sub" id="signup-blocked"><%= signupBlocked %></p>
+    <% } else { %>
+      <% if (googleSignIn) { %>
+        <a href="/api/auth/google" id="google-signup-link" class="btn-google"><%- include('partials/google-g') %>Continue with Google</a>
+        <div class="auth-divider"><span>or</span></div>
+      <% } %>
+      <form id="signup-form" data-invite="<%= invite %>">
+        <label>Email <input type="email" name="email" autocomplete="email" placeholder="you@example.com" required></label>
+        <label>Password <input type="password" name="password" autocomplete="new-password" placeholder="At least 8 characters" required minlength="8"></label>
+        <button type="submit"><%= submitLabel %></button>
+      </form>
+      <p id="error" class="error"></p>
+      <p class="auth-legal">By creating an account you agree to the <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</p>
     <% } %>
-  </div>
-  <% if (signupBlocked) { %>
-    <p class="auth-sub" id="signup-blocked"><%= signupBlocked %></p>
-  <% } else { %>
-    <% if (googleSignIn) { %>
-      <a href="/api/auth/google" id="google-signup-link" class="btn-google">Continue with Google</a>
-      <div class="auth-divider"><span>or</span></div>
+    <div class="auth-card-footer">
+      <span>Already have an account? <a href="/login">Log in</a></span>
+    </div>
+  </main>
+
+  <aside class="auth-showcase" aria-label="Why <%= siteName %>">
+    <h2>Plan a week of posts in one sitting.</h2>
+    <ul class="auth-benefits">
+      <li><span>Write once, post everywhere:</span> cross-post to <%= platformCount > 1 ? `${platformCount} platforms` : 'your accounts' %> at once, with a preview of each.</li>
+      <li><span>One calendar for all of it:</span> drag posts to reschedule, and see what posted or failed at a glance.</li>
+      <li><span>See what&rsquo;s working:</span> views, likes and comments pulled back from each platform automatically.</li>
+      <li><span>Works with your AI assistant:</span> Claude, ChatGPT or Cursor can draft and schedule posts for you.</li>
+    </ul>
+
+    <% if (platformCount) { %>
+    <div class="auth-platforms">
+      <% livePlatforms.forEach((p) => { %>
+      <span class="auth-platform" style="--tile: <%= p.color %>" title="<%= p.label %>"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#pi-<%= p.id %>"></use></svg></span>
+      <% }); %>
+    </div>
     <% } %>
-    <form id="signup-form" data-invite="<%= invite %>">
-      <label>Email <input type="email" name="email" autocomplete="email" required></label>
-      <label>Password <input type="password" name="password" autocomplete="new-password" required minlength="8"></label>
-      <button type="submit"><%- billingEnabled ? 'Continue to plan &amp; payment' : 'Create account' %></button>
-    </form>
-    <p id="error" class="error"></p>
-  <% } %>
-  <div class="auth-card-footer">
-    <span>Already have an account? <a href="/login">Log in</a></span>
-  </div>
-</main>
+
+    <div class="auth-preview" aria-hidden="true">
+      <div class="auth-preview-head">
+        <span class="auth-preview-avatar">P</span>
+        <span><strong>Your next post</strong><small>Tomorrow, 9:00 AM</small></span>
+        <span class="auth-preview-status">Scheduled</span>
+      </div>
+      <p>New this week: recurring posts are here. Set it once and it keeps going 🎉</p>
+      <div class="auth-preview-targets">
+        <span style="--b: #6364ff"><svg viewBox="0 0 24 24"><use href="#pi-mastodon"></use></svg>Mastodon</span>
+        <span style="--b: #1185fe"><svg viewBox="0 0 24 24"><use href="#pi-bluesky"></use></svg>Bluesky</span>
+        <span style="--b: #e1306c"><svg viewBox="0 0 24 24"><use href="#pi-instagram"></use></svg>Instagram</span>
+      </div>
+    </div>
+
+    <p class="auth-trust">
+      Open source<% if (billingEnabled) { %> &middot; Cancel anytime<% } %> &middot; We never see your social media passwords
+    </p>
+  </aside>
+</div>
 <script src="/csrf.js?v=<%= assetVersion %>"></script>
 <script src="/signup.js?v=<%= assetVersion %>"></script>
 <%- include('partials/analytics') %>
