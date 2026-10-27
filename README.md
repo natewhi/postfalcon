@@ -68,7 +68,7 @@ sudo usermod -aG docker $USER      # then log out and back in
 Then get Postfalcon:
 
 ```bash
-git clone https://github.com/natewhi/postfalcon.git
+git clone https://github.com/postfalcon/postfalcon.git
 cd postfalcon
 cp .env.example .env
 ```
@@ -154,7 +154,7 @@ backups), and a reverse proxy for HTTPS ([`deploy/Caddyfile`](deploy/Caddyfile) 
 two-line Caddy config).
 
 ```bash
-git clone https://github.com/natewhi/postfalcon.git
+git clone https://github.com/postfalcon/postfalcon.git
 cd postfalcon
 cp .env.example .env          # fill in the REQUIRED section, including DATABASE_URL
 npm ci --omit=dev

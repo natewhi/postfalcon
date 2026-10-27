@@ -4,7 +4,7 @@
 # Keep the two files in step.
 #
 #   Update:  docker compose pull && docker compose up -d
-#   Pin a version: set POSTFALCON_IMAGE in .env, e.g. ghcr.io/natewhi/postfalcon:sha-1a2b3c4
+#   Pin a version: set POSTFALCON_IMAGE in .env, e.g. ghcr.io/postfalcon/postfalcon:sha-1a2b3c4
 services:
   db:
     image: postgres:16-alpine
@@ -22,7 +22,7 @@ services:
       retries: 10
 
   app:
-    image: ${POSTFALCON_IMAGE:-ghcr.io/natewhi/postfalcon:latest}
+    image: ${POSTFALCON_IMAGE:-ghcr.io/postfalcon/postfalcon:latest}
     restart: unless-stopped
     env_file: .env
     environment:

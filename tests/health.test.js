@@ -16,6 +16,6 @@ describe('GET /install.sh', () => {
   it('redirects to the installer script in the repository', async () => {
     const res = await request(app).get('/install.sh');
     expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('https://raw.githubusercontent.com/natewhi/postfalcon/main/install.sh');
+    expect(res.headers.location).toBe('https://raw.githubusercontent.com/postfalcon/postfalcon/main/install.sh');
   });
 });

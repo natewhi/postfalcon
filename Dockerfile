@@ -33,7 +33,7 @@ EXPOSE 3000
 # which then reads it from the .git files instead (lib/version.js).
 ARG APP_COMMIT=
 ENV APP_COMMIT=$APP_COMMIT
-LABEL org.opencontainers.image.source="https://github.com/natewhi/postfalcon" \
+LABEL org.opencontainers.image.source="https://github.com/postfalcon/postfalcon" \
       org.opencontainers.image.description="Open-source social media scheduler" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
 

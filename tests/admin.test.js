@@ -988,10 +988,10 @@ describe('admin version', () => {
     process.env.APP_COMMIT = 'a'.repeat(40);
     const fetchMock = vi.fn(async (url) => {
       const u = String(url);
-      if (u === 'https://api.github.com/repos/natewhi/postfalcon/commits/main') {
+      if (u === 'https://api.github.com/repos/postfalcon/postfalcon/commits/main') {
         return { ok: true, status: 200, json: async () => ({ sha: 'b'.repeat(40), commit: { committer: { date: '2026-10-26T00:00:00Z' } } }) };
       }
-      if (u === `https://api.github.com/repos/natewhi/postfalcon/compare/${'a'.repeat(40)}...${'b'.repeat(40)}`) {
+      if (u === `https://api.github.com/repos/postfalcon/postfalcon/compare/${'a'.repeat(40)}...${'b'.repeat(40)}`) {
         return { ok: true, status: 200, json: async () => ({ ahead_by: 3 }) };
       }
       throw new Error(`unexpected fetch: ${u}`);
@@ -1004,7 +1004,7 @@ describe('admin version', () => {
     expect(res.body).toMatchObject({
       commit: 'a'.repeat(40),
       pendingMigrations: [],
-      upstream: { repo: 'natewhi/postfalcon', latestCommit: 'b'.repeat(40), behindBy: 3 },
+      upstream: { repo: 'postfalcon/postfalcon', latestCommit: 'b'.repeat(40), behindBy: 3 },
     });
     // Cached: a second look doesn't ask GitHub again.
     await admin.get('/api/admin/version');

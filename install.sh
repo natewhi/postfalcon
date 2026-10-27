@@ -5,7 +5,7 @@
 #
 # Sets up Postfalcon with Docker in ~/postfalcon: checks Docker (offering to install it), asks
 # for the domain, generates the secrets, downloads the compose file and starts the published
-# image (ghcr.io/natewhi/postfalcon). Nothing else on the machine is changed. Read it first if
+# image (ghcr.io/postfalcon/postfalcon). Nothing else on the machine is changed. Read it first if
 # you like: it's short, and README.md has the same steps by hand.
 #
 # Settings (all optional), e.g. POSTFALCON_DOMAIN=social.example.com sh install.sh
@@ -14,7 +14,7 @@
 #   POSTFALCON_REF     branch or tag of the repository to take the files from (default main)
 set -eu
 
-REPO_RAW="https://raw.githubusercontent.com/natewhi/postfalcon"
+REPO_RAW="https://raw.githubusercontent.com/postfalcon/postfalcon"
 REF="${POSTFALCON_REF:-main}"
 DIR="${POSTFALCON_DIR:-$HOME/postfalcon}"
 DOMAIN="${POSTFALCON_DOMAIN:-}"
@@ -164,4 +164,4 @@ say ""
 say "  Files and settings:  $DIR (.env holds the settings, and the passwords it generated)"
 say "  Update later:        cd $DIR && $DOCKER compose pull && $DOCKER compose up -d"
 say "  Logs:                cd $DIR && $DOCKER compose logs -f app"
-say "  Next steps:          https://github.com/natewhi/postfalcon#after-installing"
+say "  Next steps:          https://github.com/postfalcon/postfalcon#after-installing"
