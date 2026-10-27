@@ -57,93 +57,151 @@
 
     <section class="home-showcase">
       <%
-        /* Static replica of the dashboard's FullCalendar month view — June 2025, "today" = the 10th. */
-        const F = '#1877f2', I = '#e1306c', M = '#6364ff', T = '#26a5e4', Y = '#ff0000';
-        const cells = [
-          { d: 1, past: 1 }, { d: 2, past: 1 },
-          { d: 3, past: 1, ev: [{ k: 'posted', b: 'facebook', c: F, t: '10a', x: 'Customer story' }] },
-          { d: 4, past: 1 },
-          { d: 5, past: 1, ev: [{ k: 'posted', b: 'mastodon', c: M, t: '9a', x: 'v2.0 is live 🎉' }] },
-          { d: 6, past: 1, ev: [{ k: 'failed', b: 'instagram', c: I, t: '5p', x: 'Launch teaser' }] },
-          { d: 7, past: 1 },
-          { d: 8, past: 1 }, { d: 9, past: 1 }, { d: 10, today: 1 },
-          { d: 11, ev: [
-            { k: 'scheduled', b: 'mastodon', c: M, t: '9a', x: 'Ship note v2.1' },
-            { k: 'scheduled', b: 'telegram', c: T, t: '6p', x: 'Weekly roundup' },
-          ] },
-          { d: 12, ev: [{ k: 'scheduled', b: 'instagram', c: I, t: '12:30p', x: 'BTS carousel' }] },
-          { d: 13 }, { d: 14 }, { d: 15 },
-          { d: 16, ev: [{ k: 'scheduled', b: 'facebook', c: F, t: '10a', x: 'Feature spotlight' }] },
-          { d: 17, ev: [{ k: 'scheduled', b: 'youtube', c: Y, t: '8a', x: 'Tutorial drop' }] },
-          { d: 18, ev: [{ k: 'scheduled', b: 'telegram', c: T, t: '7p', x: 'AMA reminder' }] },
-          { d: 19 }, { d: 20 }, { d: 21 }, { d: 22 }, { d: 23 },
-          { d: 24, ev: [{ k: 'scheduled', b: 'mastodon', c: M, t: '3p', x: 'Roadmap thread' }] },
-          { d: 25, ev: [{ k: 'scheduled', b: 'instagram', c: I, t: '1p', x: 'Poll: what next?' }] },
-          { d: 26 }, { d: 27 }, { d: 28 }, { d: 29 }, { d: 30 },
-          { d: 1, other: 1 }, { d: 2, other: 1 }, { d: 3, other: 1 }, { d: 4, other: 1 }, { d: 5, other: 1 },
+        /* Static replicas of the dashboard (dashboard.ejs): the "New post" composer and the
+           FullCalendar month view, dated from today on every render so they never look stale.
+           The composer's post is the one on tomorrow's calendar cell at 9a. */
+        const F = '#1877f2', I = '#e1306c', M = '#6364ff', T = '#26a5e4', Y = '#ff0000', B = '#1185fe';
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+        const tomorrow = addDays(today, 1);
+
+        const mockPost = 'Ship note v2.1: recurring posts and outbound webhooks are here 🎉 Set a post up once and Postfalcon keeps it going.';
+        const mockWhen = tomorrow.toLocaleString('en-US', { month: 'short', day: 'numeric' }) + ', 9:00 AM';
+        const mockDate = tomorrow.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+        // [days from today, status, platform, badge colour, time, title]
+        const calPosts = [
+          [-8, 'posted', 'facebook', F, '10a', 'Customer story'],
+          [-5, 'posted', 'mastodon', M, '9a', 'v2.0 is live 🎉'],
+          [-4, 'failed', 'instagram', I, '5p', 'Launch teaser'],
+          [-2, 'posted', 'bluesky', B, '11a', 'Behind the scenes'],
+          [1, 'scheduled', 'mastodon', M, '9a', 'Ship note v2.1'],
+          [1, 'scheduled', 'bluesky', B, '9a', 'Ship note v2.1'],
+          [2, 'scheduled', 'instagram', I, '12:30p', 'BTS carousel'],
+          [6, 'scheduled', 'facebook', F, '10a', 'Feature spotlight'],
+          [7, 'scheduled', 'youtube', Y, '8a', 'Tutorial drop'],
+          [8, 'scheduled', 'telegram', T, '7p', 'AMA reminder'],
+          [14, 'scheduled', 'mastodon', M, '3p', 'Roadmap thread'],
+          [15, 'scheduled', 'instagram', I, '1p', 'Poll: what next?'],
         ];
+        const eventsByDay = new Map();
+        calPosts.forEach(([offset, k, b, c, t, x]) => {
+          const key = addDays(today, offset).getTime();
+          eventsByDay.set(key, [...(eventsByDay.get(key) || []), { k, b, c, t, x }]);
+        });
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+        const gridStart = addDays(monthStart, -monthStart.getDay());
+        const weekCount = Math.ceil((monthStart.getDay() + daysInMonth) / 7);
+        const cells = Array.from({ length: weekCount * 7 }, (_, i) => {
+          const day = addDays(gridStart, i);
+          return {
+            d: day.getDate(),
+            other: day.getMonth() !== today.getMonth(),
+            past: day < today,
+            today: day.getTime() === today.getTime(),
+            ev: eventsByDay.get(day.getTime()) || [],
+          };
+        });
+        const monthTitle = today.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+        const scheduledCount = calPosts.filter((p) => p[1] === 'scheduled').length;
         const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       %>
       <figure class="home-shot home-shot-compose">
         <div class="home-window" aria-hidden="true">
           <div class="home-window-bar">
             <span></span><span></span><span></span>
-            <span class="home-window-title">Postfalcon &mdash; New post</span>
+            <span class="home-window-title"><%= siteName %> &mdash; New post</span>
           </div>
           <div class="home-window-body mock-composer">
-            <div class="mock-field">
-              <span class="mock-label">Post to</span>
-              <div class="mock-accounts">
-                <span class="mock-chip is-selected"><svg class="mock-chip-icon" viewBox="0 0 24 24"><use href="#pi-mastodon"></use></svg>Mastodon</span>
-                <span class="mock-chip is-selected"><svg class="mock-chip-icon" viewBox="0 0 24 24"><use href="#pi-bluesky"></use></svg>Bluesky</span>
-                <span class="mock-chip"><svg class="mock-chip-icon" viewBox="0 0 24 24"><use href="#pi-telegram"></use></svg>Telegram</span>
+            <div class="mock-main">
+              <div class="mock-field">
+                <span class="mock-label">Post to</span>
+                <div class="mock-accounts">
+                  <span class="mock-chip is-selected"><span class="mock-avatar" style="--b: <%= M %>">P<svg viewBox="0 0 24 24"><use href="#pi-mastodon"></use></svg></span>@postfalcon</span>
+                  <span class="mock-chip is-selected"><span class="mock-avatar" style="--b: <%= B %>">P<svg viewBox="0 0 24 24"><use href="#pi-bluesky"></use></svg></span>postfalcon.co</span>
+                  <span class="mock-chip"><span class="mock-avatar" style="--b: <%= T %>">P<svg viewBox="0 0 24 24"><use href="#pi-telegram"></use></svg></span>Postfalcon news</span>
+                </div>
+              </div>
+              <div class="mock-field">
+                <span class="mock-label">Caption</span>
+                <p class="mock-textarea"><%= mockPost %></p>
+                <div class="mock-meta"><span><%= mockPost.length %> characters</span></div>
+              </div>
+              <div class="mock-field">
+                <span class="mock-label">Media</span>
+                <div class="mock-media">
+                  <span class="mock-media-thumb" aria-hidden="true"></span>
+                  <span class="mock-upload">Add photo or video <span>(up to 10)</span></span>
+                </div>
               </div>
             </div>
-            <div class="mock-field">
-              <p class="mock-textarea">We just shipped recurring posts and outbound webhooks 🎉 Set a post once and Postfalcon keeps it going.</p>
-              <div class="mock-meta"><span>97 characters</span></div>
-            </div>
-            <div class="mock-field">
-              <div class="mock-media">
-                <span class="mock-media-thumb" aria-hidden="true"></span>
-                <span class="mock-upload">+ Add photo or video</span>
+            <div class="mock-side">
+              <div class="mock-field">
+                <span class="mock-label">Preview</span>
+                <div class="mock-pv-tabs">
+                  <span class="is-active"><span class="mock-avatar" style="--b: <%= M %>">P<svg viewBox="0 0 24 24"><use href="#pi-mastodon"></use></svg></span>@postfalcon</span>
+                  <span><span class="mock-avatar" style="--b: <%= B %>">P<svg viewBox="0 0 24 24"><use href="#pi-bluesky"></use></svg></span>postfalcon.co</span>
+                </div>
+                <div class="mock-pv-card">
+                  <div class="mock-pv-head">
+                    <span class="mock-avatar is-large" style="--b: <%= M %>">P<svg viewBox="0 0 24 24"><use href="#pi-mastodon"></use></svg></span>
+                    <span><strong>@postfalcon</strong><small><%= mockWhen %> &middot; Mastodon</small></span>
+                  </div>
+                  <p><%= mockPost %></p>
+                  <span class="mock-pv-image" aria-hidden="true"></span>
+                </div>
+              </div>
+              <div class="mock-field">
+                <span class="mock-label">When</span>
+                <div class="mock-toggle">
+                  <span>Save as draft</span>
+                  <span>Post now</span>
+                  <span class="is-active">Schedule</span>
+                </div>
+                <div class="mock-quick">
+                  <span>In 1 hour</span>
+                  <span>Tomorrow morning</span>
+                  <span>Next Monday morning</span>
+                </div>
+                <div class="mock-inputs">
+                  <span><small>Date</small><span class="mock-input"><%= mockDate %></span></span>
+                  <span><small>Time</small><span class="mock-input">9:00 AM</span></span>
+                  <span><small>Repeat</small><span class="mock-input">Every week</span></span>
+                </div>
+              </div>
+              <div class="mock-actions">
+                <span>Cancel</span>
+                <span class="is-primary">Save</span>
               </div>
             </div>
-            <div class="mock-field">
-              <span class="mock-label">When</span>
-              <div class="mock-toggle">
-                <span>Save as draft</span>
-                <span>Post now</span>
-                <span class="is-active">Schedule</span>
-              </div>
-              <div class="mock-quick">
-                <span>In 1 hour</span>
-                <span>Tomorrow morning</span>
-                <span>Next Monday</span>
-              </div>
-              <div class="mock-datetime">
-                <span>Fri, Sep 19 &middot; 5:00 PM</span>
-                <span class="mock-repeat">&#8635; Repeats weekly</span>
-              </div>
-            </div>
-            <span class="mock-save">Schedule post</span>
           </div>
         </div>
-        <figcaption>One form for the text, the accounts to cross-post to, media, and when it goes out &mdash; right now, at a set time, or on repeat.</figcaption>
+        <figcaption>One form for the text, the accounts to cross-post to, media, and when it goes out &mdash; right now, at a set time, or on repeat &mdash; with a preview of each post.</figcaption>
       </figure>
 
       <figure class="home-shot">
         <div class="home-window" aria-hidden="true">
           <div class="home-window-bar">
             <span></span><span></span><span></span>
-            <span class="home-window-title">Postfalcon &mdash; Calendar</span>
+            <span class="home-window-title"><%= siteName %> &mdash; Calendar</span>
           </div>
           <div class="home-window-body">
+            <div class="fcm-header">
+              <strong>Calendar</strong>
+              <span class="fcm-new">+ New post</span>
+            </div>
+            <div class="fcm-stats">
+              <span><strong><%= scheduledCount %></strong> scheduled</span>
+              <span><strong>2</strong> drafts</span>
+              <span><strong>1</strong> failed</span>
+            </div>
             <div class="fcm-filter">
-              <span>Show</span>
+              <span>Show:</span>
               <span class="fcm-chip is-on">Scheduled</span>
               <span class="fcm-chip is-on">Failed</span>
-              <span class="fcm-chip">Posted</span>
+              <span class="fcm-chip is-on">Posted</span>
               <span class="fcm-chip">Canceled</span>
             </div>
             <div class="fcm-toolbar">
@@ -151,7 +209,7 @@
                 <span class="fcm-nav"><button type="button">&lsaquo;</button><button type="button">&rsaquo;</button></span>
                 <button type="button">today</button>
               </div>
-              <div class="fcm-title">June 2025</div>
+              <div class="fcm-title"><%= monthTitle %></div>
               <div class="fcm-views">
                 <button type="button" class="is-active">month</button><button type="button">week</button>
               </div>
@@ -160,16 +218,18 @@
               <div class="fcm-row fcm-head">
                 <% weekdays.forEach((w) => { %><div><%= w %></div><% }); %>
               </div>
-              <% for (let wk = 0; wk < 5; wk++) { %>
+              <% for (let wk = 0; wk < weekCount; wk++) { %>
               <div class="fcm-row">
                 <% for (let i = 0; i < 7; i++) { const cell = cells[wk * 7 + i]; %>
                 <div class="fcm-day<%= cell.other ? ' is-other' : '' %><%= cell.past ? ' is-past' : '' %><%= cell.today ? ' is-today' : '' %>">
                   <span class="fcm-daynum"><%= cell.d %></span>
-                  <% (cell.ev || []).forEach((e) => { %>
+                  <% cell.ev.forEach((e) => { %>
                   <span class="fcm-event ev-<%= e.k %>">
                     <span class="fcm-badge" style="--b: <%= e.c %>"><svg class="platform-glyph" viewBox="0 0 24 24" aria-hidden="true"><use href="#pi-<%= e.b %>"></use></svg></span>
                     <span class="fcm-time"><%= e.t %></span>
                     <span class="fcm-evtitle"><%= e.x %></span>
+                    <% if (e.k === 'posted') { %><span class="fcm-mark">&#10003;</span><% } %>
+                    <% if (e.k === 'failed') { %><span class="fcm-mark">&#8635;</span><% } %>
                   </span>
                   <% }); %>
                 </div>
@@ -179,7 +239,7 @@
             </div>
           </div>
         </div>
-        <figcaption>Drag a scheduled post to move it &middot; filter by status &middot; scheduled, posted and failed on one grid.</figcaption>
+        <figcaption>Drag a scheduled post to move it &middot; filter by status &middot; scheduled, posted and failed on one grid, with one-click retry.</figcaption>
       </figure>
     </section>
 
@@ -234,9 +294,10 @@
             <span class="home-window-title">your-server &mdash; postfalcon</span>
           </div>
           <div class="home-window-body home-why-mock">
-            <p><span class="home-why-prompt">$</span> git clone https://github.com/you/postfalcon.git</p>
-            <p><span class="home-why-prompt">$</span> npm install &amp;&amp; npm run migrate</p>
-            <p><span class="home-why-prompt">$</span> pm2 start ecosystem.config.cjs</p>
+            <p><span class="home-why-prompt">$</span> curl -fsSL https://postfalcon.co/install.sh | sh</p>
+            <p class="home-why-out">Domain or IP address: <span>social.example.com</span></p>
+            <p class="home-why-out">Downloading and starting Postfalcon...</p>
+            <p class="home-why-out">Postfalcon is running. Open https://social.example.com</p>
             <p class="home-why-ok">Open source. Self-hosted. <strong>Your data never leaves your server.</strong></p>
           </div>
         </div>

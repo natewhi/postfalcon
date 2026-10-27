@@ -541,6 +541,15 @@ describe('admin instance settings', () => {
     expect((await request(app).get('/')).status).toBe(200);
   });
 
+  it("dates the landing page's calendar and composer mock-ups from today", async () => {
+    const home = await request(app).get('/');
+    const now = new Date();
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    expect(home.text).toContain(`<div class="fcm-title">${now.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</div>`);
+    expect(home.text).toContain(tomorrow.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
+    expect(home.text).toContain('curl -fsSL https://postfalcon.co/install.sh | sh');
+  });
+
   it('defaults the public website to off on a self-hosted server and on with Stripe', async () => {
     const admin = await adminClient('admin-public-default@example.com');
     const res = await admin.post('/api/admin/settings').send({ public_site: 'default' });
