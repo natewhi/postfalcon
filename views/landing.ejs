@@ -32,18 +32,29 @@
           Post everywhere, by hand or
           <span class="home-mark">by agent.<svg class="home-mark-line" viewBox="0 0 320 22" preserveAspectRatio="none" aria-hidden="true"><path d="M5 14C70 5 150 5 210 10s70 6 105 1" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/></svg></span>
         </h1>
+        <%
+          // The tiles below already show every platform, so the lead names the first few.
+          const leadNames = livePlatforms.map((p) => p.label);
+          const leadPlatforms = leadNames.length > 5
+            ? `${leadNames.slice(0, 4).join(', ')} and ${leadNames.length - 4} more`
+            : platformNames;
+        %>
         <p class="home-hero-lead">
-          Line up posts for <%= platformNames %> on one calendar &mdash; and let Postfalcon publish them
-          on time.
+          Write once, schedule it on one calendar, and <%= siteName %> publishes it on time to
+          <%= leadPlatforms %>.
         </p>
         <div class="home-hero-actions">
           <% if (billingEnabled) { %>
             <a href="/pricing" class="home-btn home-btn-primary">Start free trial</a>
+            <a href="https://github.com/natewhi/postfalcon" class="home-textlink">Or self-host it free &rarr;</a>
           <% } else { %>
             <a href="/signup" class="home-btn home-btn-primary">Get started</a>
+            <a href="#analytics-demo" class="home-textlink">See your analytics &rarr;</a>
           <% } %>
-          <a href="#analytics-demo" class="home-textlink">See your analytics &rarr;</a>
         </div>
+        <% if (billingEnabled) { %>
+        <p class="home-hero-note">Free for Mastodon, Bluesky and Telegram &middot; no card needed</p>
+        <% } %>
 
         <div class="home-tiles">
           <% livePlatforms.forEach((p) => { %>
@@ -257,12 +268,11 @@
             It&rsquo;s the same data your agent can read too: ask it for the numbers and it&rsquo;ll
             tell you what&rsquo;s landing.
           </p>
-          <a href="/api-docs" class="home-textlink">Read the API &amp; MCP docs &rarr;</a>
         </div>
         <div class="home-window home-analytics-window" aria-hidden="true">
           <div class="home-window-bar">
             <span></span><span></span><span></span>
-            <span class="home-window-title">Postfalcon &mdash; Analytics</span>
+            <span class="home-window-title"><%= siteName %> &mdash; Analytics</span>
           </div>
           <div class="home-window-body home-analytics-mock">
             <div class="home-analytics-stats">
@@ -304,18 +314,19 @@
         <div class="home-why-copy">
           <p class="home-overline">Why Postfalcon</p>
           <h2 class="home-h2">Run it yourself, or let us.</h2>
-          <p>
-            Every connected account lives on one calendar &mdash; drag to reschedule, filter by
-            status, and see what failed without digging through five different apps.
-          </p>
           <% if (billingEnabled) { %>
           <p>
-            It&rsquo;s open source, so you get a real choice: <a href="/pricing">start a hosted
-            trial</a> and we run it for you, no server required &mdash; or self-host it, like
-            shown here, and keep everything on your own infrastructure. Either way, your access
-            tokens live in your database, not a third party&rsquo;s, and the scheduler keeps
-            posting on time whether or not you&rsquo;re logged in.
+            Postfalcon is open source, so you get a real choice: <a href="/pricing">start a hosted
+            trial</a> and we run it for you, no server required, or run it on your own server and
+            keep everything there.
           </p>
+          <p>
+            Self-hosting is one command. It sets everything up with Docker, including HTTPS and
+            nightly backups, and the first account becomes the admin. Users, invites, platforms
+            and backups are all managed from the admin panel, with no config files or database
+            commands.
+          </p>
+          <a href="https://github.com/natewhi/postfalcon" class="home-textlink">See the code on GitHub &rarr;</a>
           <% } else { %>
           <p>
             It&rsquo;s open source and running on this server, so your access tokens live in this
@@ -339,9 +350,9 @@
             let it draft, schedule, and reshuffle posts with the same permissions you have.
           </p>
           <ol class="home-agent-steps">
-            <li><span class="home-agent-step-num">1</span> Generate an API token in <strong>Settings &rarr; API access for agents</strong>.</li>
-            <li><span class="home-agent-step-num">2</span> Give your agent that token &mdash; a local MCP config, a remote MCP URL, or just the REST API.</li>
-            <li><span class="home-agent-step-num">3</span> Ask it to post. It gets 6 tools &mdash; accounts, posts, and analytics.</li>
+            <li><span class="home-agent-step-num">1</span><span>Create an API token in <strong>Settings &rarr; API access for agents</strong>.</span></li>
+            <li><span class="home-agent-step-num">2</span><span>Give it to your agent: as a local MCP config, a remote MCP URL, or for the REST API.</span></li>
+            <li><span class="home-agent-step-num">3</span><span>Ask it to post. It gets 6 tools covering accounts, posts and analytics.</span></li>
           </ol>
           <a href="/api-docs" class="home-textlink">Read the API &amp; MCP docs &rarr;</a>
         </div>
@@ -399,7 +410,15 @@
           </details>
           <details>
             <summary>Is my data safe?</summary>
-            <p>Postfalcon is open source and runs on your own server. Access tokens live in your database, not ours, and no third party sits in the middle.</p>
+            <% if (billingEnabled) { %>
+            <p>Your posts and connected accounts are only ever used to publish what you schedule. They&rsquo;re never sold or shared. If you&rsquo;d rather nothing leaves your own server, self-host it: it&rsquo;s the same software.</p>
+            <% } else { %>
+            <p>Everything stays on this server: your posts, and the access tokens for your connected accounts, live in its own database, with no third party in the middle.</p>
+            <% } %>
+          </details>
+          <details>
+            <summary>Can I run it on my own server?</summary>
+            <p>Yes. It&rsquo;s open source (AGPL-3.0) and installs with one command on any Linux server with Docker: <code>curl -fsSL https://postfalcon.co/install.sh | sh</code>. Self-hosted, every feature is included with no plan limits. The code is on <a href="https://github.com/natewhi/postfalcon">GitHub</a>.</p>
           </details>
           <% if (billingEnabled) { %>
           <details>
@@ -413,7 +432,7 @@
           </details>
           <details>
             <summary>Do you ever see my account passwords?</summary>
-            <p>No. Every connection goes through each platform&rsquo;s own login screen &mdash; OAuth for Mastodon, Facebook, Instagram, Threads, YouTube, and TikTok, a bot token for Telegram, an app password for Bluesky. Postfalcon never sees, and never stores, your real password.</p>
+            <p>No. You connect each account through that platform&rsquo;s own login screen, except Telegram, which uses a bot token, and Bluesky, which uses an app password you can revoke at any time. Postfalcon never sees, and never stores, your real password.</p>
           </details>
         </div>
       </div>
@@ -434,6 +453,7 @@
     <% if (billingEnabled) { %><a href="/pricing">Pricing</a><% } %>
     <% if (blogEnabled) { %><a href="/blog">Blog</a><% } %>
     <a href="/api-docs">API docs</a>
+    <a href="https://github.com/natewhi/postfalcon">Source code</a>
     <a href="/privacy">Privacy</a>
     <a href="/terms">Terms</a>
     <a href="/login">Log in</a>

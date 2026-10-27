@@ -2183,6 +2183,12 @@ body.dark-canvas .auth-card {
   flex-wrap: wrap;
 }
 
+.home-hero-note {
+  margin: var(--space-3) 0 0;
+  font-size: 0.85rem;
+  color: var(--home-on-ink-dim);
+}
+
 .home-tiles {
   display: flex;
   flex-wrap: nowrap;
@@ -3040,9 +3046,11 @@ body.dark-canvas .auth-card {
   gap: var(--space-3);
 }
 
+/* Two flex items only — the number and one <span> of text — so the text wraps as one block
+   beside the number instead of breaking around inline <strong>s. */
 .home-agent-steps li {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: var(--space-3);
   color: var(--home-on-ink-dim);
   line-height: 1.55;
@@ -3061,6 +3069,7 @@ body.dark-canvas .auth-card {
   justify-content: center;
   width: 22px;
   height: 22px;
+  margin-top: 0.1em;
   border-radius: 50%;
   background: rgba(124, 92, 255, 0.18);
   color: var(--accent);
@@ -3254,6 +3263,21 @@ body.dark-canvas .auth-card {
   padding: 0 0 var(--space-4);
   color: var(--home-on-ink-dim);
   line-height: 1.65;
+}
+
+.home-faq-list details a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.home-faq-list details code {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #14151b;
+  color: #e8e9ec;
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
 }
 
 /* ---- final cta ---- */
