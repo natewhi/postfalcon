@@ -34,7 +34,8 @@ server.
   scheduler out of the app process first. `scripts/deploy.sh` is the deploy sequence (pull, install, migrate,
   pm2 reload) — run it manually on the VPS; nothing deploys automatically, and no deploy CI should be added unless asked. The one
   workflow, `.github/workflows/docker-image.yml` (added at the user's request 2026-10-27), only builds and publishes
-  the Docker image to ghcr.io/natewhi/postfalcon (amd64 + arm64, `latest` + `sha-<commit>`, APP_COMMIT build arg) on
+  the Docker image to ghcr.io/natewhi/postfalcon (amd64 + arm64, each built natively on its own runner then merged — not QEMU,
+  where `npm ci` hung for hours; the free arm64 runner needs the repo public — `latest` + `sha-<commit>`, APP_COMMIT build arg) on
   each push to main — it doesn't run tests or touch any server.
 - Database backups: `lib/backup.js` runs `pg_dump` (custom format) nightly at 03:30 from scheduler.js, keeps the
   last 7 in `backups/` (git-ignored; `BACKUP_DIR` overrides) and, when `S3_BUCKET` is set, uploads each under the
