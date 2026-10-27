@@ -140,6 +140,14 @@ lib/config.js        isConfigured()/envConfigured()/smtpConfigured(): an .env va
                      and not a 'change-me' placeholder. Use these, not a bare truthiness check, for any
                      "is this feature configured" decision. index.js exits at start if DATABASE_URL/
                      SESSION_SECRET/BASE_URL are empty (dotenv loaded first, app imported after the check).
+lib/onboarding.js    The dashboard's two checklists, no wizard: "Get started" (every user: connect an account,
+                     schedule a first post — drafts don't count —, optional API token for an AI assistant)
+                     and, for admins, "Finish setting up your server" (sign-up mode chosen when self-hosted,
+                     SMTP, a platform needing app keys, a first backup). Steps are derived from data, never
+                     stored, so they tick off however the thing got done; only the dismissals are stored
+                     (users.onboarding_dismissed_at / admin_setup_dismissed_at, migration 032). Checks must
+                     stay cheap (dashboard load). routes/onboarding.js = GET /api/onboarding + dismiss routes;
+                     dashboard.js re-checks after each save via loadDashboardStats().
 lib/instanceSettings.js  instance_settings (migration 029) read per page request in app.js into res.locals:
                      siteName (header/sidebar/titles — views use <%= siteName %>, never a literal
                      "Postfalcon" in chrome), logoUrl (an uploaded logo: PNG/JPEG/WebP only, never SVG,

@@ -32,6 +32,7 @@ import metaCallbacksRouter from './routes/metaCallbacks.js';
 import pinterestRouter from './routes/pinterest.js';
 import linkedinRouter from './routes/linkedin.js';
 import xRouter from './routes/x.js';
+import onboardingRouter from './routes/onboarding.js';
 import { isPlatformEnabled } from './lib/platforms.js';
 import { ensurePlatformSettingsLoaded } from './lib/platformSettings.js';
 import pagesRouter from './routes/pages.js';
@@ -278,6 +279,7 @@ app.use('/api/pinterest', requireAuth, platformGate('pinterest'), pinterestRoute
 app.use('/api/linkedin', requireAuth, platformGate('linkedin'), linkedinRouter);
 app.use('/api/x', requireAuth, platformGate('x'), xRouter);
 app.use('/api/billing', requireAuth, billingRouter);
+app.use('/api/onboarding', requireAuth, onboardingRouter);
 app.use('/api/v1/social-accounts', requireAuth, apiLimiter, socialAccountsRouter);
 app.use('/api/v1/posts', requireAuth, apiLimiter, postsRouter);
 app.use('/api/v1/analytics', requireAuth, apiLimiter, postAnalyticsRouter);

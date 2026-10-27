@@ -6,6 +6,7 @@ import { connectablePlatforms, livePlatforms, PLATFORM_IDS, isPlatformOffered } 
 import { PLANS, isEntitled, selfHosted } from '../lib/billing.js';
 import { listPosts } from '../lib/blog.js';
 import { signupGate } from '../lib/signups.js';
+import { onboardingStatus, adminSetupStatus } from '../lib/onboarding.js';
 
 const router = Router();
 
@@ -110,13 +111,19 @@ router.get('/pricing', (req, res) => {
   });
 });
 
-router.get('/dashboard', requirePageAuth, (req, res) => {
-  res.render('dashboard', {
-    email: req.user.email,
-    emailVerified: Boolean(req.user.email_verified_at),
-    planBanner: planBanner(req.user),
-  });
-});
+router.get(
+  '/dashboard',
+  requirePageAuth,
+  asyncHandler(async (req, res) => {
+    res.render('dashboard', {
+      email: req.user.email,
+      emailVerified: Boolean(req.user.email_verified_at),
+      planBanner: planBanner(req.user),
+      onboarding: await onboardingStatus(req.user.id),
+      adminSetup: await adminSetupStatus(req.user),
+    });
+  })
+);
 
 router.get('/analytics', requirePageAuth, (req, res) => {
   res.render('analytics', {

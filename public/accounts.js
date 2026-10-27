@@ -42,7 +42,7 @@ async function loadAccounts() {
     `;
         })
         .join('') ||
-      '<li class="empty">No accounts connected yet &mdash; connect one below to start scheduling posts.</li>';
+      '<li class="empty">No accounts connected yet. Pick a platform below: it only takes a minute, and you can schedule your first post straight after.</li>';
 
     list.querySelectorAll('select[data-board-for]').forEach(loadPinterestBoards);
 

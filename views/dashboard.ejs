@@ -23,6 +23,89 @@
 
     <a id="reconnect-banner" class="attention-banner attention-banner-link" href="/accounts" hidden></a>
 
+    <%
+      // "Get started" checklist (lib/onboarding.js). dashboard.js re-checks it after each save
+      // and ticks steps off in place, with the same classes as here.
+      const ob = onboarding;
+      const obNext = !ob.account ? 'account' : !ob.post ? 'post' : '';
+      const obStepClass = (step) => (ob[step] ? 'is-done' : obNext === step ? 'is-next' : '');
+    %>
+    <% if (adminSetup && adminSetup.show) {
+      // Admins only (lib/onboarding.js adminSetupStatus): what a fresh install still needs.
+      const adminStepText = {
+        signups: ['Choose who can sign up', 'Anyone can sign up right now. That is fine on a private network; on a public address, pick invite-only or closed.', '/admin/customers', 'Sign-up settings'],
+        email: ['Turn on email', 'Needed for password resets and for alerts when something breaks. Add your SMTP details to .env, then send a test email from Admin.', '/admin/overview', 'Email settings'],
+        platforms: ['Add more platforms', 'Mastodon, Bluesky and Telegram work already. The others need a free developer app; Admin → Platforms walks you through each.', '/admin/platforms', 'Set up platforms'],
+        backup: ['Take your first backup', 'Backups run every night at 03:30. Take the first one now so you have one from day one.', '/admin/overview', 'Back up now'],
+      };
+    %>
+    <section id="admin-setup" class="onboarding" aria-labelledby="admin-setup-title">
+      <div class="onboarding-head">
+        <div>
+          <h2 id="admin-setup-title">Finish setting up your server</h2>
+          <p class="onboarding-lead">Only admins see this. Each step takes a few minutes.</p>
+        </div>
+        <span class="onboarding-progress"><%= adminSetup.doneCount %> of <%= adminSetup.steps.length %> done</span>
+        <button type="button" class="onboarding-dismiss" id="admin-setup-dismiss" aria-label="Hide this checklist" title="Hide this checklist">&times;</button>
+      </div>
+      <ol class="onboarding-steps">
+        <% adminSetup.steps.forEach((step, i) => { const [title, detail, href, action] = adminStepText[step.id]; %>
+        <li class="<%= step.done ? 'is-done' : 'is-next' %>">
+          <span class="onboarding-mark" aria-hidden="true"><%= i + 1 %></span>
+          <div class="onboarding-text">
+            <strong><%= title %></strong>
+            <span><%= step.done ? 'Done.' : detail %></span>
+          </div>
+          <a class="onboarding-action is-quiet" href="<%= href %>"><%= action %></a>
+        </li>
+        <% }); %>
+      </ol>
+    </section>
+    <% } %>
+
+    <section id="onboarding" class="onboarding" aria-labelledby="onboarding-title" <%= ob.show ? '' : 'hidden' %>>
+      <div class="onboarding-head">
+        <div>
+          <h2 id="onboarding-title">Get started</h2>
+          <p class="onboarding-lead" id="onboarding-lead">Two quick steps and your first post is on its way.</p>
+        </div>
+        <span class="onboarding-progress" id="onboarding-progress"><%= 1 + ob.account + ob.post %> of 3 done</span>
+        <button type="button" class="onboarding-dismiss" id="onboarding-dismiss" aria-label="Hide this checklist" title="Hide this checklist">&times;</button>
+      </div>
+      <ol class="onboarding-steps">
+        <li class="is-done">
+          <span class="onboarding-mark" aria-hidden="true">1</span>
+          <div class="onboarding-text">
+            <strong>Create your account</strong>
+            <span>Done. Welcome to <%= siteName %>!</span>
+          </div>
+        </li>
+        <li data-step="account" class="<%= obStepClass('account') %>">
+          <span class="onboarding-mark" aria-hidden="true">2</span>
+          <div class="onboarding-text">
+            <strong>Connect a social account</strong>
+            <span><%= ob.quickPlatforms.length ? `${ob.quickPlatforms.join(', ').replace(/, ([^,]*)$/, ' or $1')} take${ob.quickPlatforms.length > 1 ? '' : 's'} about a minute.` : 'Pick a platform and sign in to it.' %></span>
+          </div>
+          <a class="onboarding-action" href="/accounts">Connect an account</a>
+        </li>
+        <li data-step="post" class="<%= obStepClass('post') %>">
+          <span class="onboarding-mark" aria-hidden="true">3</span>
+          <div class="onboarding-text">
+            <strong>Schedule your first post</strong>
+            <span>Write it once, pick your accounts and a time, and it goes out by itself.</span>
+          </div>
+          <button type="button" class="onboarding-action" id="onboarding-write">Write a post</button>
+        </li>
+      </ol>
+      <p class="onboarding-extra" id="onboarding-agent">
+        <% if (ob.agent) { %>
+          &#10003; Your AI assistant is set up. <a href="/api-docs">What it can do &rarr;</a>
+        <% } else { %>
+          Optional: let Claude, ChatGPT or Cursor write and schedule posts for you. <a href="/settings#api-access">Set up an AI assistant &rarr;</a>
+        <% } %>
+      </p>
+    </section>
+
     <div class="page-header">
       <h1>Calendar</h1>
       <button id="new-post-btn" type="button">+ New post</button>

@@ -659,6 +659,223 @@ section {
   display: none;
 }
 
+/* Dashboard "Get started" checklist (dashboard.ejs #onboarding, lib/onboarding.js). Themed
+   like any other card; the next step to do is the only one with a button. */
+.onboarding {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.onboarding-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.onboarding-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.onboarding h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.onboarding-lead {
+  margin: 2px 0 0;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+}
+
+.onboarding-progress {
+  flex-shrink: 0;
+  margin-top: 2px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--hover-tint);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.onboarding-dismiss {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.onboarding-dismiss:hover {
+  background: var(--hover-tint);
+  color: var(--color-text);
+}
+
+.onboarding-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Override the app's global li card rule (border, padding, wrap). */
+.onboarding-steps li {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
+}
+
+.onboarding-mark {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.onboarding-steps li.is-next .onboarding-mark {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Done: the number becomes a green tick. */
+.onboarding-steps li.is-done .onboarding-mark {
+  border-color: var(--status-posted-border);
+  background: var(--status-posted-bg);
+  color: transparent;
+  position: relative;
+}
+
+.onboarding-steps li.is-done .onboarding-mark::after {
+  content: '\2713';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: var(--status-posted-text);
+}
+
+.onboarding-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.onboarding-text strong {
+  font-size: 0.92rem;
+}
+
+.onboarding-text span {
+  font-size: 0.84rem;
+  color: var(--color-text-muted);
+}
+
+.onboarding-steps li.is-done .onboarding-text strong {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+/* Only the next step to do gets its button. */
+.onboarding-action {
+  display: none;
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.onboarding-action:hover {
+  background: var(--color-primary-hover);
+  color: var(--color-primary-text);
+}
+
+.onboarding-steps li.is-next .onboarding-action {
+  display: inline-block;
+}
+
+/* Admin steps are independent, so several show at once: outlined, not all primary. */
+.onboarding-action.is-quiet {
+  border: 1px solid var(--color-input-border);
+  background: transparent;
+  color: var(--color-text);
+}
+
+.onboarding-action.is-quiet:hover {
+  background: var(--hover-tint);
+  color: var(--color-text);
+}
+
+
+.onboarding-extra {
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  font-size: 0.84rem;
+  color: var(--color-text-muted);
+}
+
+.onboarding-extra a {
+  font-weight: 600;
+}
+
+.onboarding.is-complete .onboarding-progress {
+  background: var(--status-posted-bg);
+  color: var(--status-posted-text);
+}
+
+@media (max-width: 600px) {
+  .onboarding {
+    padding: var(--space-4);
+  }
+
+  .onboarding-steps li {
+    flex-wrap: wrap;
+  }
+
+  .onboarding-text {
+    flex-basis: calc(100% - 26px - var(--space-3));
+  }
+
+  .onboarding-steps li.is-next .onboarding-action {
+    margin-left: calc(26px + var(--space-3));
+  }
+}
+
 .attention-banner-dismiss {
   margin-left: auto;
   padding: 0 var(--space-2);

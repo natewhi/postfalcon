@@ -20,6 +20,59 @@ async function loadDashboardStats() {
   } catch {
     // stats are a nice-to-have — the rest of the dashboard works fine without them
   }
+  refreshOnboarding();
+}
+
+// --- "Get started" checklist (lib/onboarding.js; server-rendered in dashboard.ejs) ----------
+// Re-checked after every save (loadDashboardStats above runs then), so a step ticks itself off
+// the moment it's done. A card the server didn't show never appears mid-session.
+const onboardingCard = document.getElementById('onboarding');
+const onboardingShownAtLoad = Boolean(onboardingCard && !onboardingCard.hidden);
+
+function renderOnboarding(status) {
+  const next = !status.account ? 'account' : !status.post ? 'post' : '';
+  onboardingCard.querySelectorAll('[data-step]').forEach((li) => {
+    const step = li.dataset.step;
+    li.classList.toggle('is-done', status[step]);
+    li.classList.toggle('is-next', step === next);
+  });
+  document.getElementById('onboarding-progress').textContent = `${1 + status.account + status.post} of 3 done`;
+  if (status.complete) {
+    onboardingCard.classList.add('is-complete');
+    document.getElementById('onboarding-title').textContent = "You're all set";
+    document.getElementById('onboarding-lead').textContent =
+      'Your first post is scheduled. It goes out on time, even while you are logged out.';
+  }
+}
+
+async function refreshOnboarding() {
+  if (!onboardingShownAtLoad || onboardingCard.hidden) return;
+  try {
+    renderOnboarding(await apiJson('/api/onboarding'));
+  } catch {
+    // the checklist is a helper — leave it as it was
+  }
+}
+
+document.getElementById('admin-setup-dismiss')?.addEventListener('click', async () => {
+  document.getElementById('admin-setup').hidden = true;
+  try {
+    await apiJson('/api/onboarding/admin/dismiss', { method: 'POST' });
+  } catch {
+    // hidden for this visit only
+  }
+});
+
+if (onboardingCard) {
+  document.getElementById('onboarding-write').addEventListener('click', () => openPostDialog(null));
+  document.getElementById('onboarding-dismiss').addEventListener('click', async () => {
+    onboardingCard.hidden = true;
+    try {
+      await apiJson('/api/onboarding/dismiss', { method: 'POST' });
+    } catch {
+      // hidden for this visit; it comes back next time if saving the choice failed
+    }
+  });
 }
 
 let activeAccountId = new URLSearchParams(window.location.search).get('account');
