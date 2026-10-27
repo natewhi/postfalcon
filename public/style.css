@@ -3050,11 +3050,21 @@ body.dark-canvas .auth-card {
    beside the number instead of breaking around inline <strong>s. */
 .home-agent-steps li {
   display: flex;
+  flex-wrap: nowrap; /* the app's global li rule wraps, which pushed long text under the number */
   align-items: flex-start;
   gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--home-ink-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
   color: var(--home-on-ink-dim);
   line-height: 1.55;
   font-size: 0.92rem;
+}
+
+.home-agent-steps li > span:last-child {
+  flex: 1;
+  min-width: 0;
 }
 
 .home-agent-steps strong {
