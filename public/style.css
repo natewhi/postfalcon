@@ -1522,11 +1522,12 @@ li .when {
   font-size: 0.85rem;
 }
 
+/* Placeholder text ("No drafts…", "Loading…"): one quiet muted line, no box.
+   Transparent rather than no border so an li keeps the same size as its siblings. */
 .empty,
 .loading {
   color: var(--color-text-muted);
-  font-style: italic;
-  border-style: dashed;
+  border-color: transparent;
 }
 
 .status {
@@ -6301,6 +6302,12 @@ dialog#post-dialog .schedule-quick-btn:hover {
   padding: var(--space-2) var(--space-3);
 }
 
+/* A page- or section-level loading line (Overview, Analytics, calendar) sits centred. */
+div.loading {
+  justify-content: center;
+  padding: var(--space-4) var(--space-3);
+}
+
 /* display:flex above would otherwise beat the hidden attribute, leaving "Loading…" on screen
    after the content has loaded (e.g. the admin overview). */
 .loading[hidden] {
@@ -6444,8 +6451,6 @@ a.toast {
 }
 
 .webhooks-list li.empty {
-  color: var(--color-text-muted);
-  font-style: italic;
   justify-content: flex-start;
 }
 
@@ -6552,15 +6557,11 @@ a.toast {
   border-bottom: none;
 }
 
-/* Placeholder row ("No invite links yet.", "Searching…"): the generic .empty
-   dashed border doesn't suit a table cell, so just a quiet centred line. */
+/* Placeholder row ("No invite links yet.", "Loading…"): centred across the table. */
 .admin-table td.empty {
-  border: none;
   max-width: none;
   padding: var(--space-4) var(--space-3);
   text-align: center;
-  font-style: normal;
-  font-size: 0.95em;
 }
 
 .admin-pager {
