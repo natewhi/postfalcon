@@ -6552,6 +6552,17 @@ a.toast {
   border-bottom: none;
 }
 
+/* Placeholder row ("No invite links yet.", "Searching…"): the generic .empty
+   dashed border doesn't suit a table cell, so just a quiet centred line. */
+.admin-table td.empty {
+  border: none;
+  max-width: none;
+  padding: var(--space-4) var(--space-3);
+  text-align: center;
+  font-style: normal;
+  font-size: 0.95em;
+}
+
 .admin-pager {
   display: flex;
   align-items: center;
